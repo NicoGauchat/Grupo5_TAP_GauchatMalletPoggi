@@ -1,0 +1,14 @@
+{% extends 'news/base.html' %}
+
+{% block content %}
+<section class="panel intro">
+    <p class="eyebrow">Noticias de fuentes seleccionadas</p>
+    <h1>Elegí los temas que querés seguir.</h1>
+    <p>Estamos preparando un feed de noticias de distintas fuentes, con enlaces a los artículos originales. Por ahora podés crear tu cuenta y guardar tus categorías preferidas.</p>
+    {% if user.is_authenticated %}
+        <a class="button" href="{% url 'preferences' %}">Editar mis categorías</a>
+    {% else %}
+        <a class="button" href="{% url 'register' %}">Crear cuenta</a>
+    {% endif %}
+</section>
+{% endblock %}

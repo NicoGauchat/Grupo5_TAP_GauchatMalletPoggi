@@ -1,0 +1,16 @@
+{% extends 'news/base.html' %}
+
+{% block title %}Registrarse · Sitio Noticias{% endblock %}
+
+{% block content %}
+<section class="panel form-panel">
+    <h1>Crear cuenta</h1>
+    <p>Usá un nombre de usuario y una contraseña para guardar tus preferencias.</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="button" type="submit">Registrarme</button>
+    </form>
+    <p>¿Ya tenés cuenta? <a href="{% url 'login' %}">Ingresá</a>.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'news/base.html' %}
+
+{% block title %}Ingresar · Sitio Noticias{% endblock %}
+
+{% block content %}
+<section class="panel form-panel">
+    <h1>Ingresar</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="button" type="submit">Ingresar</button>
+    </form>
+    <p>¿Todavía no tenés cuenta? <a href="{% url 'register' %}">Registrate</a>.</p>
+</section>
+{% endblock %}

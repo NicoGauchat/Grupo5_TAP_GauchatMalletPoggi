@@ -1,0 +1,36 @@
+from django.contrib import admin
+
+from .models import Article, Category, Feed, Source, UserPreference
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(Source)
+class SourceAdmin(admin.ModelAdmin):
+    list_display = ("name", "website_url")
+    search_fields = ("name",)
+
+
+@admin.register(Feed)
+class FeedAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "language", "is_active", "show_summary")
+    list_filter = ("is_active", "show_summary", "source")
+    filter_horizontal = ("categories",)
+
+
+@admin.register(Article)
+class ArticleAdmin(admin.ModelAdmin):
+    list_display = ("title", "feed", "published_at", "fetched_at")
+    list_filter = ("feed__source",)
+    search_fields = ("title", "original_url")
+    filter_horizontal = ("categories",)
+
+
+@admin.register(UserPreference)
+class UserPreferenceAdmin(admin.ModelAdmin):
+    list_display = ("user",)
+    filter_horizontal = ("categories",)

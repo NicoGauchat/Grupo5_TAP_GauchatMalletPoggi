@@ -1,0 +1,41 @@
+:root {
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
+    line-height: 1.55;
+    color: #1e2933;
+    background: #f5f7f5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #145f5c; }
+a:hover { color: #0b4543; }
+
+.container { width: min(100% - 2rem, 900px); margin-inline: auto; }
+.site-header { background: #fff; border-bottom: 1px solid #dce5e1; }
+.header-content { min-height: 4.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.brand { color: #183c3b; font-weight: 750; text-decoration: none; font-size: 1.15rem; }
+nav { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.inline-form { display: inline; }
+.text-button { border: 0; padding: 0; background: none; color: #145f5c; cursor: pointer; font: inherit; text-decoration: underline; }
+.panel { margin-block: 3rem; padding: clamp(1.5rem, 5vw, 3rem); background: #fff; border: 1px solid #dce5e1; border-radius: 12px; }
+.intro { max-width: 680px; }
+.form-panel { max-width: 650px; }
+.eyebrow { margin: 0; color: #496863; font-size: .85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+h1 { margin-top: .5rem; line-height: 1.2; }
+p { max-width: 70ch; }
+.button { display: inline-block; padding: .65rem 1rem; border: 1px solid #145f5c; border-radius: 6px; background: #145f5c; color: #fff; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
+.button:hover { background: #0b4543; color: #fff; }
+input[type="text"], input[type="password"] { width: min(100%, 24rem); display: block; padding: .65rem; border: 1px solid #a8b8b2; border-radius: 5px; font: inherit; }
+label { display: inline-block; margin-bottom: .25rem; }
+fieldset { margin: 1.5rem 0; border: 1px solid #a8b8b2; border-radius: 6px; padding: 1rem; }
+legend { font-weight: 700; }
+fieldset label { display: block; padding: .3rem 0; }
+.helptext, .helptext ul { color: #49605d; font-size: .9rem; }
+.errorlist { color: #a2292d; }
+.message { margin-top: 1.5rem; padding: .75rem 1rem; background: #e1f3e8; border: 1px solid #a6d9b7; border-radius: 6px; }
+
+@media (max-width: 600px) {
+    .header-content { align-items: flex-start; flex-direction: column; padding-block: 1rem; }
+    .panel { margin-block: 1.5rem; }
+}

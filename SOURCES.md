@@ -39,7 +39,7 @@ Feeds adicionales ya comprobados para las fuentes iniciales:
 
 ## Candidatas argentinas
 
-Estas fuentes fueron localizadas y probadas durante el relevamiento del 29 de septiembre de 2026, pero no forman parte de la primera tanda. Antes de activar una se debe repetir la prueba de frescura, completar su política de uso y decidir si se permiten resumen e imagen.
+Estas fuentes fueron localizadas y probadas durante el relevamiento del 29 de septiembre de 2026, pero no forman parte de la primera tanda. Antes de activar una se debe repetir la prueba de frescura y confirmar si se permite reutilizar el resumen. Las imágenes quedan fuera de la primera entrega.
 
 | Fuente | Feed | Campos observados | Motivo para evaluarla |
 |---|---|---|---|
@@ -92,9 +92,6 @@ GDELT amplía cobertura, pero no reemplaza los feeds seleccionados ni resuelve e
 
 ## Política común de imágenes
 
-- La tarjeta debe funcionar sin imagen.
-- Guardar primero la URL original y descargar sólo imágenes cuya política lo permita.
-- Convertir las imágenes autorizadas a WebP de aproximadamente 480 × 270 px, calidad 35–45 y objetivo menor a 100 KB.
-- Conservar miniaturas entre 10 y 14 días y borrarlas antes que las noticias.
-- Usar un reemplazo visual cuando la imagen expire, falle o no pueda reutilizarse.
-- Revisar las condiciones de la fuente cada vez que se cambie `show_summary` o `show_image`.
+La primera entrega no consulta, descarga, guarda ni muestra imágenes de los feeds. El campo `I` de las tablas sólo registra lo observado durante el relevamiento histórico. Si se incorpora el uso de imágenes en una entrega posterior, se revisarán antes las condiciones de cada fuente y se documentará una política de almacenamiento y atribución.
+
+El campo `show_summary` de cada feed comienza desactivado. Sólo se habilita tras confirmar que la política de esa fuente permite reutilizar el resumen.

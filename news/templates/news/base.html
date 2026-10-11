@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Sitio Noticias{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'news/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-content">
+            <a class="brand" href="{% url 'home' %}">Sitio Noticias</a>
+            <nav aria-label="Navegación principal">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'preferences' %}">Mis categorías</a>
+                    <form class="inline-form" action="{% url 'logout' %}" method="post">
+                        {% csrf_token %}
+                        <button class="text-button" type="submit">Salir</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}">Ingresar</a>
+                    <a href="{% url 'register' %}">Registrarse</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        {% for message in messages %}
+            <p class="message" role="status">{{ message }}</p>
+        {% endfor %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
