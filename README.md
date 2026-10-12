@@ -5,15 +5,15 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 ## Ya implementado
 
 - Registro e inicio de sesión con usuarios de Django.
-- Preferencias individuales para las cinco categorías iniciales.
+- Preferencias individuales para ocho categorías, incluidas Argentina y Mercados y finanzas.
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
-- Ingesta manual de tres feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta.
+- Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta.
 
 ## Funcionalidades previstas
 
 - Automatizar la recolección periódica de RSS.
-- Clasificar por tecnología, inteligencia artificial, ciencia, economía y geopolítica. Deportes queda para una etapa posterior.
+- Clasificar por tecnología, inteligencia artificial, ciencia, economía, geopolítica, política argentina, Argentina y mercados y finanzas. Deportes queda para una etapa posterior.
 - Filtrar las noticias por fuente e idioma.
 - No almacenar artículos completos ni mostrar imágenes en la primera versión.
 - Incorporar posteriormente agrupamiento de coberturas y GDELT como complemento.
@@ -37,7 +37,7 @@ El proveedor para alojar Django y PostgreSQL aún no está decidido. Se elegirá
 
 ## Estado
 
-Ya existe el proyecto Django, la base PostgreSQL, el registro de usuarios, la ingesta manual de Clarín Tecnología, EL PAÍS Tecnología y MIT News sobre IA, y la página de noticias personalizada. Los artículos importados pueden consultarse desde `/admin/` y cada usuario registrado ve los de sus categorías en `/noticias/`.
+Ya existe el proyecto Django, la base PostgreSQL, el registro de usuarios, la ingesta manual de once feeds de Clarín, EL PAÍS, MIT News, Los Andes y Cinco Días, y la página de noticias personalizada. Los artículos importados pueden consultarse desde `/admin/` y cada usuario registrado ve los de sus categorías en `/noticias/`.
 
 El próximo paso vigente se mantiene en [STATUS.md](./STATUS.md).
 
@@ -73,11 +73,13 @@ python manage.py runserver
 
 Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
 
-Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página muestra hasta diez titulares recientes por categoría elegida, con fuente, fecha, idioma y enlace al artículo original. La noticia destacada de cada categoría es la más reciente; aún no se calcula relevancia. Si se cambia la selección en «Mis categorías», las noticias visibles cambian al guardar. Las categorías sin noticias muestran un mensaje y un enlace para editar preferencias. Los filtros por fuente e idioma quedan para el siguiente paso.
+Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho para aprovechar pantallas grandes y presenta un mensaje de bienvenida y las categorías elegidas en hasta cuatro columnas; pasa a dos o una columna en pantallas más chicas. Las columnas se ordenan por cantidad de noticias, de mayor a menor, y el encabezado indica el total de cada categoría. En cada una se muestran hasta diez titulares recientes con fuente, fecha, idioma y enlace al artículo original. El primero se destaca por ser el más reciente; aún no se calcula relevancia. Si se cambia la selección en «Mis categorías», las noticias visibles cambian al guardar. Las categorías sin noticias muestran un mensaje y un enlace para editar preferencias. Los filtros por fuente e idioma quedan para el siguiente paso.
 
-`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los tres feeds iniciales guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 60 días se omiten. La ejecución periódica y la eliminación de noticias antiguas se incorporarán después.
+`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los once feeds activos guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 60 días se omiten. La ejecución periódica y la eliminación de noticias antiguas se incorporarán después.
 
 La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
+
+«Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como columnas en `/noticias/`.
 
 ## Documentación
 

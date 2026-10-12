@@ -160,7 +160,7 @@ def ingest_feed(feed, force_download=False):
         if len(guid) > 512:
             guid = ""
         fingerprint = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
-        category_slugs = category_slugs_for_entry(entry, fallback_slugs)
+        category_slugs = category_slugs_for_entry(entry, fallback_slugs, feed.url)
         category_ids = [category_ids_by_slug[slug] for slug in category_slugs if slug in category_ids_by_slug]
         article = existing_article(feed, guid, original_url, canonical_url, fingerprint)
         if article:

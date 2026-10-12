@@ -4,7 +4,7 @@
 
 Este registro separa disponibilidad técnica de permiso de reutilización. Un feed accesible no autoriza a copiar el artículo completo ni necesariamente sus imágenes.
 
-El relevamiento general se realizó el **29 de septiembre de 2026**. Los tres feeds elegidos para la primera ingesta se volvieron a comprobar el **11 de octubre de 2026**. La frecuencia es una estimación basada en las fechas de los elementos observados, no una garantía del medio.
+El relevamiento general se realizó el **29 de septiembre de 2026**. Los feeds activados se volvieron a comprobar el **11 de octubre de 2026**. La frecuencia depende de cada medio y puede variar.
 
 Campos:
 
@@ -14,30 +14,33 @@ Campos:
 - `E`: enlace original.
 - `I`: imagen o referencia de imagen.
 
-## Fuentes iniciales activas
+## Feeds activos
 
-| Fuente y feed | Idioma / región | Resultado verificado | Campos | Frecuencia aproximada | Política inicial |
-|---|---|---|---|---|---|
-| [EL PAÍS Tecnología](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/tecnologia/portada) | Español / España | HTTP 200; RSS 2.0; 21 elementos; revalidado 11/10/2026 | T/R/F/E/I | Tecnología cada ~10 h; otros feeds varias veces por día | Activo: sólo título sin modificar, fuente, fecha y enlace original; sin resumen ni imagen |
-| [DW Español](https://rss.dw.com/rdf/rss-sp-all) | Español / Alemania-global | HTTP 200; RDF/RSS 1.0; 20 elementos | T/R/F/E | Cada 1–2 h | Para la demo, título, teaser y enlace; confirmar sindicación antes de una publicación estable |
-| [Clarín Tecnología](https://www.clarin.com/rss/tecnologia/) | Español / Argentina | HTTP 200; RSS 2.0; 10 elementos; revalidado 11/10/2026 | T/R/F/E/I | Tecnología cada ~11 h; Economía e Internacional cerca de cada hora | Activo: sólo título sin modificar, fuente, fecha y enlace original; sin resumen ni imagen |
-| [MIT News — Artificial Intelligence](https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 50 elementos; revalidado 11/10/2026 | T/R/F/E/I | Cada ~29 h | Activo: sólo título, atribución a MIT News, fecha y enlace original; sin resumen ni imagen |
-| [NASA Technology](https://www.nasa.gov/technology/feed/) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 10 elementos | T/R/F/E/I | Cada ~40 h | Uso educativo/informativo con atribución; revisar excepciones de terceros, personas y logotipos |
-| [Ars Technica](https://feeds.arstechnica.com/arstechnica/index) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 20 elementos | T/R/F/E/I | Cada ~35 min | Titular, extracto provisto y enlace; no copiar texto completo ni imágenes por defecto |
-| [TechCrunch](https://techcrunch.com/feed/) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 20 elementos | T/R/F/E; I no observada | Cada ~12 min | Mostrar sólo lo provisto por el feed, sin modificarlo, con atribución y enlace |
+| Fuente y feed | Tema principal | Resultado del 11/10/2026 | Clasificación | Política inicial |
+|---|---|---|---|---|
+| [Clarín Tecnología](https://www.clarin.com/rss/tecnologia/) | Tecnología | HTTP 200; 10 entradas | Respaldo del feed, sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [EL PAÍS Tecnología](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/tecnologia/portada) | Tecnología | HTTP 200; 21 entradas | Etiquetas aprobadas; respaldo sólo sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [MIT News — Artificial Intelligence](https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml) | IA | HTTP 200; 50 entradas | Etiquetas aprobadas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Clarín Política](https://www.clarin.com/rss/politica/) | Política argentina | HTTP 200; 10 entradas | Respaldo del feed, sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Clarín Mundo](https://www.clarin.com/rss/mundo/) | Geopolítica | HTTP 200; 10 entradas | Respaldo del feed, sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Clarín Economía](https://www.clarin.com/rss/economia/) | Economía | HTTP 200; 10 entradas | Respaldo del feed, sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [EL PAÍS Internacional](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada) | Geopolítica | HTTP 200; 24 entradas | Etiquetas aprobadas; respaldo sólo sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [EL PAÍS Economía](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada) | Economía | HTTP 200; 36 entradas | Etiquetas aprobadas; respaldo sólo sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Los Andes Política](https://www.losandes.com.ar/rss/pages/politica.xml) | Política argentina y Argentina | HTTP 200; 20 entradas recientes | Etiqueta de sección `Pol�tica`, acotada a este feed | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Los Andes Economía](https://www.losandes.com.ar/rss/pages/economia.xml) | Economía y Argentina | HTTP 200; 20 entradas recientes | Etiqueta de sección `Econom�a`, acotada a este feed | Título, fecha, fuente y enlace; sin resumen ni imagen |
+| [Cinco Días Mercados](https://feeds.elpais.com/mrss-s/list/ep/site/cincodias.elpais.com/section/mercados-financieros) | Mercados y finanzas | HTTP 200; 25 entradas recientes | `Mercados financieros` y otras etiquetas aprobadas | Título, fecha, fuente y enlace; sin resumen ni imagen |
 
-Feeds adicionales ya comprobados para las fuentes iniciales:
-
-- EL PAÍS: [Economía](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada), [Ciencia](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada) e [Internacional](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada).
-- Clarín: [Economía](https://www.clarin.com/rss/economia/) e [Internacional](https://www.clarin.com/rss/internacional/).
+El feed adicional de [EL PAÍS Ciencia](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada) continúa pendiente de revisión. El enlace de Clarín para mundo es `/rss/mundo/`, según su directorio oficial; el enlace `/rss/internacional/` anotado en el relevamiento anterior no se usa.
 
 ### Condiciones comprobadas para la primera ingesta
 
 - [Clarín publica sus feeds RSS](https://www.clarin.com/filer/RSS/rss.html) para lectores e integración en sitios y aplicaciones. Sus [condiciones específicas](https://www.clarin.com/filer/RSS/terminos_condiciones.html) permiten exhibir títulos y enlaces sin alterar el contenido, con acceso al sitio original. `show_summary` queda desactivado.
 - [EL PAÍS describe su RSS](https://elpais.com/info/rss/) como un servicio gratuito de titulares para lectores y agregadores, incluidos servicios web. Se guardan título, metadatos y enlace; el resumen y las imágenes quedan desactivados.
 - [MIT News ofrece RSS para sindicación](https://news.mit.edu/terms-of-use) y exige atribución y enlace para la republicación de historias. Esta aplicación sólo conserva titular, fuente, fecha y enlace, sin republicar el artículo ni usar imágenes o resúmenes.
+- [Los Andes ofrece sus canales RSS](https://www.losandes.com.ar/contenidos/rss.html) para incluir noticias en un blog o sitio web. Se usa sólo el titular con atribución y enlace original; no se copia el artículo, el resumen ni la imagen. Sus [términos generales](https://www.losandes.com.ar/terminos) reservan el derecho de autor del material editorial.
+- [Cinco Días ofrece RSS](https://cincodias.elpais.com/info/rss/) gratuito para lectores y agregadores web. El canal Mercados procede de su directorio oficial. Se muestra sólo titular, fuente, fecha y enlace, sin resumen ni imagen.
 
-La comprobación técnica del 11/10/2026 obtuvo 10, 21 y 50 entradas respectivamente, todas con XML válido. La primera ingesta guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar los 60 días. Los tres feeds se activaron con `show_summary=False`. Los feeds restantes continúan sin cargar en la aplicación.
+La primera ingesta de los tres feeds iniciales guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar los 60 días. Los ocho feeds añadidos después respondieron HTTP 200, con XML válido y publicaciones recientes. Los once feeds activos están configurados con `show_summary=False`.
 
 ### Etiquetas para clasificar las noticias
 
@@ -48,18 +51,32 @@ La revisión de las entradas del 11/10/2026 encontró lo siguiente:
 | Clarín Tecnología | Ninguna en las 10 entradas | Respaldo: categoría `tecnologia` del feed |
 | EL PAÍS Tecnología | 18 de 21 entradas con etiquetas; entre ellas hay temas, personas, marcas y asuntos ajenos a tecnología | `Tecnología` → `tecnologia`; `Inteligencia artificial` → `inteligencia-artificial`; `Ciencia` → `ciencia`. Las 3 entradas sin etiquetas usan el respaldo `tecnologia` |
 | MIT News — Artificial Intelligence | 50 de 50 entradas con etiquetas | `Artificial intelligence` → `inteligencia-artificial`; `Computer science and technology` → `tecnologia` |
+| Clarín Política, Mundo y Economía | Ninguna en las 10 entradas de cada feed | Respaldo por sección: `politica-argentina`, `geopolitica` y `economia` respectivamente |
+| EL PAÍS Internacional | Etiquetas temáticas por entrada | `Guerra`, `Conflictos`, `Conflictos armados`, `Conflictos internacionales`, `Ataques militares` y `OTAN` → `geopolitica` |
+| EL PAÍS Economía | Etiquetas temáticas por entrada | `Economía`, `Econom�a`, `Empresas`, `Banca`, `Mercados` y `Empleo` → `economia` |
+| Los Andes Política | `Pol�tica` en las 20 entradas | Sólo en este feed: `politica-argentina` y `argentina` |
+| Los Andes Economía | `Econom�a` en las 20 entradas | Sólo en este feed: `economia` y `argentina` |
+| Cinco Días Mercados | 25 entradas con etiquetas financieras; 25 con `Mercados financieros` o `Bolsa` | `Mercados financieros`, `Bolsa`, `Finanzas`, `Renta variable` y `Renta fija` → `mercados-finanzas` |
 
-La lista efectiva está en `news/category_aliases.py`. Una entrada etiquetada sin correspondencia aprobada permanece sin categoría, incluso si el feed está dedicado a un tema. Antes de sumar alias nuevos, revisar muestras del feed: una etiqueta puede ser el nombre de una persona, organización o lugar. Las categorías `economia` y `geopolitica` no tienen alias aprobados todavía porque estos tres feeds no aportan etiquetas pertinentes observadas. Esta selección no modifica las condiciones de reutilización de los contenidos.
+La lista efectiva está en `news/category_aliases.py`. Una entrada etiquetada sin correspondencia aprobada permanece sin categoría, incluso si el feed está dedicado a un tema. Antes de sumar alias nuevos, revisar muestras del feed: una etiqueta puede ser el nombre de una persona, organización o lugar. `politica-argentina` usa el respaldo de Clarín Política y el alias de sección limitado a Los Andes Política; no clasifica como argentina cualquier noticia mundial con la etiqueta genérica `Política`. Algunas etiquetas llegan con el carácter `�`; se aceptan exactamente como se observaron, además de su escritura correcta por si el medio corrige la codificación.
+
+`argentina` reúne los feeds Clarín Política, Los Andes Política y Los Andes Economía. El feed de Clarín Economía no se agrega porque su muestra contenía muchas cotizaciones de otros países. `mercados-finanzas` es información periodística sobre bolsa e instrumentos financieros, no un servicio de precios en tiempo real.
+
+**Límite de precisión:** los feeds de Clarín no traen etiquetas por noticia. Mundo puede incluir sucesos internacionales no geopolíticos, y Economía incluyó varias cotizaciones diarias de divisas en la muestra. Se incluyen como secciones editoriales curadas, pero habrá que revisar un criterio de selección más fino si generan ruido para los usuarios. Las etiquetas de EL PAÍS seleccionan sólo una parte de las noticias de esas secciones.
 
 ## Registrada pero desactivada
 
 | Fuente y feed | Idioma / región | Resultado verificado | Campos | Estado y restricción |
 |---|---|---|---|---|
 | [RTVE Ciencia y tecnología](https://www.rtve.es/rss/temas_ciencia-tecnologia.xml) | Español / España | HTTP 200; RSS 2.0; 180 elementos | T/R/F/E; I ocasional en HTML | Desactivada: la publicación más reciente observada era del 12/06/2022. Sus condiciones de redistribución también son restrictivas |
+| [DW Español](https://rss.dw.com/rdf/rss-sp-all) | Español / Alemania-global | En el relevamiento previo: HTTP 200; RDF/RSS 1.0; 20 elementos | T/R/F/E | Desactivada: confirmar condiciones de sindicación antes de incorporarla |
+| [NASA Technology](https://www.nasa.gov/technology/feed/) | Inglés / Estados Unidos | En el relevamiento previo: HTTP 200; RSS 2.0; 10 elementos | T/R/F/E/I | Desactivada: revisar excepciones de material de terceros y atribución |
+| [Ars Technica](https://feeds.arstechnica.com/arstechnica/index) | Inglés / Estados Unidos | En el relevamiento previo: HTTP 200; RSS 2.0; 20 elementos | T/R/F/E/I | Desactivada: verificar condiciones antes de mostrar titulares |
+| [TechCrunch](https://techcrunch.com/feed/) | Inglés / Estados Unidos | En el relevamiento previo: HTTP 200; RSS 2.0; 20 elementos | T/R/F/E | Desactivada: verificar condiciones antes de mostrar titulares |
 
 ## Candidatas argentinas
 
-Estas fuentes fueron localizadas y probadas durante el relevamiento del 29 de septiembre de 2026, pero no forman parte de la primera tanda. Antes de activar una se debe repetir la prueba de frescura y confirmar si se permite reutilizar el resumen. Las imágenes quedan fuera de la primera entrega.
+Estas fuentes fueron localizadas y probadas durante el relevamiento del 29 de septiembre de 2026, pero permanecen sin activar. Antes de activar una se debe repetir la prueba de frescura y confirmar que se permite usar sus titulares en esta aplicación. Las imágenes y los resúmenes quedan fuera de la primera entrega.
 
 | Fuente | Feed | Campos observados | Motivo para evaluarla |
 |---|---|---|---|
@@ -71,6 +88,8 @@ Estas fuentes fueron localizadas y probadas durante el relevamiento del 29 de se
 | El Cronista | [Noticias](https://www.cronista.com/files/rss/news.xml) | T/R/F/E; I variable | Economía y negocios |
 | TN | [General](https://tn.com.ar/rss.xml) | T/R/F/E; I variable | Alta frecuencia de actualidad argentina |
 | Chequeado | [General](https://chequeado.com/feed/) | T/R/F/E; I variable | Verificación de datos; el feed observado estaba atrasado respecto de la portada |
+
+La revisión del 11/10/2026 encontró restricciones expresas sobre la reutilización de contenido en los [términos de Página/12](https://www.pagina12.com.ar/terminos-y-condiciones/), los [términos de Infobae](https://www.infobae.com/terminos-y-condiciones/) y las [condiciones publicadas por Ámbito](https://www.ambito.com/contenidos/privacidad.html). Sus feeds no se activan sin una autorización o una condición específica y clara para el uso previsto. La [página RSS de Página/12](https://www.pagina12.com.ar/rss/) confirma la existencia de sus canales, pero no resuelve la restricción de reutilización.
 
 ## Candidatas internacionales y regionales
 

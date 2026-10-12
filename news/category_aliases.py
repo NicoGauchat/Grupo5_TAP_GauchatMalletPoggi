@@ -11,8 +11,26 @@ CATEGORY_ALIASES = {
     "tecnologia": {"Tecnología", "Computer science and technology"},
     "inteligencia-artificial": {"Inteligencia artificial", "Artificial intelligence"},
     "ciencia": {"Ciencia"},
-    "economia": set(),
-    "geopolitica": set(),
+    "economia": {"Economía", "Econom�a", "Empresas", "Banca", "Mercados", "Empleo"},
+    "geopolitica": {"Guerra", "Conflictos", "Conflictos armados", "Conflictos internacionales", "Ataques militares", "OTAN"},
+    "politica-argentina": set(),
+    "argentina": set(),
+    "mercados-finanzas": {"Mercados financieros", "Bolsa", "Finanzas", "Renta variable", "Renta fija"},
+}
+
+
+# Los Andes etiqueta todas las entradas con el nombre de la sección. Estas
+# equivalencias se limitan a cada feed para no tratar una etiqueta genérica
+# "Política" de otro medio como política argentina.
+FEED_CATEGORY_ALIASES = {
+    "https://www.losandes.com.ar/rss/pages/politica.xml": {
+        "Pol�tica": {"politica-argentina", "argentina"},
+        "Política": {"politica-argentina", "argentina"},
+    },
+    "https://www.losandes.com.ar/rss/pages/economia.xml": {
+        "Econom�a": {"economia", "argentina"},
+        "Economía": {"economia", "argentina"},
+    },
 }
 
 
@@ -28,16 +46,23 @@ ALIASES_TO_SLUGS = {
     for alias in aliases
 }
 
+FEED_ALIASES_TO_SLUGS = {
+    url: {normalize_category_name(alias): slugs for alias, slugs in aliases.items()}
+    for url, aliases in FEED_CATEGORY_ALIASES.items()
+}
 
-def category_slugs_for_entry(entry, fallback_slugs):
+
+def category_slugs_for_entry(entry, fallback_slugs, feed_url=""):
     """Usa etiquetas del elemento; recurre al feed sólo si no hay etiquetas."""
     tags = entry.get("tags") or []
     if not tags:
         return set(fallback_slugs)
 
     slugs = set()
+    feed_aliases = FEED_ALIASES_TO_SLUGS.get(feed_url, {})
     for tag in tags:
         normalized = normalize_category_name(tag.get("term") or "")
         if normalized in ALIASES_TO_SLUGS:
             slugs.add(ALIASES_TO_SLUGS[normalized])
+        slugs.update(feed_aliases.get(normalized, ()))
     return slugs

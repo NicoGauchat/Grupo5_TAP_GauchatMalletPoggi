@@ -48,11 +48,19 @@ def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
     sections = []
     for category in preference.categories.all():
+        category_articles = Article.objects.filter(
+            categories=category, feed__is_active=True
+        )
+        article_count = category_articles.count()
         articles = list(
-            Article.objects.filter(categories=category, feed__is_active=True)
-            .select_related("feed__source")
+            category_articles.select_related("feed__source")
             .order_by("-published_at", "-id")[:ARTICLES_PER_CATEGORY]
         )
-        sections.append({"category": category, "articles": articles})
+        sections.append(
+            {"category": category, "article_count": article_count, "articles": articles}
+        )
+
+    # La lista de categorías ya viene en orden alfabético: en un empate se conserva.
+    sections.sort(key=lambda section: -section["article_count"])
 
     return render(request, "news/feed.html", {"sections": sections})
