@@ -2,7 +2,7 @@
 
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from html import unescape
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -14,11 +14,11 @@ from django.utils.html import strip_tags
 
 from .category_aliases import category_slugs_for_entry
 from .models import Article, Category
+from .retention import retention_cutoff
 
 
 MAX_FEED_BYTES = 2_000_000
 MAX_SUMMARY_LENGTH = 600
-RETENTION_DAYS = 60
 USER_AGENT = "SitioNoticias/0.1 (proyecto universitario; lector RSS)"
 TRACKING_PARAMETERS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 
@@ -136,7 +136,7 @@ def ingest_feed(feed, force_download=False):
     entries, etag, last_modified = downloaded
     fallback_slugs = set(feed.categories.values_list("slug", flat=True))
     category_ids_by_slug = dict(Category.objects.values_list("slug", "id"))
-    cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
+    cutoff = retention_cutoff()
 
     for entry in entries:
         title = (entry.get("title") or "").strip()

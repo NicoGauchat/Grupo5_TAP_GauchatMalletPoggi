@@ -4,8 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import redirect, render
 
-from .forms import PreferenceForm
+from .forms import NewsFilterForm, PreferenceForm
 from .models import Article, UserPreference
+from .retention import retention_cutoff
 
 
 ARTICLES_PER_CATEGORY = 10
@@ -46,13 +47,35 @@ def preferences(request):
 @login_required
 def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
+    categories = list(preference.categories.all())
+    available_articles = Article.objects.filter(
+        categories__in=categories, feed__is_active=True,
+        published_at__gte=retention_cutoff(),
+    ).distinct()
+    filter_form = NewsFilterForm(request.GET, articles=available_articles)
+    filtered_articles = available_articles
+    filters_active = False
+    if filter_form.is_valid():
+        source = filter_form.cleaned_data["source"]
+        language = filter_form.cleaned_data["language"]
+        if source:
+            filtered_articles = filtered_articles.filter(feed__source=source)
+        if language:
+            filtered_articles = filtered_articles.filter(language=language)
+        filters_active = bool(source or language)
+    else:
+        # Una URL con filtros inválidos no debe mostrar resultados sin filtrar.
+        filtered_articles = available_articles.none()
     sections = []
-    for category in preference.categories.all():
+    for category in categories:
         articles = list(
-            Article.objects.filter(categories=category, feed__is_active=True)
+            filtered_articles.filter(categories=category)
             .select_related("feed__source")
             .order_by("-published_at", "-id")[:ARTICLES_PER_CATEGORY]
         )
         sections.append({"category": category, "articles": articles})
 
-    return render(request, "news/feed.html", {"sections": sections})
+    return render(request, "news/feed.html", {
+        "sections": sections, "filter_form": filter_form,
+        "filters_active": filters_active,
+    })

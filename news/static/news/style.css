@@ -40,6 +40,12 @@ fieldset label { display: block; padding: .3rem 0; }
 .feed-intro h1 { margin: 0; font-size: clamp(2rem, 4vw, 2.8rem); }
 .feed-intro p { margin: .4rem 0 0; color: #49605d; }
 .feed-edit-link { flex-shrink: 0; font-weight: 650; }
+.feed-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; padding: 1rem; margin-bottom: 1.25rem; background: #fff; border: 1px solid #dce5e1; }
+.filter-field { flex: 1 1 12rem; min-width: 0; }
+.filter-field label { display: block; font-weight: 650; }
+.filter-field select { width: 100%; min-height: 44px; padding: .6rem; border: 1px solid #a8b8b2; border-radius: 5px; background: #fff; color: #1e2933; font: inherit; }
+.feed-filters .button { min-height: 44px; }
+.filter-reset { display: inline-flex; align-items: center; min-height: 44px; }
 .category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; margin-bottom: 3rem; }
 .category-column { min-width: 0; background: #fff; border: 1px solid #dce5e1; border-top: 4px solid #145f5c; }
 .category-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.4rem; border-bottom: 1px solid #dce5e1; }

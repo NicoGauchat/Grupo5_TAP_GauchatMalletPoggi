@@ -61,6 +61,8 @@ Navegador: plantillas HTML, CSS y JavaScript mínimo
 
 La aplicación será un monolito Django renderizado en el servidor: las páginas, formularios, sesiones, consultas y administración se implementan en el mismo proyecto. La ingesta será un comando reutilizable del proyecto, ejecutable manualmente durante el desarrollo y mediante GitHub Actions con la frecuencia definida.
 
+El workflow `.github/workflows/ingest-feeds.yml` ejecuta cada hora (minuto 17 UTC) y manualmente una única tarea de mantenimiento. Comprueba migraciones, ejecuta `purge_old_articles` y después `ingest_feeds`. Usa un ejecutor alojado por GitHub y requiere PostgreSQL público persistente, compartido con la aplicación, con SSL y credenciales en secretos de Actions. Por decisión del usuario del 12/10/2026, se activará cuando se configure esa base; no se instala una tarea de Windows ni un runner local. Hasta entonces, `NEWS_INGESTION_ENABLED` queda sin activar y el job se omite. No se usa una base efímera para las noticias. El proveedor público sigue pendiente.
+
 El registro y el inicio de sesión usarán la autenticación integrada de Django. No se incorporará un proveedor externo de autenticación ni una API independiente en la primera entrega. Las noticias y fuentes serán datos compartidos; cada usuario podrá gestionar únicamente sus propias preferencias.
 
 El proveedor de alojamiento y el proveedor de PostgreSQL para una publicación pública quedan pendientes de evaluar. Durante el desarrollo se utilizará PostgreSQL 17 en Docker Compose, con un volumen persistente y acceso local por `127.0.0.1:5433`. No se fija Supabase ni otro servicio hasta verificar que el plan elegido satisface la política de no pagar y conserva los datos requeridos.
@@ -100,6 +102,10 @@ La página `/noticias/` requiere inicio de sesión y consulta las categorías de
 
 ### Revisión de las herramientas incorporadas
 
+Para concretar GitHub Actions, ya elegido, se revisaron su [documentación de horarios](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [secretos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) y [concurrencia](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), y las acciones oficiales [checkout](https://github.com/actions/checkout) y [setup-python](https://github.com/actions/setup-python), ambas MIT. Se fijaron sus revisiones de v7; mantienen actualizaciones, aunque checkout limita contribuciones y prioriza seguridad y fallos importantes. Estas versiones requieren un runner actualizado, proporcionado por `ubuntu-latest`. Los horarios usan la rama predeterminada, pueden retrasarse y desactivarse tras 60 días sin actividad en repositorios públicos. Se conserva el disparo manual y se documenta la activación. No se incorpora una dependencia de aplicación ni otro servicio de tareas. La conexión pública usa `POSTGRES_SSLMODE`, según la [documentación de libpq](https://www.postgresql.org/docs/17/libpq-ssl.html).
+
+La página personalizada combina fuente e idioma mediante un formulario GET validado (`NewsFilterForm`), con selección en la URL. Las opciones se obtienen de artículos recientes de feeds activos asociados a las categorías del usuario antes de aplicar los filtros. Se filtra antes del límite de diez por categoría. Un valor inválido produce un error visible y ningún resultado. No se modifican preferencias ni esquema; la consulta excluye noticias antiguas aunque la limpieza todavía no corra.
+
 Se eligió [Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/releases/5.2/) porque soporta Python 3.13, trae autenticación y administración, y usa licencia BSD. Su [soporte de PostgreSQL](https://docs.djangoproject.com/en/5.2/ref/databases/) recomienda psycopg 3. Se fijaron versiones en `requirements.txt` para reproducir el entorno local.
 
 [psycopg 3](https://www.psycopg.org/psycopg3/docs/basic/install.html) conecta Django con PostgreSQL y mantiene licencia LGPL 3. Su repositorio [tiene actividad](https://github.com/psycopg/psycopg); se revisó un [fallo reportado en Windows para una versión anterior](https://github.com/psycopg/psycopg/issues/1088), por lo que se instaló y comprobó la versión fijada en el entorno local. [python-dotenv](https://github.com/theskumar/python-dotenv), con licencia BSD 3 y mantenimiento activo, permite leer el archivo local `.env`. Como puede [no avisar cuando falta ese archivo](https://github.com/theskumar/python-dotenv/issues/631), Django exige explícitamente `DJANGO_SECRET_KEY` al iniciar.
@@ -131,6 +137,8 @@ Política inicial:
 - PostgreSQL almacena metadatos y enlaces, no contenido editorial completo.
 
 Las políticas de resumen se definen por fuente. La existencia de un RSS no implica permiso para reutilizar todos sus campos.
+
+La ventana de 60 días se define una sola vez en `news/retention.py` para ingesta, consulta y limpieza. `purge_old_articles` elimina noticias cuya publicación es estrictamente anterior al corte; si falta esa fecha, utiliza la captura. Incluye `--dry-run` para contar sin borrar. Limpia también feeds inactivos y preserva fuentes, categorías y preferencias; el ORM elimina las asociaciones de los artículos borrados. La tarea horaria limpia antes de importar para cumplir la política aunque después falle un RSS.
 
 ## Decisiones vigentes
 
