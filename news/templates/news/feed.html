@@ -11,6 +11,17 @@
 </header>
 
 {% if sections %}
+    <form class="feed-filters" method="get" action="{% url 'news_feed' %}" aria-label="Filtrar noticias">
+        {% for field in filter_form %}
+            <div class="filter-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button class="button" type="submit">Aplicar filtros</button>
+        <a class="filter-reset" href="{% url 'news_feed' %}">Limpiar filtros</a>
+    </form>
     <div class="category-grid">
         {% for section in sections %}
             <section class="category-column" aria-labelledby="category-{{ section.category.slug }}">
@@ -35,7 +46,11 @@
                         <p class="category-more">Se muestran las {{ section.articles|length }} más recientes.</p>
                     {% endif %}
                 {% else %}
+                    {% if filters_active or filter_form.errors %}
+                    <p class="category-empty">No hay noticias de esta categoría con los filtros elegidos. Podés <a href="{% url 'news_feed' %}">limpiar los filtros</a>.</p>
+                    {% else %}
                     <p class="category-empty">Todavía no hay noticias recientes de esta categoría. Podés elegir otros temas en <a href="{% url 'preferences' %}">Mis categorías</a>.</p>
+                    {% endif %}
                 {% endif %}
             </section>
         {% endfor %}

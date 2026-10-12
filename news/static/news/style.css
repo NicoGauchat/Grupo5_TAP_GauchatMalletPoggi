@@ -42,6 +42,12 @@ fieldset label { display: block; padding: .3rem 0; }
 .feed-intro h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.2rem); overflow-wrap: anywhere; }
 .feed-intro p { margin: .55rem auto 0; color: #49605d; }
 .feed-edit-link { display: inline-block; margin-top: .8rem; font-weight: 650; }
+.feed-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; padding: 1rem; margin-bottom: 1.25rem; background: #fff; border: 1px solid #dce5e1; }
+.filter-field { flex: 1 1 12rem; min-width: 0; }
+.filter-field label { display: block; font-weight: 650; }
+.filter-field select { width: 100%; min-height: 44px; padding: .6rem; border: 1px solid #a8b8b2; border-radius: 5px; background: #fff; color: #1e2933; font: inherit; }
+.feed-filters .button { min-height: 44px; }
+.filter-reset { display: inline-flex; align-items: center; min-height: 44px; }
 /* El 23% limita la grilla a cuatro columnas; 220px evita columnas estrechas. */
 .category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(220px, 23%), 1fr)); gap: 1rem; align-items: stretch; margin-bottom: 3rem; }
 .category-column { display: flex; flex-direction: column; gap: .7rem; min-width: 0; padding: .85rem; background: #fff; border: 1px solid #dce5e1; }

@@ -1,0 +1,58 @@
+name: Ingesta y limpieza de noticias
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: news-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    if: vars.NEWS_INGESTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      DJANGO_ALLOWED_HOSTS: localhost
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ vars.POSTGRES_PORT || '5432' }}
+      POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Validar configuración
+        shell: bash
+        run: |
+          for name in DJANGO_SECRET_KEY POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_HOST; do
+            if [ -z "${!name}" ]; then
+              echo "Falta configurar $name"
+              exit 1
+            fi
+          done
+          case "$POSTGRES_HOST" in
+            localhost|127.0.0.1|::1) echo 'Se requiere una base pública persistente'; exit 1 ;;
+          esac
+          case "$POSTGRES_SSLMODE" in
+            require|verify-ca|verify-full) ;;
+            *) echo 'POSTGRES_SSLMODE debe exigir SSL'; exit 1 ;;
+          esac
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Comprobar migraciones
+        run: python manage.py migrate --check
+      - name: Limpiar noticias antiguas
+        run: python manage.py purge_old_articles
+      - name: Ingerir feeds
+        run: python manage.py ingest_feeds

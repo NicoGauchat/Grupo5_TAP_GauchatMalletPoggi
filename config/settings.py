@@ -92,7 +92,10 @@ DATABASES = {
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
         'PORT': os.getenv('POSTGRES_PORT', '5433'),
-        'OPTIONS': {'connect_timeout': 3},
+        'OPTIONS': {
+            'connect_timeout': 3,
+            'sslmode': os.getenv('POSTGRES_SSLMODE', 'prefer'),
+        },
     }
 }
 
