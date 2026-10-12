@@ -1,0 +1,48 @@
+{% extends 'news/base.html' %}
+
+{% block title %}Mis noticias · Sitio Noticias{% endblock %}
+
+{% block content %}
+<header class="feed-intro">
+    <div>
+        <h1>Mis noticias</h1>
+        <p>Titulares recientes de fuentes seleccionadas, según tus categorías.</p>
+    </div>
+    <a class="feed-edit-link" href="{% url 'preferences' %}">Editar categorías</a>
+</header>
+
+{% if sections %}
+    <div class="category-grid">
+        {% for section in sections %}
+            <section class="category-column" aria-labelledby="category-{{ section.category.slug }}">
+                <header class="category-heading">
+                    <h2 id="category-{{ section.category.slug }}">{{ section.category.name }}</h2>
+                    <span>{{ section.articles|length }} noticia{{ section.articles|length|pluralize }}</span>
+                </header>
+                {% if section.articles %}
+                    {% for article in section.articles %}
+                        <article class="news-item{% if forloop.first %} news-item-leading{% endif %}">
+                            {% if forloop.first %}<p class="leading-label">Más reciente</p>{% endif %}
+                            <h3><a href="{{ article.original_url }}">{{ article.title }}</a></h3>
+                            {% if article.summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
+                            <p class="news-meta">
+                                <span>{{ article.feed.source.name }}</span>
+                                <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>
+                                {% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}
+                            </p>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <p class="category-empty">Todavía no hay noticias recientes de esta categoría. Podés elegir otros temas en <a href="{% url 'preferences' %}">Mis categorías</a>.</p>
+                {% endif %}
+            </section>
+        {% endfor %}
+    </div>
+{% else %}
+    <section class="feed-empty">
+        <h2>Elegí tus categorías</h2>
+        <p>Guardá los temas que te interesan para ver sus noticias acá.</p>
+        <a class="button" href="{% url 'preferences' %}">Elegir categorías</a>
+    </section>
+{% endif %}
+{% endblock %}

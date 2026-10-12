@@ -6,15 +6,15 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 
 - Registro e inicio de sesión con usuarios de Django.
 - Preferencias individuales para las cinco categorías iniciales.
+- Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
+- Ingesta manual de tres feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta.
 
 ## Funcionalidades previstas
 
-- Recolectar noticias desde feeds RSS configurables.
-- Guardar título, resumen permitido, fuente, fecha, idioma, enlace y categorías.
+- Automatizar la recolección periódica de RSS.
 - Clasificar por tecnología, inteligencia artificial, ciencia, economía y geopolítica. Deportes queda para una etapa posterior.
-- Evitar duplicados exactos por GUID y URL canónica.
-- Mostrar noticias de distintas fuentes y enlazar al artículo original.
+- Filtrar las noticias por fuente e idioma.
 - No almacenar artículos completos ni mostrar imágenes en la primera versión.
 - Incorporar posteriormente agrupamiento de coberturas y GDELT como complemento.
 
@@ -37,7 +37,7 @@ El proveedor para alojar Django y PostgreSQL aún no está decidido. Se elegirá
 
 ## Estado
 
-Ya existe el proyecto Django, la configuración de PostgreSQL, la migración inicial y las páginas de registro, ingreso y preferencias. La ingesta RSS y el feed de noticias todavía no están implementados. La administración de Django está disponible en `/admin/`.
+Ya existe el proyecto Django, la base PostgreSQL, el registro de usuarios, la ingesta manual de Clarín Tecnología, EL PAÍS Tecnología y MIT News sobre IA, y la página de noticias personalizada. Los artículos importados pueden consultarse desde `/admin/` y cada usuario registrado ve los de sus categorías en `/noticias/`.
 
 El próximo paso vigente se mantiene en [STATUS.md](./STATUS.md).
 
@@ -66,11 +66,18 @@ El archivo `.env` está ignorado por Git. No compartirlo ni subirlo al repositor
 ```powershell
 docker compose up -d db
 python manage.py migrate
+python manage.py ingest_feeds
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
 Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
+
+Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página muestra hasta diez titulares recientes por categoría elegida, con fuente, fecha, idioma y enlace al artículo original. La noticia destacada de cada categoría es la más reciente; aún no se calcula relevancia. Si se cambia la selección en «Mis categorías», las noticias visibles cambian al guardar. Las categorías sin noticias muestran un mensaje y un enlace para editar preferencias. Los filtros por fuente e idioma quedan para el siguiente paso.
+
+`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los tres feeds iniciales guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 60 días se omiten. La ejecución periódica y la eliminación de noticias antiguas se incorporarán después.
+
+La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
 
 ## Documentación
 

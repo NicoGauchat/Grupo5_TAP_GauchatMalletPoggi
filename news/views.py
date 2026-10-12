@@ -5,10 +5,15 @@ from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import redirect, render
 
 from .forms import PreferenceForm
-from .models import UserPreference
+from .models import Article, UserPreference
+
+
+ARTICLES_PER_CATEGORY = 10
 
 
 def home(request):
+    if request.user.is_authenticated:
+        return redirect("news_feed")
     return render(request, "news/home.html")
 
 
@@ -33,6 +38,21 @@ def preferences(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Tus categorías se guardaron.")
-        return redirect("preferences")
+        return redirect("news_feed")
 
     return render(request, "news/preferences.html", {"form": form})
+
+
+@login_required
+def news_feed(request):
+    preference, _ = UserPreference.objects.get_or_create(user=request.user)
+    sections = []
+    for category in preference.categories.all():
+        articles = list(
+            Article.objects.filter(categories=category, feed__is_active=True)
+            .select_related("feed__source")
+            .order_by("-published_at", "-id")[:ARTICLES_PER_CATEGORY]
+        )
+        sections.append({"category": category, "articles": articles})
+
+    return render(request, "news/feed.html", {"sections": sections})

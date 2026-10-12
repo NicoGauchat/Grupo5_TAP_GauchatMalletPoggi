@@ -1,48 +1,53 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-11
-**Objetivo actual:** continuar desde la base Django y PostgreSQL ya operativa.
+**Objetivo actual:** completar los filtros del feed personalizado.
 
 ## Último paso completado
 
-Se creó el proyecto Django, la aplicación `news` y la base local PostgreSQL mediante Docker Compose. Se aplicaron las migraciones del esquema y de las cinco categorías iniciales. Los modelos están disponibles en la administración de Django. También se implementaron registro, ingreso, salida y edición de preferencias.
+Se creó `/noticias/`, una página para usuarios autenticados que muestra hasta diez artículos recientes por categoría elegida, con fuente, fecha, idioma y enlace original. La navegación y el ingreso llevan a esta página; al guardar preferencias se vuelve a mostrar el feed actualizado. Hay estados vacíos para cuentas sin categorías y categorías sin artículos.
 
 ## Próximo paso
 
-Implementar la ingesta RSS con una primera selección de feeds, respetando la política de cada fuente y evitando duplicados exactos.
+Agregar filtros por fuente e idioma al feed personalizado.
 
 ## Completado
 
-- Arquitectura anterior preservada en `ARCHITECTURE-LEGACY.md`.
-- Dependencias fijadas: Django 5.2 LTS, psycopg 3 y python-dotenv.
-- Configuración local de PostgreSQL 17 en un contenedor, puerto 5433 y volumen persistente.
-- Migraciones `news.0001_initial` y `news.0002_initial_categories` aplicadas en PostgreSQL.
-- Modelos `Category`, `Source`, `Feed`, `Article` y `UserPreference`, con sus relaciones y restricciones iniciales.
-- Administración Django para gestionar los cinco modelos.
-- Registro, ingreso, salida y preferencias por usuario con formularios integrados de Django.
-- Cinco categorías iniciales cargadas por una migración de datos.
-- Variables de entorno documentadas en `.env.example`; archivo `.env` local ignorado por Git.
-- Instrucciones de instalación y ejecución local agregadas al README.
-- Política de imágenes y uso de resúmenes aclarada en `SOURCES.md`.
+- Arquitectura Django y PostgreSQL local con Docker Compose; arquitectura anterior preservada.
+- Registro, ingreso, salida y edición de preferencias por usuario.
+- Feed personalizado por categorías con enlaces a los artículos originales.
+- Modelos y administración para categorías, fuentes, feeds, artículos y preferencias.
+- Cinco categorías iniciales y tres feeds RSS activos cargados mediante migraciones.
+- Lectura de RSS/Atom con feedparser, límite de tamaño y tiempo de espera.
+- Deduplicación por GUID, URL original, URL normalizada y huella de respaldo.
+- Solicitudes condicionales con `ETag` y `Last-Modified`.
+- Lista de etiquetas aprobadas en `news/category_aliases.py` y reclasificación con `--refresh`.
+- Restricción de resumen por feed; los tres activos no guardan resúmenes ni imágenes.
+- Condiciones y comprobaciones actuales registradas en `SOURCES.md`.
+- Comandos y requisitos de desarrollo actualizados en `README.md`.
 
 ## Pendiente
 
-- Implementar la ingesta periódica, política por fuente y deduplicación de RSS.
-- Construir la interfaz del feed y sus filtros.
-- Elegir proveedor de alojamiento y PostgreSQL que conserve datos bajo un plan permitido.
-- Configurar automatización de la ingesta y limpieza de noticias con más de 60 días.
+- Agregar filtros por fuente e idioma a la interfaz de noticias.
+- Automatizar la ingesta periódica.
+- Eliminar noticias almacenadas que superen los 60 días.
+- Ampliar la selección de fuentes y categorías tras revisar actividad y condiciones.
+- Elegir alojamiento y PostgreSQL público con un plan permitido y persistente.
 
 ## Bloqueos
 
-Ninguno conocido. Durante el arranque de Docker Desktop se observó un socket temporal inaccesible y una respuesta HTTP 500. La revisión automática bloqueó eliminar el socket desde este entorno; no se insistió en esa operación. Tras iniciar Docker Desktop manualmente, el motor funcionó y la imagen de PostgreSQL se descargó correctamente.
+Ninguno conocido.
 
 ## Última verificación
 
-- `python manage.py check`: sin problemas, incluidas las rutas y páginas de autenticación.
+- Los tres feeds elegidos respondieron HTTP 200 el 11/10/2026 y se interpretaron sin errores XML.
+- `python manage.py check`: sin problemas.
 - `python manage.py makemigrations --check --dry-run`: sin cambios de esquema pendientes.
-- `docker compose config --quiet`: configuración válida.
-- `docker compose ps`: PostgreSQL activo en `127.0.0.1:5433`.
-- `python manage.py showmigrations news`: ambas migraciones aplicadas.
-- Consulta de categorías: están presentes los cinco slugs iniciales.
-- `git diff --check`: sin errores de espacios.
-- `git check-ignore .env`: confirma que el archivo de credenciales local no se versiona.
+- Migraciones `news.0003` y `news.0004` aplicadas correctamente en PostgreSQL.
+- Primera ingesta: Clarín 10, EL PAÍS 21 y MIT News 39 noticias; 11 entradas antiguas omitidas.
+- Reclasificación: 0 noticias nuevas, 70 duplicadas reconocidas y 11 entradas antiguas omitidas.
+- Consulta de PostgreSQL: 70 artículos; tecnología 42, inteligencia artificial 49, ciencia 1 y 3 sin categoría. Un artículo puede pertenecer a más de una categoría.
+- `python manage.py check`: sin problemas tras agregar la página.
+- La plantilla `news/feed.html` se cargó correctamente.
+- Entre los diez artículos más recientes de tecnología hay Clarín, EL PAÍS y MIT News; en inteligencia artificial hay EL PAÍS y MIT News.
+- No se modificó `SOURCES.md`: no cambiaron feeds ni sus políticas. No se modificó `.env.example`: la página no añade variables de entorno.

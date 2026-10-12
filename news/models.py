@@ -33,6 +33,8 @@ class Feed(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="feeds")
     is_active = models.BooleanField(default=False)
     show_summary = models.BooleanField(default=False)
+    etag = models.CharField(max_length=255, blank=True)
+    last_modified = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ["source__name", "name"]

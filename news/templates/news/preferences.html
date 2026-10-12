@@ -6,7 +6,7 @@
 <section class="panel form-panel">
     <p class="eyebrow">Tu cuenta</p>
     <h1>Mis categorías</h1>
-    <p>Hola, {{ user.username }}. Seleccioná los temas que querés seguir. El feed de noticias se agregará en la próxima etapa.</p>
+    <p>Hola, {{ user.username }}. Seleccioná los temas que querés seguir. Al guardar, vas a ver las noticias de esas categorías.</p>
     <form method="post">
         {% csrf_token %}
         {{ form.non_field_errors }}

@@ -22,6 +22,7 @@ from news import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('noticias/', views.news_feed, name='news_feed'),
     path('registrarse/', views.register, name='register'),
     path('ingresar/', auth_views.LoginView.as_view(template_name='news/login.html'), name='login'),
     path('salir/', auth_views.LogoutView.as_view(), name='logout'),

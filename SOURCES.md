@@ -4,7 +4,7 @@
 
 Este registro separa disponibilidad técnica de permiso de reutilización. Un feed accesible no autoriza a copiar el artículo completo ni necesariamente sus imágenes.
 
-Las pruebas listadas se realizaron el **29 de septiembre de 2026**. No se volvieron a ejecutar durante la creación de esta documentación. La frecuencia es una estimación basada en las fechas de los elementos observados, no una garantía del medio.
+El relevamiento general se realizó el **29 de septiembre de 2026**. Los tres feeds elegidos para la primera ingesta se volvieron a comprobar el **11 de octubre de 2026**. La frecuencia es una estimación basada en las fechas de los elementos observados, no una garantía del medio.
 
 Campos:
 
@@ -18,10 +18,10 @@ Campos:
 
 | Fuente y feed | Idioma / región | Resultado verificado | Campos | Frecuencia aproximada | Política inicial |
 |---|---|---|---|---|---|
-| [EL PAÍS Tecnología](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/tecnologia/portada) | Español / España | HTTP 200; RSS 2.0; 21 elementos | T/R/F/E/I | Tecnología cada ~10 h; otros feeds varias veces por día | Metadatos y enlace; no almacenar artículo completo; revisar imágenes antes de activarlas |
+| [EL PAÍS Tecnología](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/tecnologia/portada) | Español / España | HTTP 200; RSS 2.0; 21 elementos; revalidado 11/10/2026 | T/R/F/E/I | Tecnología cada ~10 h; otros feeds varias veces por día | Activo: sólo título sin modificar, fuente, fecha y enlace original; sin resumen ni imagen |
 | [DW Español](https://rss.dw.com/rdf/rss-sp-all) | Español / Alemania-global | HTTP 200; RDF/RSS 1.0; 20 elementos | T/R/F/E | Cada 1–2 h | Para la demo, título, teaser y enlace; confirmar sindicación antes de una publicación estable |
-| [Clarín Tecnología](https://www.clarin.com/rss/tecnologia/) | Español / Argentina | HTTP 200; RSS 2.0; 10 elementos | T/R/F/E/I | Tecnología cada ~11 h; Economía e Internacional cerca de cada hora | Mostrar por defecto título, fuente, fecha y enlace; no reutilizar imagen o resumen sin validar condiciones |
-| [MIT News — Artificial Intelligence](https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 50 elementos | T/R/F/E/I | Cada ~29 h | Atribución y enlace; imágenes sólo con crédito y respetando su licencia |
+| [Clarín Tecnología](https://www.clarin.com/rss/tecnologia/) | Español / Argentina | HTTP 200; RSS 2.0; 10 elementos; revalidado 11/10/2026 | T/R/F/E/I | Tecnología cada ~11 h; Economía e Internacional cerca de cada hora | Activo: sólo título sin modificar, fuente, fecha y enlace original; sin resumen ni imagen |
+| [MIT News — Artificial Intelligence](https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 50 elementos; revalidado 11/10/2026 | T/R/F/E/I | Cada ~29 h | Activo: sólo título, atribución a MIT News, fecha y enlace original; sin resumen ni imagen |
 | [NASA Technology](https://www.nasa.gov/technology/feed/) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 10 elementos | T/R/F/E/I | Cada ~40 h | Uso educativo/informativo con atribución; revisar excepciones de terceros, personas y logotipos |
 | [Ars Technica](https://feeds.arstechnica.com/arstechnica/index) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 20 elementos | T/R/F/E/I | Cada ~35 min | Titular, extracto provisto y enlace; no copiar texto completo ni imágenes por defecto |
 | [TechCrunch](https://techcrunch.com/feed/) | Inglés / Estados Unidos | HTTP 200; RSS 2.0; 20 elementos | T/R/F/E; I no observada | Cada ~12 min | Mostrar sólo lo provisto por el feed, sin modificarlo, con atribución y enlace |
@@ -30,6 +30,26 @@ Feeds adicionales ya comprobados para las fuentes iniciales:
 
 - EL PAÍS: [Economía](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada), [Ciencia](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada) e [Internacional](https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada).
 - Clarín: [Economía](https://www.clarin.com/rss/economia/) e [Internacional](https://www.clarin.com/rss/internacional/).
+
+### Condiciones comprobadas para la primera ingesta
+
+- [Clarín publica sus feeds RSS](https://www.clarin.com/filer/RSS/rss.html) para lectores e integración en sitios y aplicaciones. Sus [condiciones específicas](https://www.clarin.com/filer/RSS/terminos_condiciones.html) permiten exhibir títulos y enlaces sin alterar el contenido, con acceso al sitio original. `show_summary` queda desactivado.
+- [EL PAÍS describe su RSS](https://elpais.com/info/rss/) como un servicio gratuito de titulares para lectores y agregadores, incluidos servicios web. Se guardan título, metadatos y enlace; el resumen y las imágenes quedan desactivados.
+- [MIT News ofrece RSS para sindicación](https://news.mit.edu/terms-of-use) y exige atribución y enlace para la republicación de historias. Esta aplicación sólo conserva titular, fuente, fecha y enlace, sin republicar el artículo ni usar imágenes o resúmenes.
+
+La comprobación técnica del 11/10/2026 obtuvo 10, 21 y 50 entradas respectivamente, todas con XML válido. La primera ingesta guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar los 60 días. Los tres feeds se activaron con `show_summary=False`. Los feeds restantes continúan sin cargar en la aplicación.
+
+### Etiquetas para clasificar las noticias
+
+La revisión de las entradas del 11/10/2026 encontró lo siguiente:
+
+| Feed | Etiquetas por entrada | Correspondencias aprobadas |
+|---|---|---|
+| Clarín Tecnología | Ninguna en las 10 entradas | Respaldo: categoría `tecnologia` del feed |
+| EL PAÍS Tecnología | 18 de 21 entradas con etiquetas; entre ellas hay temas, personas, marcas y asuntos ajenos a tecnología | `Tecnología` → `tecnologia`; `Inteligencia artificial` → `inteligencia-artificial`; `Ciencia` → `ciencia`. Las 3 entradas sin etiquetas usan el respaldo `tecnologia` |
+| MIT News — Artificial Intelligence | 50 de 50 entradas con etiquetas | `Artificial intelligence` → `inteligencia-artificial`; `Computer science and technology` → `tecnologia` |
+
+La lista efectiva está en `news/category_aliases.py`. Una entrada etiquetada sin correspondencia aprobada permanece sin categoría, incluso si el feed está dedicado a un tema. Antes de sumar alias nuevos, revisar muestras del feed: una etiqueta puede ser el nombre de una persona, organización o lugar. Las categorías `economia` y `geopolitica` no tienen alias aprobados todavía porque estos tres feeds no aportan etiquetas pertinentes observadas. Esta selección no modifica las condiciones de reutilización de los contenidos.
 
 ## Registrada pero desactivada
 
