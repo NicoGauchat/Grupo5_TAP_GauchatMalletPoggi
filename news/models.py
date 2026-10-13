@@ -1,5 +1,8 @@
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
+
+from .search import title_vector
 
 
 class Category(models.Model):
@@ -57,7 +60,10 @@ class Article(models.Model):
     fetched_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        indexes = [models.Index(fields=["-published_at"])]
+        indexes = [
+            models.Index(fields=["-published_at"]),
+            GinIndex(title_vector(), name="article_title_search_gin"),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["feed", "guid"],

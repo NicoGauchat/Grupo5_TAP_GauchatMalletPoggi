@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
@@ -13,6 +14,7 @@ from django.utils import timezone
 
 from .ingestion import ingest_feed
 from .models import Article, ArticleOrigin, Category, Feed, SavedArticle, Source, UserPreference
+from .search import search_articles
 
 
 class NewsFeedTests(TestCase):
@@ -247,6 +249,166 @@ class NewsFeedTests(TestCase):
         self.assertTrue(response.context["filter_form"].errors)
         self.assertEqual(self.titles(response), [])
         self.assertNotContains(response, 'class="category-pagination"')
+
+
+@skipUnless(connection.vendor == "postgresql", "La búsqueda de texto se verifica en PostgreSQL")
+class ArticleSearchTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="buscador")
+        self.category = Category.objects.create(name="Búsqueda", slug="busqueda")
+        self.other_category = Category.objects.create(name="Otro tema buscable", slug="otro-buscable")
+        preference = UserPreference.objects.create(user=self.user)
+        preference.categories.add(self.category)
+        self.source = Source.objects.create(name="Fuente de búsqueda")
+        self.feed = Feed.objects.create(source=self.source, name="RSS", url="https://example.com/search-rss", is_active=True)
+        self.client.force_login(self.user)
+
+    def article(self, title, language="es", age=0):
+        article = Article.objects.create(
+            feed=self.feed, title=title, language=language,
+            original_url=f"https://example.com/search-{Article.objects.count()}",
+            published_at=timezone.now() - timedelta(days=age),
+        )
+        article.categories.add(self.category)
+        return article
+
+    def results(self, text, **filters):
+        response = self.client.get(reverse("news_feed"), {"q": text, **filters})
+        articles = [article for section in response.context["sections"] for article in section["articles"]]
+        return response, articles
+
+    def test_stop_words_and_stemming_in_supported_languages(self):
+        for language, title, text in (
+            ("es-AR", "Las empresas investigan robots", "la empresa"),
+            ("EN-us", "The researchers build robots", "a researcher"),
+            ("pt_BR", "As empresas criam robôs", "a empresa"),
+        ):
+            with self.subTest(language=language):
+                Article.objects.all().delete()
+                article = self.article(title, language)
+                response, results = self.results(text)
+                self.assertFalse(response.context["filter_form"].errors)
+                self.assertEqual([item.pk for item in results], [article.pk])
+
+    def test_all_significant_words_must_match(self):
+        match = self.article("Las empresas investigan robots")
+        self.article("Las empresas anuncian inversiones")
+        self.article("Robots exploran Marte")
+        _, results = self.results("empresa robots")
+        self.assertEqual([item.pk for item in results], [match.pk])
+
+    def test_stop_words_only_and_punctuation_do_not_match_everything(self):
+        self.article("Las empresas investigan robots")
+        for text in ("de la y", "!!!", "' & | !"):
+            with self.subTest(text=text):
+                response, results = self.results(text)
+                self.assertEqual(results, [])
+                self.assertContains(response, "No hay noticias con estos filtros")
+
+    def test_unknown_languages_use_exact_words_without_stemming(self):
+        article = self.article("Robots investigan planetas", language="zz")
+        self.assertEqual([item.pk for item in self.results("robots")[1]], [article.pk])
+        self.assertEqual(self.results("robot")[1], [])
+
+    def test_relevance_precedes_date_and_ties_use_date_then_id(self):
+        weak = self.article("Robots estudian nuevas oportunidades para llegar a los mercados")
+        strong = self.article("Robots y mercados", age=2)
+        _, results = self.results("robots mercado")
+        self.assertEqual([item.pk for item in results], [strong.pk, weak.pk])
+        self.assertGreater(results[0].relevance, results[1].relevance)
+        newer = self.article("Robots y mercados", age=1)
+        tied = self.article("Robots y mercados", age=1)
+        Article.objects.filter(pk=tied.pk).update(published_at=newer.published_at)
+        self.assertEqual([item.pk for item in self.results("robots mercado")[1]], [tied.pk, newer.pk, strong.pk, weak.pk])
+
+    def test_blank_search_preserves_chronological_feed(self):
+        older = self.article("Robots y mercados", age=2)
+        newer = self.article("Otra noticia")
+        response, results = self.results("   ")
+        self.assertEqual([item.pk for item in results], [newer.pk, older.pk])
+        self.assertContains(response, "Más reciente")
+        self.assertNotContains(response, "Más relevante")
+
+    def test_search_keeps_source_language_preferences_and_retention(self):
+        expected = self.article("Robots en las empresas")
+        self.article("Robots at work", language="en")
+        self.article("Robots antiguos", age=15)
+        other_topic = self.article("Robots de otro tema")
+        other_topic.categories.set([self.other_category])
+        source = Source.objects.create(name="Otra fuente buscable")
+        other_feed = Feed.objects.create(source=source, name="RSS", url="https://example.com/other-search", is_active=True)
+        other_source = self.article("Robots de otra fuente")
+        other_source.feed = other_feed
+        other_source.save()
+        inactive_feed = Feed.objects.create(source=self.source, name="Inactivo", url="https://example.com/inactive-search")
+        inactive = self.article("Robots sin actividad")
+        inactive.feed = inactive_feed
+        inactive.save()
+        _, results = self.results("robots", source=self.source.pk, language="es")
+        self.assertEqual([item.pk for item in results], [expected.pk])
+
+    def test_pagination_and_save_preserve_query(self):
+        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
+        for index in range(11):
+            article = self.article(f"Robots y mercados edición {index}")
+            article.categories.add(self.other_category)
+        response, results = self.results("robots mercado", source=self.source.pk, language="es", **{"page_otro-buscable": 2})
+        section = response.context["sections"][0]
+        query = parse_qs(urlsplit(section["next_url"]).query)
+        self.assertEqual(query["q"], ["robots mercado"])
+        self.assertEqual(query["page_otro-buscable"], ["2"])
+        self.assertEqual(query["source"], [str(self.source.pk)])
+        self.assertContains(response, "Más relevante")
+        self.assertNotContains(response, "Más reciente")
+        next_url = reverse("news_feed") + "?q=robots+mercado&page_busqueda=2"
+        response = self.client.post(reverse("save_article", args=[results[0].pk]), {"next": next_url})
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+
+    def test_title_and_language_updates_are_searchable_immediately(self):
+        article = self.article("Empresas investigan robots")
+        self.assertTrue(search_articles(Article.objects.all(), "empresa").exists())
+        Article.objects.filter(pk=article.pk).update(title="Researchers explore planets", language="en")
+        self.assertFalse(search_articles(Article.objects.all(), "empresa").exists())
+        self.assertTrue(search_articles(Article.objects.all(), "researcher").exists())
+
+    def test_query_length_limit_and_html_escaping(self):
+        self.article("Robots investigan planetas")
+        response, results = self.results("x" * 201)
+        self.assertTrue(response.context["filter_form"].errors)
+        self.assertEqual(results, [])
+        response, _ = self.results("<script>alert(1)</script>")
+        self.assertNotContains(response, "<script>alert(1)</script>")
+        self.assertContains(response, "&lt;script&gt;")
+
+    def test_search_index_is_used_for_selective_queries(self):
+        Article.objects.bulk_create([
+            Article(feed=self.feed, title="Noticias generales del día", language="es", original_url=f"https://example.com/index-{index}")
+            for index in range(2000)
+        ])
+        self.article("Un descubrimiento de superconductividad")
+        with connection.cursor() as cursor:
+            cursor.execute("ANALYZE news_article")
+        plan = search_articles(Article.objects.all(), "superconductividad").explain()
+        self.assertIn("article_title_search_gin", plan)
+
+
+class SearchFormTests(TestCase):
+    def test_search_input_and_overlong_query(self):
+        user = get_user_model().objects.create_user(username="formulario-buscador")
+        category = Category.objects.create(name="Prueba formulario", slug="formulario-buscador")
+        preference = UserPreference.objects.create(user=user)
+        preference.categories.add(category)
+        self.client.force_login(user)
+        response = self.client.get(reverse("news_feed"))
+        self.assertContains(response, 'type="search"')
+        self.assertContains(response, "Buscar en títulos")
+        if connection.vendor != "postgresql":
+            response = self.client.get(reverse("news_feed"), {"q": "empresa"})
+            self.assertContains(response, "La búsqueda no está disponible en este entorno.")
+            self.assertFalse(response.context["has_articles"])
+        response = self.client.get(reverse("news_feed"), {"q": "x" * 201})
+        self.assertTrue(response.context["filter_form"].errors)
+        self.assertFalse(response.context["has_articles"])
 
 
 class SavedArticleTests(TestCase):
@@ -572,6 +734,40 @@ class ArticleOriginMigrationTests(TransactionTestCase):
             self.assertEqual((origin.feed_id, origin.guid), (feed.pk, "synthetic-guid"))
             self.assertEqual(list(origin.categories.values_list("pk", flat=True)), [category.pk])
             self.assertEqual(NewOrigin.objects.get(article_id=without_guid.pk).guid, "")
+        finally:
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+@skipUnless(connection.vendor == "postgresql", "El índice GIN requiere PostgreSQL")
+class ArticleSearchMigrationTests(TransactionTestCase):
+    def test_index_supports_existing_articles_and_can_be_reversed(self):
+        old_target = [("news", "0008_savedarticle")]
+        new_target = [("news", "0009_article_article_title_search_gin")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(old_target)
+        try:
+            old_apps = executor.loader.project_state(old_target).apps
+            source = old_apps.get_model("news", "Source").objects.create(name="Fuente anterior al índice")
+            feed = old_apps.get_model("news", "Feed").objects.create(
+                source=source, name="RSS", url="https://example.com/before-index", is_active=True,
+            )
+            article = old_apps.get_model("news", "Article").objects.create(
+                feed=feed, title="Las empresas investigan mercados", language="es",
+                original_url="https://example.com/before-index-article", published_at=timezone.now(),
+            )
+            before = Article.objects.filter(pk=article.pk).values().get()
+            MigrationExecutor(connection).migrate(new_target)
+            self.assertEqual(Article.objects.filter(pk=article.pk).values().get(), before)
+            self.assertEqual(search_articles(Article.objects.all(), "la empresa").get().pk, article.pk)
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT indexdef FROM pg_indexes WHERE indexname = 'article_title_search_gin'")
+                self.assertIn("USING gin", cursor.fetchone()[0])
+            MigrationExecutor(connection).migrate(old_target)
+            self.assertEqual(Article.objects.filter(pk=article.pk).values().get(), before)
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT indexname FROM pg_indexes WHERE indexname = 'article_title_search_gin'")
+                self.assertIsNone(cursor.fetchone())
         finally:
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())

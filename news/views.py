@@ -3,6 +3,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
+from django.db import connection
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -10,6 +11,7 @@ from django.views.decorators.http import require_POST
 from .forms import NewsFilterForm, PreferenceForm
 from .models import Article, SavedArticle, UserPreference
 from .retention import retention_cutoff
+from .search import search_articles
 
 
 ARTICLES_PER_CATEGORY = 10
@@ -58,6 +60,7 @@ def news_feed(request):
     filter_form = NewsFilterForm(request.GET, articles=available_articles)
     filtered_articles = available_articles
     filters_active = False
+    search_text = ""
     if filter_form.is_valid():
         source = filter_form.cleaned_data["source"]
         language = filter_form.cleaned_data["language"]
@@ -65,7 +68,14 @@ def news_feed(request):
             filtered_articles = filtered_articles.filter(feed__source=source)
         if language:
             filtered_articles = filtered_articles.filter(language=language)
-        filters_active = bool(source or language)
+        search_text = filter_form.cleaned_data["q"]
+        if search_text:
+            if connection.vendor == "postgresql":
+                filtered_articles = search_articles(filtered_articles, search_text)
+            else:
+                filter_form.add_error("q", "La búsqueda no está disponible en este entorno.")
+                filtered_articles = available_articles.none()
+        filters_active = bool(source or language or search_text)
     else:
         # Una URL con filtros inválidos no debe mostrar resultados sin filtrar.
         filtered_articles = available_articles.none()
@@ -73,7 +83,9 @@ def news_feed(request):
     for category in categories:
         category_articles = (
             filtered_articles.filter(categories=category)
-            .select_related("feed__source").order_by("-published_at", "-id")
+            .select_related("feed__source").order_by(
+                *(["-relevance"] if search_text and not filter_form.errors else []), "-published_at", "-id",
+            )
         )
         paginator = Paginator(category_articles, ARTICLES_PER_CATEGORY)
         page_key = f"page_{category.slug}"
@@ -103,6 +115,7 @@ def news_feed(request):
     return render(request, "news/feed.html", {
         "sections": sections, "filter_form": filter_form,
         "filters_active": filters_active,
+        "search_text": search_text,
         "has_articles": any(section["article_count"] for section in sections),
         "saved_ids": set(SavedArticle.objects.filter(user=request.user).values_list("article_id", flat=True)),
     })

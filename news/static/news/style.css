@@ -97,7 +97,7 @@ nav { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1.5rem; }
 .account-form { margin-top: 2rem; }
 .account-form > p { margin-block: 1.25rem; }
 .account-form label, .filter-field label { display: block; margin-bottom: .5rem; font-weight: 650; }
-input[type="text"], input[type="password"], select { display: block; width: 100%; min-height: 48px; padding: .65rem .875rem; border: 1px solid var(--control-line); border-radius: 4px; background: var(--surface); color: var(--ink); }
+input[type="text"], input[type="password"], input[type="search"], select { display: block; width: 100%; min-height: 48px; padding: .65rem .875rem; border: 1px solid var(--control-line); border-radius: 4px; background: var(--surface); color: var(--ink); }
 input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--error); }
 .helptext { display: block; margin-top: .5rem; color: var(--muted); font-size: .9375rem; }
 .helptext ul { padding-left: 1.25rem; }
@@ -127,7 +127,7 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 .feed-edit-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 650; }
 .feed-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem; padding-block: 1.25rem; margin-bottom: 2rem; border-block: 1px solid var(--line); }
 .filter-field { flex: 0 1 16rem; min-width: 0; }
-.filter-field select { width: 100%; }
+.filter-field select, .filter-field input { width: 100%; }
 .filter-reset { display: inline-flex; align-items: center; min-height: 48px; }
 .feed-filters .button, .filter-reset { margin-top: 2rem; }
 .category-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; margin-bottom: 3rem; }

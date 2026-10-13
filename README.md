@@ -11,6 +11,7 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
 - Filtros combinables por fuente e idioma en la página personalizada.
 - Paginación independiente de diez noticias por categoría, con estado en la URL.
+- Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
 - Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
 - Identidad editorial compartida en inicio, ingreso, registro, preferencias y noticias; fuentes locales y diseño adaptable.
 - Limpieza de noticias de más de 14 días, con vista previa.
@@ -81,11 +82,15 @@ python manage.py runserver
 
 Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
 
-Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta hasta cuatro columnas desde 1280 px, dos entre 768 y 1279 px y una por debajo de 768 px. Las columnas se ordenan por el total de noticias filtradas, de mayor a menor, con desempate alfabético. Cada sección muestra diez titulares por página, con fuente, fecha, idioma y enlace original; la última puede tener menos. «Más reciente» identifica únicamente el primer artículo de la primera página; aún no se calcula relevancia.
+Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta hasta cuatro columnas desde 1280 px, dos entre 768 y 1279 px y una por debajo de 768 px. Las columnas se ordenan por el total de noticias filtradas, de mayor a menor, con desempate alfabético. Cada sección muestra diez titulares por página, con fuente, fecha, idioma y enlace original; la última puede tener menos. «Más reciente» identifica únicamente el primer artículo de la primera página sin búsqueda; al buscar se muestra «Más relevante».
 
 «Anterior», «Página X de Y» y «Siguiente» aparecen cuando una sección tiene más de diez noticias. La paginación es independiente: `/noticias/?source=1&language=es&page_tecnologia=2&page_ciencia=3` mantiene filtros y páginas de las otras categorías. Los enlaces regresan al encabezado de la sección mediante un fragmento. Una página ausente, no entera o menor que uno muestra la primera; una superior al máximo muestra la última. Funciona sin JavaScript y conserva el estado al recargar o usar el historial del navegador.
 
 Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros», antes de paginar, y mantienen la selección en la URL. Aplicar o limpiar filtros reinicia todas las páginas. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran errores y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 14 días no aparecen aunque todavía no haya corrido la limpieza.
+
+«Buscar en títulos» permite ingresar hasta 200 caracteres. Por ejemplo, `la empresa` encuentra títulos en español que contienen `empresas`: se descarta `la` y se aplica stemming. Se buscan todas las palabras significativas, sin distinguir mayúsculas; no es una búsqueda por fragmentos ni una traducción. Español, inglés y portugués usan sus respectivos diccionarios según el idioma de la noticia; los demás usan palabras sin stemming. Una consulta compuesta sólo por stop words queda sin resultados. El stemming no relaciona todas las variantes de una palabra.
+
+Los resultados se ordenan por relevancia dentro de cada categoría, con desempate por fecha e ID. La búsqueda se combina con fuente e idioma, se conserva al paginar o guardar noticias y se limpia con «Limpiar filtros». Una búsqueda vacía vuelve al orden cronológico. Ejemplo: `/noticias/?q=empresa&language=es&page_tecnologia=2`. PostgreSQL mantiene el índice GIN cuando ingresan noticias o cambian títulos o idiomas; no requiere otro comando ni nuevas dependencias.
 
 Inicio, ingreso y registro combinan un panel azul con la marca tipográfica y una zona clara para contenido o formularios. Las preferencias usan casillas nativas con etiquetas completas. La interfaz comparte colores, controles, mensajes y foco visible; mantiene los textos y recorridos anteriores. Archivo y Source Sans 3 se sirven desde `news/static/news/fonts/`, con sus licencias OFL y fuentes de respaldo, sin consultar Google al navegar. No se requieren paquetes ni variables de entorno nuevos.
 
@@ -96,6 +101,8 @@ La clasificación usa la lista editable de [news/category_aliases.py](./news/cat
 «Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como columnas en `/noticias/`.
 
 ## Actualizar una instalación existente
+
+La migración `0009_article_article_title_search_gin` crea el índice de búsqueda para los títulos existentes y futuros en PostgreSQL. Aplicar con `python manage.py migrate`; el build de Render ejecuta este comando. La construcción normal del índice puede bloquear escrituras mientras termina.
 
 La migración `0008_savedarticle` crea la tabla de noticias guardadas. Ejecutar `python manage.py migrate` al actualizar la aplicación; el build configurado de Render ya incluye ese comando.
 
@@ -151,7 +158,15 @@ python manage.py check --settings=config.test_settings
 python manage.py makemigrations --check --dry-run --settings=config.test_settings
 ```
 
-`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker, credenciales reales ni `collectstatic`. Sólo en pruebas se desactiva la redirección HTTPS, se usa almacenamiento estático sin manifiesto y se excluye WhiteNoise; producción mantiene su configuración. La suite cubre filtros, protección de acceso, categorías, paginación y enlaces independientes, parámetros inválidos, orden, conservación, orígenes, reclasificación, GUID y migración con datos existentes. Para comprobar PostgreSQL, usar `python manage.py test` con la configuración normal y una cuenta con permiso para crear la base de pruebas. La configuración de pruebas no debe usarse para ejecutar o desplegar la aplicación.
+`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker, credenciales reales ni `collectstatic`. Sólo en pruebas se desactiva la redirección HTTPS, se usa almacenamiento estático sin manifiesto y se excluye WhiteNoise; producción mantiene su configuración. La suite cubre filtros, protección de acceso, categorías, paginación, guardadas, conservación, orígenes, reclasificación, GUID y migración con datos existentes. En SQLite se omiten las doce pruebas específicas de PostgreSQL y el índice GIN no se crea; buscar muestra un aviso de indisponibilidad, sin simular stemming ni ranking.
+
+Para ejecutar la suite completa, configurar las variables `POSTGRES_*` existentes para una instancia PostgreSQL de desarrollo y una cuenta con permiso para crear bases, y ejecutar:
+
+```powershell
+python manage.py test --settings=config.postgres_test_settings --noinput
+```
+
+Django crea una base `test_<POSTGRES_DB>` separada y la elimina al terminar. Esta configuración conserva los ajustes aislados de pruebas; verifica búsqueda por idioma, stop words, stemming, relevancia, paginación, uso del índice y migración reversible con noticias existentes. Las configuraciones de pruebas no deben usarse para ejecutar o desplegar la aplicación.
 
 ## Documentación
 

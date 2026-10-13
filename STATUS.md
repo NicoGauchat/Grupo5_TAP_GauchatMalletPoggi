@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-13
-**Objetivo actual:** noticias guardadas y mensajes vacíos implementados; completar la validación remota de la entrega 1.
+**Objetivo actual:** búsqueda indexada en títulos implementada y verificada en PostgreSQL local; completar la validación remota de la entrega 1.
 
 ## Último paso completado
+
+Se agregó Buscar en títulos con `q` de hasta 200 caracteres, integrado a preferencias, fuente, idioma y paginación. Usa stop words y stemming de PostgreSQL para español, inglés y portugués según el idioma de cada noticia, con variantes regionales. Otros idiomas usan `simple`. Las consultas requieren todas las palabras significativas; si sólo hay stop words no muestran noticias. Con búsqueda, cada categoría ordena por relevancia, fecha e ID; sin búsqueda conserva el orden cronológico. Los botones Guardar y Quitar conservan también la búsqueda al regresar.
+
+La migración `0009_article_article_title_search_gin` crea un índice funcional GIN que PostgreSQL mantiene para títulos existentes y cambios futuros, sin nuevas columnas ni servicios. Se verificó en una instancia PostgreSQL 17 temporal, independiente de las bases del usuario, con datos sintéticos externos al repositorio. No se agregaron dependencias ni comentarios al código nuevo. README y PROJECT incluyen uso, límites, comandos de prueba y decisión técnica investigada. SOURCES y `.env.example` no requieren cambios: no se modifican feeds, permisos ni variables.
+
+## Noticias guardadas del bloque anterior
 
 Se agregaron botones Guardar y Quitar de guardadas y la página privada Mis guardadas, con diez noticias por página, ordenadas por fecha de guardado. La migración `0008_savedarticle` incorpora la relación única usuario/noticia. Los formularios POST requieren sesión y CSRF, conservan filtros y página al regresar y rechazan redirecciones externas. Las noticias guardadas respetan los 14 días de conservación y se eliminan en cascada junto con la noticia; no se copian contenidos ni se extiende la retención.
 
@@ -25,6 +31,8 @@ Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta 
 
 ## Completado
 
+- Búsqueda en títulos con índice GIN, stop words, stemming por idioma y ranking dentro de cada categoría.
+
 - Guardar y quitar noticias por usuario, Mis guardadas paginada y mensajes generales para estados vacíos.
 
 - Django, PostgreSQL local con Docker Compose y arquitectura anterior conservada como referencia histórica.
@@ -44,7 +52,7 @@ Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta 
 
 ## Pendiente y limitaciones
 
-- Aplicar y verificar la nueva migración en PostgreSQL real; el bloqueo de filas se usa en la ingesta, pero SQLite no permite comprobar su comportamiento real en PostgreSQL.
+- Aplicar y verificar las migraciones recientes en PostgreSQL remoto; la búsqueda y la suite se comprobaron en PostgreSQL local, pero no se verificó la ingesta concurrente entre procesos ni el despliegue remoto.
 - Verificar el build de Render, conexión a Supabase, aplicación publicada y persistencia; la configuración preparada no acredita un despliegue correcto.
 - Configurar o comprobar credenciales en los paneles y `NEWS_INGESTION_ENABLED`, y verificar la primera ejecución manual y programada en Actions. Este bloque no carga secretos ni activa servicios remotos.
 - Los horarios de Actions son previstos: puede haber retrasos u omisiones. La pausa de 00:00 a 06:00 y los feeds cortos pueden causar pérdidas de entradas; las consultas cada dos horas no garantizan captura exhaustiva.
@@ -56,6 +64,15 @@ Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta 
 No hay bloqueos conocidos para validar el despliegue. La comprobación remota requiere acceso a las cuentas y credenciales configuradas fuera del repositorio.
 
 ## Última verificación
+
+- Suite completa en PostgreSQL 17: **52 pruebas aprobadas**, incluyendo búsqueda, stop words, stemming en tres idiomas, ranking y desempates, filtros, retención, paginación, guardados y migración reversible con noticias existentes.
+- Suite SQLite: **40 pruebas aprobadas y 12 omitidas** por requerir PostgreSQL. Conserva las verificaciones generales y el formulario de búsqueda; no implementa búsqueda alternativa.
+- `EXPLAIN` con 2001 noticias sintéticas comprobó el uso natural de `article_title_search_gin` en una búsqueda selectiva. La prueba de migración conserva todos los campos de la noticia y verifica la creación y eliminación del índice GIN.
+- Microsoft Edge contra PostgreSQL local: búsqueda con stemming y stop words, Enter, resultados vacíos, limpieza, paginación y guardado/quita conservando `q` comprobados. Capturas revisadas a 375 y 1440 px, sin desbordamiento y con controles de al menos 44 px.
+- `manage.py check`, `makemigrations --check --dry-run` con ajustes aislados y `git diff --check`: sin problemas.
+- La migración de búsqueda todavía no se aplicó ni verificó en Supabase/Render desde esta tarea.
+
+## Verificación de noticias guardadas
 
 - Suite completa: **39 pruebas aprobadas**. Las ocho pruebas nuevas verifican sesión, POST, CSRF, aislamiento entre usuarios, guardados repetidos, redirecciones, conservación de URL, retención, paginación y mensajes vacíos.
 - `manage.py check --settings=config.test_settings` y `git diff --check`: sin problemas.

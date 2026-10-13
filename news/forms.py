@@ -4,6 +4,10 @@ from .models import Source, UserPreference
 
 
 class NewsFilterForm(forms.Form):
+    q = forms.CharField(
+        label="Buscar en títulos", required=False, max_length=200,
+        widget=forms.TextInput(attrs={"type": "search", "placeholder": "Ejemplo: inteligencia artificial"}),
+    )
     source = forms.ModelChoiceField(
         label="Fuente", queryset=Source.objects.none(), required=False,
         empty_label="Todas las fuentes",

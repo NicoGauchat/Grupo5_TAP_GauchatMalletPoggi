@@ -22,6 +22,9 @@
         <button class="button" type="submit">Aplicar filtros</button>
         <a class="filter-reset" href="{% url 'news_feed' %}">Limpiar filtros</a>
     </form>
+    {% if search_text and not filter_form.errors %}
+        <p>Resultados para «{{ search_text }}», ordenados por relevancia dentro de cada categoría.</p>
+    {% endif %}
     {% if not has_articles %}
         <section class="feed-empty">
             {% if filter_form.errors %}
@@ -30,7 +33,7 @@
                 <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
             {% elif filters_active %}
                 <h2>No hay noticias con estos filtros</h2>
-                <p>Probá con otra fuente o idioma.</p>
+                <p>Probá con otras palabras, otra fuente o idioma.</p>
                 <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
             {% else %}
                 <h2>Todavía no hay noticias disponibles para tus categorías</h2>
@@ -49,7 +52,7 @@
                 {% if section.articles %}
                     {% for article in section.articles %}
                         <article class="news-item{% if forloop.first %} news-item-leading{% endif %}">
-                            {% if forloop.first and section.page.number == 1 %}<p class="leading-label">Más reciente</p>{% endif %}
+                            {% if forloop.first and section.page.number == 1 %}<p class="leading-label">{% if search_text %}Más relevante{% else %}Más reciente{% endif %}</p>{% endif %}
                             <h3><a href="{{ article.original_url }}">{{ article.title }}</a></h3>
                             {% if forloop.first and article.summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
                             <p class="news-meta">
