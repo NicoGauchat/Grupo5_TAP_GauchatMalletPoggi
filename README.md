@@ -10,12 +10,13 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Modelos y administración de categorías, fuentes, feeds y artículos.
 - Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta.
 - Filtros combinables por fuente e idioma en la página personalizada.
-- Limpieza de noticias de más de 60 días, con vista previa.
-- Workflow de GitHub Actions para limpieza e ingesta cada hora; pendiente de activar con una base pública persistente.
+- Limpieza de noticias de más de 14 días, con vista previa.
+- Preparación de despliegue gratuito de Django en Render y PostgreSQL administrado en Supabase.
+- Workflow de GitHub Actions para limpieza e ingesta cuatro veces por día; pendiente de activar.
 
 ## Funcionalidades previstas
 
-- Configurar PostgreSQL público y activar la recolección periódica.
+- Crear el proyecto de Supabase, desplegar Django en Render y activar la recolección periódica.
 - Ampliar la cobertura de las ocho categorías. Deportes queda para una etapa posterior.
 - Incorporar posteriormente agrupamiento de coberturas y GDELT como complemento.
 
@@ -24,7 +25,8 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Python y Django para la aplicación web, autenticación, interfaz del servidor e ingesta.
 - PostgreSQL para usuarios, preferencias, fuentes y noticias.
 - Plantillas HTML de Django, CSS y JavaScript mínimo para la interfaz.
-- GitHub Actions para ejecutar periódicamente el comando de ingesta.
+- Render para alojar Django y servir archivos estáticos.
+- Supabase para PostgreSQL; GitHub Actions para ejecutar periódicamente el comando de ingesta.
 
 ## Arquitectura resumida
 
@@ -34,7 +36,7 @@ Feeds RSS → comando de ingesta Django → normalización y deduplicación → 
 Navegador → páginas Django con autenticación y preferencias ──────────┘
 ```
 
-El proveedor para alojar Django y PostgreSQL aún no está decidido. Se elegirá después de comprobar persistencia y límites del plan gratuito. No se utilizarán servicios pagos.
+Render aloja la aplicación Django y Supabase PostgreSQL mantiene los datos. La configuración se declara en `render.yaml`; las credenciales se cargan al crear el servicio y no se versionan. Se prevé usar los planes gratuitos sin agregar recursos pagos.
 
 ## Estado
 
@@ -74,9 +76,9 @@ python manage.py runserver
 
 Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
 
-Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta las categorías elegidas en hasta cuatro columnas; pasa a dos o una columna en pantallas más chicas. Las columnas se ordenan por cantidad de noticias, de mayor a menor, y el encabezado indica el total filtrado de cada categoría. En cada una se muestran hasta diez titulares recientes con fuente, fecha, idioma y enlace al artículo original. El primero se destaca por ser el más reciente; aún no se calcula relevancia. Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros» y mantienen la selección en la URL, por ejemplo `/noticias/?source=1&language=es`. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran un error y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 60 días no aparecen, aunque todavía no haya corrido la limpieza.
+Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta las categorías elegidas en hasta cuatro columnas; pasa a dos o una columna en pantallas más chicas. Las columnas se ordenan por cantidad de noticias, de mayor a menor, y el encabezado indica el total filtrado de cada categoría. En cada una se muestran hasta diez titulares recientes con fuente, fecha, idioma y enlace al artículo original. El primero se destaca por ser el más reciente; aún no se calcula relevancia. Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros» y mantienen la selección en la URL, por ejemplo `/noticias/?source=1&language=es`. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran un error y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 14 días no aparecen, aunque todavía no haya corrido la limpieza.
 
-`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los once feeds activos guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 60 días se omiten. La ejecución periódica queda pendiente de activar con una base pública.
+`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los once feeds activos guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 14 días se omiten. La ejecución periódica queda pendiente de activar con una base pública.
 
 La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
 
@@ -89,23 +91,30 @@ python manage.py purge_old_articles --dry-run
 python manage.py purge_old_articles
 ```
 
-El primer comando cuenta sin borrar; el segundo elimina de la base configurada. Se toma la fecha de publicación: se conserva una noticia de exactamente 60 días y se elimina cuando supera esa edad. Para registros sin fecha de publicación se usa la captura. Se limpian también noticias de feeds desactivados. Se conservan fuentes, feeds, categorías y preferencias; se eliminan las asociaciones de los artículos borrados.
+El primer comando cuenta sin borrar; el segundo elimina de la base configurada. Se toma la fecha de publicación: se conserva una noticia de exactamente 14 días y se elimina cuando supera esa edad. Para registros sin fecha de publicación se usa la captura. Se limpian también noticias de feeds desactivados. Se conservan fuentes, feeds, categorías y preferencias; se eliminan las asociaciones de los artículos borrados.
 
 ## Ingesta periódica con GitHub Actions
 
-[.github/workflows/ingest-feeds.yml](./.github/workflows/ingest-feeds.yml) ejecuta la limpieza y después la ingesta cada hora, al minuto 17 UTC, y permite una ejecución manual desde Actions. Usa Python 3.13, permisos de lectura y una única ejecución de mantenimiento a la vez. La limpieza ocurre antes de consultar los feeds para que un fallo de RSS no impida aplicar la conservación.
+[.github/workflows/ingest-feeds.yml](./.github/workflows/ingest-feeds.yml) ejecuta la limpieza y después la ingesta cada seis horas, al minuto 17 UTC (cuatro veces por día), y permite una ejecución manual desde Actions. Usa Python 3.13, permisos de lectura y una única ejecución de mantenimiento a la vez. La limpieza ocurre antes de consultar los feeds para que un fallo de RSS no impida aplicar la conservación.
 
-**El workflow está preparado, pero no está activo.** Primero hay que elegir PostgreSQL público, persistente y permitido en un plan gratuito. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
+**El workflow está preparado, pero no está activo.** GitHub Actions y Render usarán el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
 
 Para activarlo:
 
-1. Subir el workflow a la rama predeterminada.
-2. Configurar la base pública y aplicar `python manage.py migrate` contra ella usando su configuración local protegida. La aplicación web y la ingesta deben usar esa misma base.
-3. En **Settings → Secrets and variables → Actions**, agregar los secretos `DJANGO_SECRET_KEY`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_HOST`.
-4. Agregar la variable `POSTGRES_PORT` si difiere de `5432`. El workflow usa `POSTGRES_SSLMODE=require` por defecto; puede configurarse como `verify-ca` o `verify-full` con los certificados necesarios según el proveedor. Para Docker local, `.env.example` conserva `prefer`.
-5. Establecer la variable `NEWS_INGESTION_ENABLED` en `true` y ejecutar manualmente «Ingesta y limpieza de noticias» para comprobar la conexión. Para pausar, cambiar esa variable a `false`.
+1. Crear el proyecto de Supabase en **East US (North Virginia)** para usar una región cercana a Render Virginia.
+2. En Connect → Session pooler, copiar host, nombre de base, usuario y contraseña. La configuración esperada es puerto `5432` y SSL `require`; el pooler compartido admite IPv4, necesario para estos servicios.
+3. Subir `render.yaml` a `main` y crear un Blueprint desde el panel de Render. Al aplicarlo, completar las variables de conexión a Supabase cuando Render las solicite. El build instala las dependencias, recoge archivos estáticos y aplica migraciones; no crea una segunda base.
+4. En Settings → Secrets and variables → Actions, agregar los secretos `DJANGO_SECRET_KEY`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_HOST`. Usar los mismos valores de conexión de Supabase; `DJANGO_SECRET_KEY` puede generarse con el comando indicado arriba.
+5. En Variables → Actions, establecer `POSTGRES_PORT=5432`, `POSTGRES_SSLMODE=require` y `NEWS_INGESTION_ENABLED=true`. Ejecutar manualmente «Ingesta y limpieza de noticias» para comprobar la conexión. Para pausar, cambiar `NEWS_INGESTION_ENABLED` a `false`.
+6. El plan gratuito de Render no incluye Shell. Para crear la cuenta administradora, configurar temporalmente el `.env` local con las credenciales de Supabase y ejecutar `python manage.py createsuperuser`; después, restaurar la configuración local. Gestionar feeds desde `/admin/`.
 
 El workflow comprueba los secretos sin imprimir sus valores y exige migraciones aplicadas; no modifica automáticamente el esquema público. Si falla un feed, continúa con los demás y finalmente marca la ejecución como fallida. Los resultados están en Actions. GitHub puede retrasar horarios y desactiva la programación en repositorios públicos tras 60 días sin actividad. Revisar la cuota gratuita de Actions antes de activarlo. Referencias: [horarios](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) y [secretos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+
+## Despliegue web en Render
+
+`render.yaml` describe un servicio web gratuito, vinculado a la rama `main`, con Django, Gunicorn y WhiteNoise. Render genera `DJANGO_SECRET_KEY`; el resto de las credenciales de Supabase se solicitan al crear el Blueprint. Los cambios desplegados sirven archivos estáticos mediante WhiteNoise. Las migraciones se ejecutan durante el build, y las noticias continúan en PostgreSQL aunque el servicio se reinicie.
+
+El plan gratuito de Render duerme el servicio tras 15 minutos sin solicitudes y puede tardar cerca de un minuto en despertar. Tiene 750 horas de instancia por espacio de trabajo al mes y un sistema de archivos efímero; por eso no guardamos noticias en el disco de Render. Supabase Free ofrece 500 MB de base de datos y puede pausar proyectos con poca actividad durante siete días. La ingesta cuatro veces al día ayudará a mantener actividad, pero hay que revisar el estado y el uso desde ambos paneles. Render indica que Free es para pruebas y proyectos personales, no para aplicaciones con requisitos de disponibilidad; además, los excesos de cuota pueden generar cargos si se agrega un medio de pago. Para mantener este despliegue sin costo, no agregar recursos pagos ni un medio de pago y revisar las cuotas. Referencias: [límites gratuitos y condiciones de Render](https://render.com/docs/free), [preguntas frecuentes de facturación de Render](https://render.com/docs/faq), [despliegue Django en Render](https://render.com/docs/deploy-django), [conexiones PostgreSQL de Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres) y [pausa de proyectos Supabase](https://supabase.com/docs/guides/platform/free-project-pausing).
 
 ## Verificación
 

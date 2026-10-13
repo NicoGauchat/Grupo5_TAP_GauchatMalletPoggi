@@ -1,15 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-12
-**Objetivo actual:** integrar los avances de fuentes y categorías con los filtros y el mantenimiento periódico.
+**Objetivo actual:** preparar el despliegue de Django en Render con PostgreSQL en Supabase y activar la ingesta periódica.
 
 ## Último paso completado
 
-Se integraron los cambios de ambas ramas: ocho categorías, once feeds activos, presentación panorámica con columnas ordenadas por cantidad de noticias y filtros por fuente e idioma. Se incorporaron la ventana común de 60 días, el comando de limpieza y el workflow horario de GitHub Actions que faltaban en el commit remoto.
+Se eligieron Render Free para el servicio web y Supabase Free para PostgreSQL. Se prepararon la configuración de producción, el Blueprint de Render, los paquetes para servir la aplicación y la frecuencia de ingesta cada seis horas. La retención y consulta de noticias se ajustaron a 14 días.
 
 ## Próximo paso
 
-Configurar PostgreSQL público persistente en un plan gratuito permitido para activar y verificar el workflow de ingesta.
+Crear el proyecto de Supabase, aplicar el Blueprint de Render con sus credenciales y luego cargar los secretos/variables de GitHub Actions para verificar una ingesta manual.
 
 ## Completado
 
@@ -17,26 +17,28 @@ Configurar PostgreSQL público persistente en un plan gratuito permitido para ac
 - Registro, ingreso, salida y preferencias individuales.
 - Ocho categorías y once feeds RSS activos precargados mediante migraciones.
 - Ingesta RSS/Atom, clasificación por etiquetas aprobadas, deduplicación exacta y solicitudes condicionales.
-- Página personalizada con hasta diez noticias por categoría, columnas ordenadas por cantidad y filtros combinables por fuente e idioma.
-- Limpieza de noticias de más de 60 días con vista previa; ingesta y consulta usan la misma ventana.
-- Workflow horario y manual preparado, inactivo hasta configurar base pública y secretos.
-- Los once feeds activos no guardan resúmenes, imágenes ni artículos completos.
+- Página personalizada con noticias por categoría, columnas ordenadas por cantidad y filtros por fuente e idioma.
+- Conservación inicial de 14 días, compartida por ingesta, consulta y limpieza.
+- Configuración de Render Free y conexión prevista a Supabase Session pooler con SSL.
+- Workflow manual y programado cuatro veces al día; queda inactivo hasta configurar secretos y `NEWS_INGESTION_ENABLED`.
+- No se guardan artículos completos ni imágenes; `SOURCES.md` no cambió porque no se modificaron feeds ni políticas.
 
 ## Pendiente
 
-- Activar y verificar la automatización con una base PostgreSQL pública y persistente.
-- Elegir alojamiento público para Django con un plan gratuito permitido.
-- Revisar el ruido de Clarín Mundo y Economía y evaluar más fuentes para mercados argentinos.
+- Provisionar Supabase y Render, ejecutar el primer despliegue y verificar la aplicación publicada.
+- Revisar el ruido de Clarín Mundo y Economía y evaluar nuevas fuentes para mercados argentinos.
 
 ## Bloqueos
 
-- La ejecución real del workflow requiere una base pública y secretos de Actions aún no configurados.
+- La activación requiere crear la cuenta/proyecto remoto y cargar credenciales en los paneles; no compartir secretos por chat ni versionarlos.
 
 ## Última verificación
 
-- La rama local y la remota partían de `41d23c7`; la integración preservó ambas líneas de cambios.
-- El commit remoto referenciaba `news.retention`, `purge_old_articles`, `config.test_settings` y el workflow sin incluir esos archivos; se incorporaron durante la integración.
-- `SOURCES.md` no requirió cambios en esta integración: no cambiaron feeds, estados ni políticas de uso.
-- `python manage.py check`: sin problemas.
-- `python manage.py makemigrations --check --dry-run`: sin cambios de esquema. La comprobación del historial de la base local emitió una advertencia de conexión agotada porque PostgreSQL no respondió.
-- `check` y `makemigrations --check --dry-run` con `config.test_settings`: sin problemas y sin cambios de esquema.
+- Revisión de documentación oficial de Render, Supabase, Gunicorn y WhiteNoise; licencias MIT y proyectos comparables registrados en `PROJECT.md`.
+- Render Free duerme tras 15 minutos sin tráfico y tiene filesystem efímero; Supabase Free ofrece 500 MB y puede pausar proyectos con poca actividad durante siete días.
+- La ventana de retención es configurable en `news/retention.py`; feeds, resúmenes e imágenes no cambiaron.
+- `.venv` instaló `requirements.txt` en Windows; Gunicorn se omitió por su marcador de plataforma y WhiteNoise se instaló correctamente.
+- `manage.py check --settings=config.test_settings`: sin problemas; `makemigrations --check --dry-run`: sin cambios de esquema.
+- `collectstatic` real copió 128 archivos y procesó 384 con WhiteNoise; la salida vive en el directorio ignorado `staticfiles/`. `git diff --check`: sin errores.
+- No se ejecutó la suite de pruebas ni un despliegue remoto; requieren verificación posterior en el entorno configurado.
+- La cuenta administradora se creará desde el entorno local conectado a Supabase, ya que Render Free no ofrece Shell.

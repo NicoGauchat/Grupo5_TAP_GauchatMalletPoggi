@@ -135,7 +135,7 @@ class NewsFeedTests(TestCase):
 class RetentionTests(TestCase):
     def setUp(self):
         self.now = timezone.now()
-        self.cutoff = self.now - timedelta(days=60)
+        self.cutoff = self.now - timedelta(days=14)
         self.source = Source.objects.create(name="Fuente de retención")
         self.feed = Feed.objects.create(
             source=self.source, name="RSS", url="https://example.com/retention", is_active=True,

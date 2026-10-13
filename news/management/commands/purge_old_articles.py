@@ -8,7 +8,7 @@ from news.retention import retention_cutoff
 
 
 class Command(BaseCommand):
-    help = "Elimina noticias de más de 60 días; --dry-run sólo las cuenta."
+    help = "Elimina noticias de más de 14 días; --dry-run sólo las cuenta."
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true", help="Mostrar cuántas se borrarían")

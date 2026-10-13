@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 
-RETENTION_DAYS = 60
+RETENTION_DAYS = 14
 
 
 def retention_cutoff():
