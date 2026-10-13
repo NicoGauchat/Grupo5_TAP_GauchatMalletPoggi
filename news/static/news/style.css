@@ -70,7 +70,7 @@ nav { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1.5rem; }
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: .75rem 1.5rem; border: 1px solid transparent; border-radius: 4px; background: var(--blue); color: var(--surface); font-weight: 650; text-decoration: none; cursor: pointer; }
 .button:hover { background: var(--blue-hover); color: var(--surface); }
 .button:active { background: #112782; }
-.button, .text-button, a, input, select { transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease; }
+.button, .text-button, .save-icon-button, a, input, select { transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease; }
 .button:disabled { background: var(--line); color: var(--muted); cursor: default; }
 .message { margin: 1.5rem 0; padding: 1rem 1.25rem; background: #e6f3eb; color: var(--success); border: 1px solid #afcbb9; border-radius: 4px; }
 
@@ -146,8 +146,14 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 .news-item h2 { margin: 0; font-family: var(--body-font); font-size: 1.125rem; line-height: 1.35; }
 .news-item h2 a { color: var(--ink); text-decoration: none; }
 .news-item h2 a:hover { color: var(--blue); text-decoration: underline; }
-.save-form { margin-top: .75rem; }
-.save-form .text-button { color: var(--blue); text-decoration: underline; text-align: left; }
+.news-item-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: .5rem; margin-top: .75rem; }
+.news-item-footer .news-meta { flex: 1; min-width: 0; margin: 0; }
+.save-form { flex: 0 0 auto; margin: 0; }
+.save-icon-button { display: grid; width: 44px; height: 44px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--blue); cursor: pointer; }
+.save-icon-button:hover { border-color: var(--blue); background: #edf1ff; color: var(--blue-hover); }
+.save-icon-button:active { background: #dfe6ff; }
+.save-icon-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.save-icon-button.is-saved svg { fill: currentColor; }
 .news-meta { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: .75rem 0 0; color: var(--muted); font-size: .875rem; line-height: 1.4; }
 .news-meta span:first-child { flex-basis: 100%; font-weight: 650; }
 .news-meta time { font-variant-numeric: tabular-nums; }
@@ -207,5 +213,5 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .button, .text-button, a, input, select { transition: none; }
+    .button, .text-button, .save-icon-button, a, input, select { transition: none; }
 }

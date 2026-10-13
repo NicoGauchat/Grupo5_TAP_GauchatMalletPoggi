@@ -12,12 +12,14 @@
         {% for saved in page %}
             <article class="news-item">
                 <h2><a href="{{ saved.article.original_url }}">{{ saved.article.title }}</a></h2>
-                <p class="news-meta">
-                    <span>{{ saved.article.feed.source.name }}</span>
-                    <time datetime="{{ saved.article.published_at|date:'c' }}">{{ saved.article.published_at|date:'j/m/Y H:i' }}</time>
-                    {% if saved.article.language %}<span>{{ saved.article.language|upper }}</span>{% endif %}
-                </p>
-                {% include 'news/save_button.html' with article=saved.article removing=True %}
+                <footer class="news-item-footer">
+                    <p class="news-meta">
+                        <span>{{ saved.article.feed.source.name }}</span>
+                        <time datetime="{{ saved.article.published_at|date:'c' }}">{{ saved.article.published_at|date:'j/m/Y H:i' }}</time>
+                        {% if saved.article.language %}<span>{{ saved.article.language|upper }}</span>{% endif %}
+                    </p>
+                    {% include 'news/save_button.html' with article=saved.article removing=True %}
+                </footer>
             </article>
         {% endfor %}
         {% if page.has_other_pages %}

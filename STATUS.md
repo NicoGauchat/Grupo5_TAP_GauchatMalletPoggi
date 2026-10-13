@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+El control de guardar/quitar de cada noticia ahora es un icono de marcador de 44 × 44 px, accesible con nombre para lectores de pantalla, con estado visual para noticias guardadas y ubicado junto a la fuente/fecha en la esquina inferior derecha. Se mantiene el POST, CSRF, retorno a la búsqueda y la misma acción en Mis guardadas.
+
 Se agregó Buscar en títulos con `q` de hasta 200 caracteres, integrado a preferencias, fuente, idioma y paginación. Usa stop words y stemming de PostgreSQL para español, inglés y portugués según el idioma de cada noticia, con variantes regionales. Otros idiomas usan `simple`. Las consultas requieren todas las palabras significativas; si sólo hay stop words no muestran noticias. Con búsqueda, cada categoría ordena por relevancia, fecha e ID; sin búsqueda conserva el orden cronológico. Los botones Guardar y Quitar conservan también la búsqueda al regresar.
 
 La migración `0009_article_article_title_search_gin` crea un índice funcional GIN que PostgreSQL mantiene para títulos existentes y cambios futuros, sin nuevas columnas ni servicios. Se verificó en una instancia PostgreSQL 17 temporal, independiente de las bases del usuario, con datos sintéticos externos al repositorio. No se agregaron dependencias ni comentarios al código nuevo. README y PROJECT incluyen uso, límites, comandos de prueba y decisión técnica investigada. SOURCES y `.env.example` no requieren cambios: no se modifican feeds, permisos ni variables.
@@ -27,7 +29,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta programada.
+Completar la verificación remota del despliegue en Render/Supabase y ejecutar la primera ingesta manual desde GitHub Actions.
 
 ## Completado
 
@@ -64,6 +66,8 @@ Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta 
 No hay bloqueos conocidos para validar el despliegue. La comprobación remota requiere acceso a las cuentas y credenciales configuradas fuera del repositorio.
 
 ## Última verificación
+
+- Cambio sólo de presentación y documentación de estado. README, PROJECT y SOURCES no requieren cambios; `.env.example` tampoco porque no se agregaron variables. `git diff --check` pasó. El detector Impeccable no encontró coincidencias, pero se ejecutó en modo degradado por faltar sus módulos HTML/CSS; no evaluó selectores ni contraste. La revisión visual en el navegador no fue posible porque el servidor local no respondió (`ERR_CONNECTION_REFUSED`).
 
 - Suite completa en PostgreSQL 17: **52 pruebas aprobadas**, incluyendo búsqueda, stop words, stemming en tres idiomas, ranking y desempates, filtros, retención, paginación, guardados y migración reversible con noticias existentes.
 - Suite SQLite: **40 pruebas aprobadas y 12 omitidas** por requerir PostgreSQL. Conserva las verificaciones generales y el formulario de búsqueda; no implementa búsqueda alternativa.

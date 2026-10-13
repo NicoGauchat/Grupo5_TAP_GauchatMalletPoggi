@@ -55,12 +55,14 @@
                             {% if forloop.first and section.page.number == 1 %}<p class="leading-label">{% if search_text %}Más relevante{% else %}Más reciente{% endif %}</p>{% endif %}
                             <h3><a href="{{ article.original_url }}">{{ article.title }}</a></h3>
                             {% if forloop.first and article.summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
-                            <p class="news-meta">
-                                <span>{{ article.feed.source.name }}</span>
-                                <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>
-                                {% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}
-                            </p>
-                            {% include 'news/save_button.html' %}
+                            <footer class="news-item-footer">
+                                <p class="news-meta">
+                                    <span>{{ article.feed.source.name }}</span>
+                                    <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>
+                                    {% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}
+                                </p>
+                                {% include 'news/save_button.html' %}
+                            </footer>
                         </article>
                     {% endfor %}
                     {% if section.page.has_other_pages %}
