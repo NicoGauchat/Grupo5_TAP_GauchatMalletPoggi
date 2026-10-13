@@ -5,11 +5,11 @@
 
 ## Último paso completado
 
-Se eligieron Render Free para el servicio web y Supabase Free para PostgreSQL. Se prepararon la configuración de producción, el Blueprint de Render, los paquetes para servir la aplicación y la frecuencia de ingesta cada seis horas. La retención y consulta de noticias se ajustaron a 14 días.
+Se corrigió el pin de Gunicorn a la versión 26.2.0, disponible en PyPI; Render no podía resolver la versión 26.2.2 indicada antes. La corrección está en `codex/fix-gunicorn-version` y requiere integrarse a `main` antes de reintentar el despliegue.
 
 ## Próximo paso
 
-Crear el proyecto de Supabase, aplicar el Blueprint de Render con sus credenciales y luego cargar los secretos/variables de GitHub Actions para verificar una ingesta manual.
+Integrar la corrección de Gunicorn a `main`, reintentar el despliegue en Render y atender cualquier nuevo error de build o conexión.
 
 ## Completado
 
@@ -40,5 +40,5 @@ Crear el proyecto de Supabase, aplicar el Blueprint de Render con sus credencial
 - `.venv` instaló `requirements.txt` en Windows; Gunicorn se omitió por su marcador de plataforma y WhiteNoise se instaló correctamente.
 - `manage.py check --settings=config.test_settings`: sin problemas; `makemigrations --check --dry-run`: sin cambios de esquema.
 - `collectstatic` real copió 128 archivos y procesó 384 con WhiteNoise; la salida vive en el directorio ignorado `staticfiles/`. `git diff --check`: sin errores.
-- No se ejecutó la suite de pruebas ni un despliegue remoto; requieren verificación posterior en el entorno configurado.
+- No se ejecutó la suite de pruebas. Para esta corrección se confirmó que Gunicorn 26.2.0 está publicado en PyPI y `git diff --check` no detectó errores; falta comprobar el build de Render.
 - La cuenta administradora se creará desde el entorno local conectado a Supabase, ya que Render Free no ofrece Shell.
