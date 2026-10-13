@@ -57,6 +57,8 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
+Gunicorn se instala automáticamente en sistemas POSIX como Render; en Windows se omite porque no se usa para ejecutar el servidor local.
+
 Editar `.env` y completar `DJANGO_SECRET_KEY` y `POSTGRES_PASSWORD` con valores distintos y aleatorios. Se pueden generar con estos comandos y copiarlos al archivo local:
 
 ```powershell
