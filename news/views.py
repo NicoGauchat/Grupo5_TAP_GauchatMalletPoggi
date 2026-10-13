@@ -3,10 +3,12 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from .forms import NewsFilterForm, PreferenceForm
-from .models import Article, UserPreference
+from .models import Article, SavedArticle, UserPreference
 from .retention import retention_cutoff
 
 
@@ -101,4 +103,43 @@ def news_feed(request):
     return render(request, "news/feed.html", {
         "sections": sections, "filter_form": filter_form,
         "filters_active": filters_active,
+        "has_articles": any(section["article_count"] for section in sections),
+        "saved_ids": set(SavedArticle.objects.filter(user=request.user).values_list("article_id", flat=True)),
     })
+
+
+@login_required
+def saved_articles(request):
+    saved = SavedArticle.objects.filter(
+        user=request.user, article__published_at__gte=retention_cutoff(),
+    ).select_related("article__feed__source")
+    page = Paginator(saved, 10).get_page(request.GET.get("page"))
+    return render(request, "news/saved_articles.html", {"page": page})
+
+
+@login_required
+@require_POST
+def save_article(request, article_id):
+    article = get_object_or_404(
+        Article, pk=article_id, feed__is_active=True, published_at__gte=retention_cutoff(),
+    )
+    SavedArticle.objects.get_or_create(user=request.user, article=article)
+    messages.success(request, "Noticia guardada.")
+    return article_redirect(request)
+
+
+@login_required
+@require_POST
+def remove_saved_article(request, article_id):
+    SavedArticle.objects.filter(user=request.user, article_id=article_id).delete()
+    messages.success(request, "Noticia quitada de tus guardadas.")
+    return article_redirect(request)
+
+
+def article_redirect(request):
+    next_url = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect("saved_articles")

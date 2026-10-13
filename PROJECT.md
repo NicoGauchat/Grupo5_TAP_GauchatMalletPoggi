@@ -19,6 +19,7 @@ El proyecto debe poder desarrollarse y demostrarse sin servicios pagos. Antes de
 - Deduplicación exacta por GUID, URL canónica y respaldo mediante hash.
 - Categorización básica en tecnología, inteligencia artificial, ciencia, economía, geopolítica, política argentina, Argentina y mercados y finanzas. Deportes queda fuera de esta entrega.
 - Feed filtrable por categorías preferidas, fuente e idioma.
+- Guardar noticias por usuario y consultarlas o quitarlas desde Mis guardadas.
 - Mostrar títulos, resúmenes y enlaces entregados por los feeds, respetando la política de cada fuente y con atribución visible.
 - Presentar noticias de varias fuentes; la aplicación no afirma que una fuente o noticia sea infalible.
 - Sin imágenes en la primera entrega.
@@ -65,7 +66,7 @@ El workflow `.github/workflows/ingest-feeds.yml` está programado todos los día
 
 Las consultas cada dos horas reducen el riesgo de perder entradas durante el día, especialmente en feeds de diez elementos. La pausa de seis horas durante la noche puede perder publicaciones que ya no estén en el RSS al reanudar; no se promete captura exhaustiva. La evidencia agregada del 13/10/2026 está en `SOURCES.md` y mide publicaciones observadas, no el horario real de actualización del servidor RSS.
 
-El registro y el inicio de sesión usan la autenticación integrada de Django. No se incorporará un proveedor externo de autenticación ni una API independiente en la primera entrega. Las noticias y fuentes serán datos compartidos; cada usuario podrá gestionar únicamente sus propias preferencias.
+El registro y el inicio de sesión usan la autenticación integrada de Django. No se incorporará un proveedor externo de autenticación ni una API independiente en la primera entrega. Las noticias y fuentes serán datos compartidos; cada usuario podrá gestionar únicamente sus propias preferencias y noticias guardadas.
 
 Para una primera publicación se eligieron Render Free para Django y Supabase Free para PostgreSQL. La aplicación se despliega desde `main`; los secretos se configuran en el panel, nunca en Git. Se utilizará el pooler compartido de Supabase en modo Session por el acceso IPv4, con SSL obligatorio. En desarrollo se mantiene PostgreSQL 17 en Docker Compose, con volumen persistente y acceso por `127.0.0.1:5433`.
 
@@ -96,6 +97,9 @@ Las nuevas dependencias y los servicios de alojamiento se revisaron con document
 - `Article`: enlace original, URL canónica opcional, GUID, huella para deduplicación, título, resumen permitido, idioma, fechas, feed y categorías. Hay restricciones de unicidad para enlace original, URL canónica no vacía y GUID no vacío dentro del feed. La huella tiene índice y se calcula durante la ingesta.
 - `ArticleOrigin`: noticia, feed, GUID opcional y categorías aportadas por ese feed. Un par noticia/feed único y un GUID no vacío único dentro de su feed. Se elimina junto con la noticia.
 - `UserPreference`: relación uno a uno con el usuario integrado de Django y sus categorías preferidas.
+- `SavedArticle`: usuario, noticia y fecha de guardado; el par usuario/noticia es único. Se elimina junto con el usuario o la noticia mediante cascada. La migración `0008_savedarticle` crea esta tabla sin modificar noticias existentes.
+
+Guardar y quitar usan formularios POST con CSRF y requieren sesión. Cada usuario consulta y modifica sólo sus guardadas. Se pueden guardar noticias recientes de feeds activos; Mis guardadas conserva las ya guardadas aunque cambien las preferencias o se desactive el feed. La lista se ordena por fecha de guardado, de diez en diez, y oculta noticias de más de 14 días desde la publicación; la limpieza elimina también sus guardados. Guardar no crea una copia del artículo ni extiende su conservación. Los botones conservan la URL de regreso con filtros y página, y rechazan destinos externos. La interfaz distingue ausencia de categorías, filtros inválidos, filtros sin resultados y categorías sin noticias disponibles. Se reutilizan modelos, vistas y plantillas de Django, sin nuevas dependencias ni servicios.
 
 La migración inicial está en `news/migrations/0001_initial.py`. Una segunda migración incorpora cinco categorías. La tercera agrega los encabezados HTTP para consultas condicionales y la cuarta carga los feeds de Clarín Tecnología, EL PAÍS Tecnología y MIT News sobre IA. La quinta agrega `politica-argentina` y cinco feeds de Clarín y EL PAÍS para política argentina, economía y geopolítica. La sexta incorpora `argentina` y `mercados-finanzas`, agrega los feeds de Los Andes Política y Economía y Cinco Días Mercados, y vincula Clarín Política con Argentina. La séptima migración añade `ArticleOrigin` y copia el feed, GUID y categorías de cada noticia existente a su origen inicial, sin modificar metadatos ni atribución. La activación se controla desde la administración. No se guardan artículos completos ni imágenes.
 

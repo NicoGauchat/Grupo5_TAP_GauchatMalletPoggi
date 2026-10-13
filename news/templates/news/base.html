@@ -17,6 +17,7 @@
             <nav aria-label="Navegación principal">
                 {% if user.is_authenticated %}
                     <a href="{% url 'news_feed' %}"{% if request.resolver_match.url_name == 'news_feed' %} aria-current="page"{% endif %}>Mis noticias</a>
+                    <a href="{% url 'saved_articles' %}"{% if request.resolver_match.url_name == 'saved_articles' %} aria-current="page"{% endif %}>Mis guardadas</a>
                     <a href="{% url 'preferences' %}"{% if request.resolver_match.url_name == 'preferences' %} aria-current="page"{% endif %}>Mis categorías</a>
                     <form class="inline-form" action="{% url 'logout' %}" method="post">
                         {% csrf_token %}

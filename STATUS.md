@@ -1,9 +1,17 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-13
-**Objetivo actual:** rediseño integral y paginación completados; preparar la validación remota de la entrega 1.
+**Objetivo actual:** noticias guardadas y mensajes vacíos implementados; completar la validación remota de la entrega 1.
 
 ## Último paso completado
+
+Se agregaron botones Guardar y Quitar de guardadas y la página privada Mis guardadas, con diez noticias por página, ordenadas por fecha de guardado. La migración `0008_savedarticle` incorpora la relación única usuario/noticia. Los formularios POST requieren sesión y CSRF, conservan filtros y página al regresar y rechazan redirecciones externas. Las noticias guardadas respetan los 14 días de conservación y se eliminan en cascada junto con la noticia; no se copian contenidos ni se extiende la retención.
+
+Se agregaron avisos generales para filtros inválidos, filtros sin resultados y categorías sin noticias, conservando el mensaje para usuarios sin categorías y los avisos por sección. Mis guardadas vacía ofrece volver a Mis noticias. Se mantuvo el diseño existente y no se agregaron comentarios al código nuevo.
+
+README y PROJECT actualizados. SOURCES y `.env.example` no requieren cambios: no se modificaron feeds, permisos de contenido ni variables de entorno. Sin nuevas dependencias ni servicios. El usuario informó que puede acceder al sitio de Render, pero no se verificó el despliegue remoto ni la ingesta desde esta tarea.
+
+## Trabajo anterior
 
 Se implementó la identidad editorial en inicio, ingreso, registro, preferencias y noticias: fuentes locales, azul intenso, marca tipográfica y controles compartidos. Inicio e ingreso/registro usan composiciones más expresivas; noticias conserva las categorías en columnas y agrega paginación independiente de diez artículos. Los filtros y las páginas restantes se conservan en los enlaces; aplicar o limpiar reinicia las páginas. Se mantuvieron textos de acciones y recorridos.
 
@@ -16,6 +24,8 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta programada.
 
 ## Completado
+
+- Guardar y quitar noticias por usuario, Mis guardadas paginada y mensajes generales para estados vacíos.
 
 - Django, PostgreSQL local con Docker Compose y arquitectura anterior conservada como referencia histórica.
 - Registro, ingreso, salida y preferencias individuales, sin cambios en este bloque.
@@ -46,6 +56,15 @@ Validar el despliegue en Render con PostgreSQL en Supabase y activar la ingesta 
 No hay bloqueos conocidos para validar el despliegue. La comprobación remota requiere acceso a las cuentas y credenciales configuradas fuera del repositorio.
 
 ## Última verificación
+
+- Suite completa: **39 pruebas aprobadas**. Las ocho pruebas nuevas verifican sesión, POST, CSRF, aislamiento entre usuarios, guardados repetidos, redirecciones, conservación de URL, retención, paginación y mensajes vacíos.
+- `manage.py check --settings=config.test_settings` y `git diff --check`: sin problemas.
+- Microsoft Edge con datos sintéticos en SQLite fuera del repositorio: ingreso, guardar, quitar, Mis guardadas vacía, categorías vacías y regreso con filtros y página comprobados. Capturas de Mis guardadas revisadas a 375 y 1440 px, sin desbordamiento horizontal y con botones de al menos 44 px. Se reutilizaron las fuentes y estilos existentes.
+- `makemigrations --check --dry-run --settings=config.test_settings`: sin cambios pendientes de modelo; migración nueva aplicada en las bases SQLite de prueba.
+- La prueba histórica de migración restaura ahora el esquema más reciente al terminar, para no dejar la tabla nueva ausente en otras pruebas.
+- La migración `0008_savedarticle` y las funciones nuevas todavía requieren aplicar y verificar en el despliegue remoto con PostgreSQL.
+
+## Verificación del bloque anterior
 
 - Suite completa: **31 pruebas aprobadas**, sin `.env`, Docker ni `collectstatic`; conserva las 24 anteriores y añade siete regresiones de paginación con escenarios de 0, 10, 11 y 23 artículos, independencia, enlaces, filtros, límites, orden y ausencia de duplicados.
 - `manage.py check --settings=config.test_settings`: sin problemas.

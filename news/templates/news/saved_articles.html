@@ -1,0 +1,38 @@
+{% extends 'news/base.html' %}
+
+{% block title %}Mis guardadas · Sitio Noticias{% endblock %}
+
+{% block content %}
+<header class="feed-intro">
+    <h1>Mis guardadas</h1>
+    <p>Noticias que guardaste para leer después. Se conservan hasta que la noticia cumple 14 días desde su publicación.</p>
+</header>
+{% if page.object_list %}
+    <section class="category-column" aria-label="Noticias guardadas">
+        {% for saved in page %}
+            <article class="news-item">
+                <h2><a href="{{ saved.article.original_url }}">{{ saved.article.title }}</a></h2>
+                <p class="news-meta">
+                    <span>{{ saved.article.feed.source.name }}</span>
+                    <time datetime="{{ saved.article.published_at|date:'c' }}">{{ saved.article.published_at|date:'j/m/Y H:i' }}</time>
+                    {% if saved.article.language %}<span>{{ saved.article.language|upper }}</span>{% endif %}
+                </p>
+                {% include 'news/save_button.html' with article=saved.article removing=True %}
+            </article>
+        {% endfor %}
+        {% if page.has_other_pages %}
+            <nav class="category-pagination" aria-label="Páginas de noticias guardadas">
+                {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Anterior</a>{% else %}<span aria-disabled="true">Anterior</span>{% endif %}
+                <span class="page-position">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+                {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Siguiente</a>{% else %}<span aria-disabled="true">Siguiente</span>{% endif %}
+            </nav>
+        {% endif %}
+    </section>
+{% else %}
+    <section class="feed-empty">
+        <h2>Todavía no tenés noticias guardadas</h2>
+        <p>Usá el botón Guardar en una noticia para encontrarla acá después.</p>
+        <a class="button" href="{% url 'news_feed' %}">Ver noticias</a>
+    </section>
+{% endif %}
+{% endblock %}

@@ -93,6 +93,18 @@ class ArticleOrigin(models.Model):
         ]
 
 
+class SavedArticle(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_articles")
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="saved_by")
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-saved_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "article"], name="unique_saved_article_user"),
+        ]
+
+
 class UserPreference(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

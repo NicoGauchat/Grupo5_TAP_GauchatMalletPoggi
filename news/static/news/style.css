@@ -143,6 +143,11 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 .news-item h3 a { color: var(--ink); text-decoration: none; }
 .news-item h3 a:hover { color: var(--blue); text-decoration: underline; }
 .news-summary { margin: .75rem 0 0; color: var(--muted); }
+.news-item h2 { margin: 0; font-family: var(--body-font); font-size: 1.125rem; line-height: 1.35; }
+.news-item h2 a { color: var(--ink); text-decoration: none; }
+.news-item h2 a:hover { color: var(--blue); text-decoration: underline; }
+.save-form { margin-top: .75rem; }
+.save-form .text-button { color: var(--blue); text-decoration: underline; text-align: left; }
 .news-meta { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: .75rem 0 0; color: var(--muted); font-size: .875rem; line-height: 1.4; }
 .news-meta span:first-child { flex-basis: 100%; font-weight: 650; }
 .news-meta time { font-variant-numeric: tabular-nums; }

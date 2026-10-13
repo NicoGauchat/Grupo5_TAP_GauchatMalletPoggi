@@ -23,6 +23,9 @@ from news import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('noticias/', views.news_feed, name='news_feed'),
+    path('guardadas/', views.saved_articles, name='saved_articles'),
+    path('noticias/<int:article_id>/guardar/', views.save_article, name='save_article'),
+    path('noticias/<int:article_id>/quitar/', views.remove_saved_article, name='remove_saved_article'),
     path('registrarse/', views.register, name='register'),
     path('ingresar/', auth_views.LoginView.as_view(template_name='news/login.html'), name='login'),
     path('salir/', auth_views.LogoutView.as_view(), name='logout'),

@@ -11,6 +11,7 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
 - Filtros combinables por fuente e idioma en la página personalizada.
 - Paginación independiente de diez noticias por categoría, con estado en la URL.
+- Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
 - Identidad editorial compartida en inicio, ingreso, registro, preferencias y noticias; fuentes locales y diseño adaptable.
 - Limpieza de noticias de más de 14 días, con vista previa.
 - Preparación de despliegue gratuito de Django en Render y PostgreSQL administrado en Supabase.
@@ -95,6 +96,12 @@ La clasificación usa la lista editable de [news/category_aliases.py](./news/cat
 «Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como columnas en `/noticias/`.
 
 ## Actualizar una instalación existente
+
+La migración `0008_savedarticle` crea la tabla de noticias guardadas. Ejecutar `python manage.py migrate` al actualizar la aplicación; el build configurado de Render ya incluye ese comando.
+
+Cada noticia de Mis noticias tiene un botón Guardar. Después de guardarla, el botón permite quitarla. Mis guardadas (`/guardadas/`) muestra sólo las noticias del usuario conectado, empezando por las guardadas más recientemente, con diez por página. Se pueden consultar aunque cambien las categorías elegidas. Las noticias vencen a los 14 días desde su publicación, incluidas las guardadas; guardar no extiende ese plazo. Los formularios conservan filtros y página al regresar.
+
+Cuando no hay resultados, el sitio indica si falta elegir categorías, si hay filtros inválidos, si los filtros no encuentran noticias o si las categorías todavía no tienen noticias disponibles, y ofrece un enlace para continuar. Mis guardadas vacía invita a visitar Mis noticias.
 
 Después de incorporar estos cambios, ejecutar `python manage.py migrate` contra la base correspondiente antes de la ingesta. La migración `0007_article_origins` añade los orígenes y copia feed, GUID y categorías de las noticias existentes; conserva títulos, enlaces, fechas y atribución. No requiere recrear ni vaciar la base. Render la aplicará mediante el build ya configurado; Actions exige que esté aplicada y no modifica el esquema por su cuenta.
 

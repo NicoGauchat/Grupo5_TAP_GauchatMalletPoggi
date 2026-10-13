@@ -7,12 +7,12 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TestCase, TransactionTestCase
+from django.test import Client, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .ingestion import ingest_feed
-from .models import Article, ArticleOrigin, Category, Feed, Source, UserPreference
+from .models import Article, ArticleOrigin, Category, Feed, SavedArticle, Source, UserPreference
 
 
 class NewsFeedTests(TestCase):
@@ -249,6 +249,128 @@ class NewsFeedTests(TestCase):
         self.assertNotContains(response, 'class="category-pagination"')
 
 
+class SavedArticleTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="guardador")
+        self.other_user = get_user_model().objects.create_user(username="otro-lector")
+        self.category = Category.objects.create(name="Tema guardado", slug="tema-guardado")
+        preference = UserPreference.objects.create(user=self.user)
+        preference.categories.add(self.category)
+        source = Source.objects.create(name="Fuente de guardadas")
+        self.feed = Feed.objects.create(source=source, name="RSS", url="https://example.com/saved-rss", is_active=True)
+        self.article = Article.objects.create(
+            feed=self.feed, title="Noticia para guardar", original_url="https://example.com/saved",
+            published_at=timezone.now(), language="es",
+        )
+        self.article.categories.add(self.category)
+        self.client.force_login(self.user)
+        self.save_url = reverse("save_article", args=[self.article.pk])
+        self.remove_url = reverse("remove_saved_article", args=[self.article.pk])
+
+    def test_requires_login_post_and_csrf(self):
+        for url in (self.save_url, self.remove_url):
+            self.assertEqual(self.client.get(url).status_code, 405)
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        for url in (self.save_url, self.remove_url):
+            self.assertEqual(csrf_client.post(url).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("saved_articles")).status_code, 302)
+        for url in (self.save_url, self.remove_url):
+            self.assertEqual(self.client.post(url).status_code, 302)
+        self.assertFalse(SavedArticle.objects.exists())
+
+    def test_save_is_idempotent_and_keeps_page_and_filters(self):
+        next_url = reverse("news_feed") + "?language=es&page_tema-guardado=2"
+        for _ in range(2):
+            response = self.client.post(self.save_url, {"next": next_url})
+            self.assertRedirects(response, next_url, fetch_redirect_response=False)
+        self.assertEqual(SavedArticle.objects.filter(user=self.user, article=self.article).count(), 1)
+        response = self.client.get(reverse("news_feed"))
+        self.assertContains(response, "Quitar de guardadas")
+        response = self.client.get(reverse("saved_articles"))
+        self.assertContains(response, self.article.title)
+        self.assertContains(response, self.article.original_url)
+        self.assertContains(response, "Fuente de guardadas")
+
+    def test_users_only_see_and_remove_their_own_saves(self):
+        SavedArticle.objects.create(user=self.other_user, article=self.article)
+        response = self.client.get(reverse("saved_articles"))
+        self.assertNotContains(response, self.article.title)
+        self.client.post(self.remove_url)
+        self.assertTrue(SavedArticle.objects.filter(user=self.other_user).exists())
+        self.client.post(self.save_url)
+        self.client.post(self.remove_url)
+        self.client.post(self.remove_url)
+        self.assertFalse(SavedArticle.objects.filter(user=self.user).exists())
+        self.assertTrue(SavedArticle.objects.filter(user=self.other_user).exists())
+
+    def test_external_redirects_are_rejected(self):
+        for url in (self.save_url, self.remove_url):
+            for next_url in ("https://example.com/", "//example.com/", "javascript:alert(1)"):
+                response = self.client.post(url, {"next": next_url})
+                self.assertRedirects(response, reverse("saved_articles"))
+
+    def test_missing_old_or_inactive_articles_cannot_be_saved(self):
+        self.assertEqual(self.client.post(reverse("save_article", args=[999999])).status_code, 404)
+        self.feed.is_active = False
+        self.feed.save()
+        self.assertEqual(self.client.post(self.save_url).status_code, 404)
+        self.feed.is_active = True
+        self.feed.save()
+        Article.objects.filter(pk=self.article.pk).update(published_at=timezone.now() - timedelta(days=15))
+        self.assertEqual(self.client.post(self.save_url).status_code, 404)
+        self.assertFalse(SavedArticle.objects.exists())
+
+    def test_saved_list_ignores_preferences_and_expires_with_article(self):
+        SavedArticle.objects.create(user=self.user, article=self.article)
+        UserPreference.objects.get(user=self.user).categories.clear()
+        self.feed.is_active = False
+        self.feed.save()
+        self.assertContains(self.client.get(reverse("saved_articles")), self.article.title)
+        Article.objects.filter(pk=self.article.pk).update(published_at=timezone.now() - timedelta(days=15))
+        self.assertNotContains(self.client.get(reverse("saved_articles")), self.article.title)
+        call_command("purge_old_articles", stdout=StringIO())
+        self.assertFalse(SavedArticle.objects.exists())
+
+    def test_saved_list_paginates_in_save_order(self):
+        for index in range(11):
+            article = Article.objects.create(
+                feed=self.feed, title=f"Guardada {index}", original_url=f"https://example.com/saved-{index}",
+                published_at=timezone.now(),
+            )
+            SavedArticle.objects.create(user=self.user, article=article)
+        response = self.client.get(reverse("saved_articles"))
+        self.assertEqual(len(response.context["page"]), 10)
+        self.assertEqual(response.context["page"][0].article.title, "Guardada 10")
+        response = self.client.get(reverse("saved_articles"), {"page": 2})
+        self.assertEqual(len(response.context["page"]), 1)
+        self.assertContains(response, "Guardada 0")
+        self.assertContains(response, 'name="next" value="/guardadas/?page=2"')
+        self.assertEqual(self.client.get(reverse("saved_articles"), {"page": "abc"}).status_code, 200)
+
+    def test_empty_messages_offer_next_actions(self):
+        self.assertContains(self.client.get(reverse("saved_articles")), "Todavía no tenés noticias guardadas")
+        other_source = Source.objects.create(name="Otra fuente de guardadas")
+        other_feed = Feed.objects.create(source=other_source, name="RSS", url="https://example.com/other-saved-rss", is_active=True)
+        other_article = Article.objects.create(
+            feed=other_feed, title="Noticia en inglés", original_url="https://example.com/english-saved",
+            published_at=timezone.now(), language="en",
+        )
+        other_article.categories.add(self.category)
+        response = self.client.get(reverse("news_feed"), {"source": self.feed.source_id, "language": "en"})
+        self.assertContains(response, "No hay noticias con estos filtros")
+        self.assertContains(response, "Limpiar filtros")
+        response = self.client.get(reverse("news_feed"), {"source": "abc"})
+        self.assertContains(response, "Revisá los filtros")
+        Article.objects.all().delete()
+        self.assertContains(self.client.get(reverse("news_feed")), "Todavía no hay noticias disponibles para tus categorías")
+        UserPreference.objects.get(user=self.user).categories.clear()
+        response = self.client.get(reverse("news_feed"))
+        self.assertContains(response, "Elegí tus categorías")
+        self.assertContains(response, "Elegir categorías")
+
+
 class IngestionOriginTests(TestCase):
     def setUp(self):
         source = Source.objects.create(name="Fuente sintética de orígenes")
@@ -451,4 +573,5 @@ class ArticleOriginMigrationTests(TransactionTestCase):
             self.assertEqual(list(origin.categories.values_list("pk", flat=True)), [category.pk])
             self.assertEqual(NewOrigin.objects.get(article_id=without_guid.pk).guid, "")
         finally:
-            MigrationExecutor(connection).migrate(new_target)
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

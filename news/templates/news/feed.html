@@ -22,6 +22,23 @@
         <button class="button" type="submit">Aplicar filtros</button>
         <a class="filter-reset" href="{% url 'news_feed' %}">Limpiar filtros</a>
     </form>
+    {% if not has_articles %}
+        <section class="feed-empty">
+            {% if filter_form.errors %}
+                <h2>Revisá los filtros</h2>
+                <p>Corregí los campos indicados o limpiá los filtros para volver a ver noticias.</p>
+                <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
+            {% elif filters_active %}
+                <h2>No hay noticias con estos filtros</h2>
+                <p>Probá con otra fuente o idioma.</p>
+                <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
+            {% else %}
+                <h2>Todavía no hay noticias disponibles para tus categorías</h2>
+                <p>Volvé más tarde o elegí otros temas.</p>
+                <a class="button" href="{% url 'preferences' %}">Mis categorías</a>
+            {% endif %}
+        </section>
+    {% endif %}
     <div class="category-grid">
         {% for section in sections %}
             <section class="category-column" aria-labelledby="category-{{ section.category.slug }}">
@@ -40,6 +57,7 @@
                                 <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>
                                 {% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}
                             </p>
+                            {% include 'news/save_button.html' %}
                         </article>
                     {% endfor %}
                     {% if section.page.has_other_pages %}

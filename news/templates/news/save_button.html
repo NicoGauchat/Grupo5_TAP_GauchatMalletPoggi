@@ -1,0 +1,5 @@
+<form class="save-form" method="post" action="{% if article.pk in saved_ids or removing %}{% url 'remove_saved_article' article.pk %}{% else %}{% url 'save_article' article.pk %}{% endif %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button class="text-button" type="submit" aria-label="{% if article.pk in saved_ids or removing %}Quitar de guardadas: {% else %}Guardar: {% endif %}{{ article.title }}">{% if article.pk in saved_ids or removing %}Quitar de guardadas{% else %}Guardar{% endif %}</button>
+</form>
