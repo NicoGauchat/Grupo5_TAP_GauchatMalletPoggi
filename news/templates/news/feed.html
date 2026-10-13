@@ -5,6 +5,7 @@
 
 {% block content %}
 <header class="feed-intro">
+    <span class="edition-label">Tu edición personal</span>
     <h1>Bienvenido, {{ user.username }}</h1>
     <p>Estas son las noticias recientes de tus categorías. Cada titular te lleva al artículo original de su fuente.</p>
     <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>

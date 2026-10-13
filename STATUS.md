@@ -1,9 +1,19 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-13
-**Objetivo actual:** búsqueda indexada en títulos implementada y verificada en PostgreSQL local; completar la validación remota de la entrega 1.
+**Objetivo actual:** probar localmente el pulido visual del frontend conservando estructura y colores; pendiente de revisión del usuario.
 
 ## Último paso completado
+
+Se amplió el experimento visual local por pedido del usuario: encabezado con la etiqueta «Tu edición personal» y luces azul/coral, entrada escalonada de columnas, elevación y acento coral al pasar el mouse, destello en botones y respuesta del marcador. Barra decorativa de avance mediante `animation-timeline: scroll(root)` sólo en navegadores compatibles. Animaciones de entrada finitas y efectos de hover limitados a puntero preciso; `prefers-reduced-motion` elimina animaciones, transiciones y desplazamientos de interacción. Sin JavaScript ni dependencias nuevas. Se conservan columnas, formularios, enlaces, colores y lógica. Se reinició el servidor local para actualizar las plantillas y se verificó el encabezado renderizado con sesión. Se inspeccionaron capturas del resultado y el ancho móvil de 375 px, sin desbordamiento en la página visible. `manage.py check` y `git diff --check` pasaron. La reducción de movimiento se revisó en CSS, sin emulación de la preferencia del sistema. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios nuevos. No se publicó en Render.
+
+Se pulió la interfaz con UI/UX Pro Max, ya instalada globalmente: superficies con sombras suaves, radios compartidos, filtros elevados, navegación activa, controles con profundidad, foco y titulares con jerarquía más clara. Se conservan azul/coral, fuentes locales, columnas, puntos de corte, HTML funcional y recorridos. Sólo cambian CSS y la versión de su enlace en la plantilla base. No se desplegó ni se modificó ingesta, clasificación o datos remotos.
+
+Vista local iniciada en `http://127.0.0.1:8000/noticias/`, abierta con sesión de demostración y 24 titulares sintéticos. Script, entorno y SQLite temporales fuera del repositorio; se reutilizó `config.test_settings` con ajustes sólo en el proceso local. Esta vista es para diseño: la búsqueda con stemming requiere PostgreSQL y no se valida en SQLite. Suite existente: 52 pruebas, 40 aprobadas y 12 omitidas por requerir PostgreSQL; `git diff --check` pasó. Se inspeccionaron capturas de escritorio y móvil de 375 px; sin desbordamiento horizontal ni controles de formulario inferiores a 44 px. README y PROJECT actualizados. SOURCES no requiere nuevos cambios en este bloque y conserva el diagnóstico anterior; `.env.example` tampoco requiere cambios. No se agregaron dependencias de la aplicación ni skills dentro del repositorio.
+
+Se diagnosticó ruido en IA causado por etiquetas secundarias de Cinco Días Mercados y EL PAÍS Economía. Se comprobó la página publicada con sesión iniciada y se reprodujo la clasificación con ambos RSS en memoria. Cinco Días: 25 entradas, 3 clasificadas en IA; EL PAÍS Economía: 39 entradas, 2 clasificadas en IA y 2 en tecnología. Una etiqueta aprobada no acredita que el tema sea central. El usuario descartó limitar canales completos porque también pueden publicar noticias pertinentes de IA. Se retiraron la restricción, la migración y las pruebas propuestas antes de incorporarlas; no se cambió código ni se tocó la base remota. La clasificación actual permanece vigente.
+
+Se plantea evaluar título y etiquetas por noticia, con ejemplos pertinentes y financieros, midiendo falsos positivos y falsos negativos antes de decidir reglas. No se eligió un algoritmo ni se amplió alcance. SOURCES registra la evidencia agregada; PROJECT, README y `.env.example` no requieren cambios porque no se modificó arquitectura, decisiones de implementación, funciones, comandos ni variables.
 
 El control de guardar/quitar de cada noticia ahora es un icono de marcador de 44 × 44 px, accesible con nombre para lectores de pantalla, con estado visual para noticias guardadas y ubicado junto a la fuente/fecha en la esquina inferior derecha. Se mantiene el POST, CSRF, retorno a la búsqueda y la misma acción en Mis guardadas.
 
@@ -29,7 +39,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Completar la verificación remota del despliegue en Render/Supabase y ejecutar la primera ingesta manual desde GitHub Actions.
+Revisar con el usuario la estética en la vista local antes de decidir su publicación.
 
 ## Completado
 
