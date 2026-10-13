@@ -9,3 +9,14 @@ from .settings import *  # noqa: E402,F403
 
 SECRET_KEY = "clave-exclusiva-para-pruebas-locales"
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
+
+# El cliente de pruebas no necesita HTTPS ni collectstatic de producción.
+SECURE_SSL_REDIRECT = False
+STORAGES = {
+    **STORAGES,
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+MIDDLEWARE = [
+    middleware for middleware in MIDDLEWARE
+    if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"
+]

@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
+from django.core.paginator import Paginator
 from django.shortcuts import redirect, render
 
 from .forms import NewsFilterForm, PreferenceForm
@@ -68,14 +69,30 @@ def news_feed(request):
         filtered_articles = available_articles.none()
     sections = []
     for category in categories:
-        category_articles = filtered_articles.filter(categories=category)
-        article_count = category_articles.count()
-        articles = list(
-            category_articles.select_related("feed__source")
-            .order_by("-published_at", "-id")[:ARTICLES_PER_CATEGORY]
+        category_articles = (
+            filtered_articles.filter(categories=category)
+            .select_related("feed__source").order_by("-published_at", "-id")
         )
+        paginator = Paginator(category_articles, ARTICLES_PER_CATEGORY)
+        page_key = f"page_{category.slug}"
+        try:
+            page_number = max(1, int(request.GET.get(page_key, "1")))
+        except ValueError:
+            page_number = 1
+        page = paginator.get_page(page_number)
+
+        def page_url(number):
+            query = request.GET.copy()
+            query[page_key] = str(number)
+            return f"{request.path}?{query.urlencode()}#category-{category.slug}"
+
         sections.append(
-            {"category": category, "article_count": article_count, "articles": articles}
+            {
+                "category": category, "article_count": paginator.count,
+                "articles": list(page.object_list), "page": page,
+                "previous_url": page_url(page.previous_page_number()) if page.has_previous() else None,
+                "next_url": page_url(page.next_page_number()) if page.has_next() else None,
+            }
         )
 
     # La lista de categorías ya viene en orden alfabético: en un empate se conserva.

@@ -75,6 +75,24 @@ class Article(models.Model):
         return self.title
 
 
+class ArticleOrigin(models.Model):
+    """Aporte de cada feed a una noticia compartida entre varios feeds."""
+
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="origins")
+    feed = models.ForeignKey(Feed, on_delete=models.PROTECT, related_name="article_origins")
+    guid = models.CharField(max_length=512, blank=True)
+    categories = models.ManyToManyField(Category, blank=True, related_name="article_origins")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["article", "feed"], name="unique_article_origin_feed"),
+            models.UniqueConstraint(
+                fields=["feed", "guid"], condition=~models.Q(guid=""),
+                name="unique_origin_guid_per_feed",
+            ),
+        ]
+
+
 class UserPreference(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

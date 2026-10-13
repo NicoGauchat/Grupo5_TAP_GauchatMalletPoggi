@@ -2,7 +2,8 @@ name: Ingesta y limpieza de noticias
 
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '0 0,6,8,10,12,14,16,18,20,22 * * *'
+      timezone: America/Argentina/Buenos_Aires
   workflow_dispatch:
 
 permissions:

@@ -3,14 +3,19 @@
 {% block title %}Ingresar · Sitio Noticias{% endblock %}
 
 {% block content %}
-<section class="panel form-panel">
-    <h1>Ingresar</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input type="hidden" name="next" value="{{ next }}">
-        <button class="button" type="submit">Ingresar</button>
-    </form>
-    <p>¿Todavía no tenés cuenta? <a href="{% url 'register' %}">Registrate</a>.</p>
-</section>
+<div class="account-layout">
+    <div class="brand-panel" aria-hidden="true">
+        <div class="brand-display"><span>Sitio</span><span>Noticias</span></div>
+    </div>
+    <section class="form-panel">
+        <h1>Ingresar</h1>
+        <form class="account-form" method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="button" type="submit">Ingresar</button>
+        </form>
+        <p>¿Todavía no tenés cuenta? <a href="{% url 'register' %}">Registrate</a>.</p>
+    </section>
+</div>
 {% endblock %}

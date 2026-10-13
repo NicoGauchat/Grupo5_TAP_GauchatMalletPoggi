@@ -5,28 +5,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Sitio Noticias{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'news/style.css' %}?v=20261011-order">
+    <link rel="preload" href="{% static 'news/fonts/archivo.ttf' %}" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="{% static 'news/fonts/source-sans-3.ttf' %}" as="font" type="font/ttf" crossorigin>
+    <link rel="stylesheet" href="{% static 'news/style.css' %}?v=20261013-editorial">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Saltar al contenido</a>
     <header class="site-header">
         <div class="container header-content">
             <a class="brand" href="{% url 'home' %}">Sitio Noticias</a>
             <nav aria-label="Navegación principal">
                 {% if user.is_authenticated %}
-                    <a href="{% url 'news_feed' %}">Mis noticias</a>
-                    <a href="{% url 'preferences' %}">Mis categorías</a>
+                    <a href="{% url 'news_feed' %}"{% if request.resolver_match.url_name == 'news_feed' %} aria-current="page"{% endif %}>Mis noticias</a>
+                    <a href="{% url 'preferences' %}"{% if request.resolver_match.url_name == 'preferences' %} aria-current="page"{% endif %}>Mis categorías</a>
                     <form class="inline-form" action="{% url 'logout' %}" method="post">
                         {% csrf_token %}
                         <button class="text-button" type="submit">Salir</button>
                     </form>
                 {% else %}
-                    <a href="{% url 'login' %}">Ingresar</a>
-                    <a href="{% url 'register' %}">Registrarse</a>
+                    <a href="{% url 'login' %}"{% if request.resolver_match.url_name == 'login' %} aria-current="page"{% endif %}>Ingresar</a>
+                    <a href="{% url 'register' %}"{% if request.resolver_match.url_name == 'register' %} aria-current="page"{% endif %}>Registrarse</a>
                 {% endif %}
             </nav>
         </div>
     </header>
-    <main class="container{% block main_class %}{% endblock %}">
+    <main id="main-content" tabindex="-1" class="container{% block main_class %}{% endblock %}">
         {% for message in messages %}
             <p class="message" role="status">{{ message }}</p>
         {% endfor %}

@@ -3,11 +3,13 @@
 {% block title %}Mis categorías · Sitio Noticias{% endblock %}
 
 {% block content %}
-<section class="panel form-panel">
-    <p class="eyebrow">Tu cuenta</p>
-    <h1>Mis categorías</h1>
-    <p>Hola, {{ user.username }}. Seleccioná los temas que querés seguir. Al guardar, vas a ver las noticias de esas categorías.</p>
-    <form method="post">
+<section class="preferences-panel">
+    <header class="preferences-intro">
+        <h1>Mis categorías</h1>
+        <p>Hola, {{ user.username }}. Seleccioná los temas que querés seguir. Al guardar, vas a ver las noticias de esas categorías.</p>
+        <p class="account-caption">Tu cuenta</p>
+    </header>
+    <form class="preference-form" method="post">
         {% csrf_token %}
         {{ form.non_field_errors }}
         <fieldset>

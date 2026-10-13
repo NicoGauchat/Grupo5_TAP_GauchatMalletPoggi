@@ -32,7 +32,7 @@
                 {% if section.articles %}
                     {% for article in section.articles %}
                         <article class="news-item{% if forloop.first %} news-item-leading{% endif %}">
-                            {% if forloop.first %}<p class="leading-label">Más reciente</p>{% endif %}
+                            {% if forloop.first and section.page.number == 1 %}<p class="leading-label">Más reciente</p>{% endif %}
                             <h3><a href="{{ article.original_url }}">{{ article.title }}</a></h3>
                             {% if forloop.first and article.summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
                             <p class="news-meta">
@@ -42,8 +42,20 @@
                             </p>
                         </article>
                     {% endfor %}
-                    {% if section.article_count > section.articles|length %}
-                        <p class="category-more">Se muestran las {{ section.articles|length }} más recientes.</p>
+                    {% if section.page.has_other_pages %}
+                        <nav class="category-pagination" aria-label="Páginas de {{ section.category.name }}">
+                            {% if section.previous_url %}
+                                <a href="{{ section.previous_url }}">Anterior</a>
+                            {% else %}
+                                <span aria-disabled="true">Anterior</span>
+                            {% endif %}
+                            <span class="page-position">Página {{ section.page.number }} de {{ section.page.paginator.num_pages }}</span>
+                            {% if section.next_url %}
+                                <a href="{{ section.next_url }}">Siguiente</a>
+                            {% else %}
+                                <span aria-disabled="true">Siguiente</span>
+                            {% endif %}
+                        </nav>
                     {% endif %}
                 {% else %}
                     {% if filters_active or filter_form.errors %}

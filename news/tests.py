@@ -1,15 +1,18 @@
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.db import IntegrityError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .ingestion import ingest_feed
-from .models import Article, Category, Feed, Source, UserPreference
+from .models import Article, ArticleOrigin, Category, Feed, Source, UserPreference
 
 
 class NewsFeedTests(TestCase):
@@ -131,6 +134,217 @@ class NewsFeedTests(TestCase):
         self.assertContains(response, "Elegí tus categorías")
         self.assertEqual(response.context["sections"], [])
 
+    def test_pagination_boundaries_and_controls(self):
+        for count in (0, 10, 11, 23):
+            with self.subTest(count=count):
+                Article.objects.all().delete()
+                for index in range(count):
+                    self.article(f"noticia-{index}")
+                response = self.client.get(reverse("news_feed"))
+                section = response.context["sections"][0]
+                self.assertEqual(section["article_count"], count)
+                self.assertEqual(len(section["articles"]), min(count, 10))
+                self.assertEqual(section["page"].number, 1)
+                if count > 10:
+                    self.assertContains(response, 'aria-label="Páginas de Tema de prueba"')
+                    self.assertContains(response, '<span aria-disabled="true">Anterior</span>', html=True)
+                    self.assertIsNotNone(section["next_url"])
+                else:
+                    self.assertNotContains(response, 'class="category-pagination"')
+                    self.assertIsNone(section["next_url"])
+
+    def test_pages_cover_all_articles_in_stable_order_without_duplicates(self):
+        for index in range(23):
+            article = self.article(f"noticia-{index}")
+            article.categories.add(self.other_category)
+        # Fuerza el empate de fechas para comprobar el desempate por ID.
+        Article.objects.all().update(published_at=timezone.now())
+        expected = list(Article.objects.order_by("-id").values_list("id", flat=True))
+        actual = []
+        for number, count in ((1, 10), (2, 10), (3, 3)):
+            response = self.client.get(reverse("news_feed"), {"page_tema-prueba": number})
+            section = response.context["sections"][0]
+            self.assertEqual(len(section["articles"]), count)
+            self.assertEqual(section["article_count"], 23)
+            actual.extend(article.pk for article in section["articles"])
+            if number == 1:
+                self.assertContains(response, "Más reciente")
+            else:
+                self.assertNotContains(response, "Más reciente")
+            if number == 3:
+                self.assertIsNone(section["next_url"])
+                self.assertContains(response, '<span aria-disabled="true">Siguiente</span>', html=True)
+        self.assertEqual(actual, expected)
+        self.assertEqual(len(set(actual)), 23)
+
+    def test_pages_are_independent_and_column_order_uses_total_count(self):
+        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
+        for index in range(23):
+            self.article(f"primera-{index}")
+        for index in range(11):
+            self.article(f"segunda-{index}", category=self.other_category)
+        response = self.client.get(reverse("news_feed"), {
+            "page_tema-prueba": 3, "page_otro-tema": 2,
+        })
+        sections = response.context["sections"]
+        self.assertEqual([section["category"] for section in sections], [self.category, self.other_category])
+        self.assertEqual([len(section["articles"]) for section in sections], [3, 1])
+        self.assertEqual([section["page"].number for section in sections], [3, 2])
+        self.assertEqual([section["article_count"] for section in sections], [23, 11])
+
+    def test_page_links_preserve_filters_other_pages_and_section_anchor(self):
+        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
+        for index in range(23):
+            article = self.article(f"ingles-{index}", language="en")
+            article.categories.add(self.other_category)
+        self.article("excluida-por-fuente", language="en", feed=self.other_feed)
+        self.article("excluida-por-idioma")
+        response = self.client.get(reverse("news_feed"), {
+            "source": self.source.pk, "language": "en",
+            "page_tema-prueba": 2, "page_otro-tema": 3,
+        })
+        section = next(s for s in response.context["sections"] if s["category"] == self.category)
+        self.assertEqual(section["article_count"], 23)
+        for key, number in (("previous_url", "1"), ("next_url", "3")):
+            url = urlsplit(section[key])
+            self.assertEqual(url.path, reverse("news_feed"))
+            self.assertEqual(url.fragment, "category-tema-prueba")
+            self.assertEqual(parse_qs(url.query), {
+                "source": [str(self.source.pk)], "language": ["en"],
+                "page_tema-prueba": [number], "page_otro-tema": ["3"],
+            })
+        self.assertTrue(all(article.feed_id == self.feed.pk and article.language == "en"
+                            for article in section["articles"]))
+
+    def test_invalid_page_numbers_and_pages_removed_by_retention(self):
+        for index in range(23):
+            self.article(f"noticia-{index}")
+        for value, expected in (("", 1), ("abc", 1), ("1.5", 1), ("0", 1), ("-2", 1),
+                                ("999999", 3), ("9" * 5000, 1)):
+            with self.subTest(value=value[:12]):
+                response = self.client.get(reverse("news_feed"), {"page_tema-prueba": value})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["sections"][0]["page"].number, expected)
+        Article.objects.all().update(published_at=timezone.now() - timedelta(days=15))
+        response = self.client.get(reverse("news_feed"), {"page_tema-prueba": 3})
+        self.assertEqual(response.context["sections"][0]["page"].number, 1)
+        self.assertEqual(self.titles(response), [])
+
+    def test_filter_submission_and_reset_restart_pages(self):
+        for index in range(23):
+            self.article(f"noticia-{index}")
+        response = self.client.get(reverse("news_feed"), {"page_tema-prueba": 2})
+        self.assertNotContains(response, 'name="page_tema-prueba"')
+        self.assertContains(response, f'<a class="filter-reset" href="{reverse("news_feed")}">Limpiar filtros</a>', html=True)
+        for query in ({"language": "es"}, {}):
+            response = self.client.get(reverse("news_feed"), query)
+            self.assertEqual(response.context["sections"][0]["page"].number, 1)
+
+    def test_invalid_filters_with_page_parameters_do_not_expose_articles(self):
+        for index in range(23):
+            self.article(f"noticia-{index}")
+        response = self.client.get(reverse("news_feed"), {"source": "abc", "page_tema-prueba": 2})
+        self.assertTrue(response.context["filter_form"].errors)
+        self.assertEqual(self.titles(response), [])
+        self.assertNotContains(response, 'class="category-pagination"')
+
+
+class IngestionOriginTests(TestCase):
+    def setUp(self):
+        source = Source.objects.create(name="Fuente sintética de orígenes")
+        self.feed_a = Feed.objects.create(source=source, name="A", url="https://example.com/a")
+        self.feed_b = Feed.objects.create(source=source, name="B", url="https://example.com/b")
+
+    def ingest(self, feed, tag, *, guid="", url="https://example.com/article"):
+        entry = {
+            "title": "Noticia sintética", "link": url, "id": guid,
+            "published_parsed": timezone.now().utctimetuple(),
+            "tags": [{"term": tag}],
+        }
+        with patch("news.ingestion.download_feed", return_value=([entry], "", "")):
+            return ingest_feed(feed, force_download=True)
+
+    def test_shared_url_combines_categories_and_preserves_attribution(self):
+        self.ingest(self.feed_a, "Tecnología", guid="a")
+        result = self.ingest(self.feed_b, "Ciencia", guid="b")
+        article = Article.objects.get(original_url="https://example.com/article")
+        self.assertEqual(result.duplicates, 1)
+        self.assertEqual(article.feed_id, self.feed_a.pk)
+        self.assertEqual(article.guid, "a")
+        self.assertEqual(article.origins.count(), 2)
+        self.assertCountEqual(article.categories.values_list("slug", flat=True), ["tecnologia", "ciencia"])
+
+    def test_canonical_url_combines_entries_with_tracking_parameters(self):
+        self.ingest(self.feed_a, "Tecnología")
+        result = self.ingest(self.feed_b, "Ciencia", url="https://example.com/article?utm_source=test#section")
+        self.assertEqual(result.duplicates, 1)
+        article = Article.objects.get(original_url="https://example.com/article")
+        self.assertEqual(article.origins.count(), 2)
+        self.assertCountEqual(article.categories.values_list("slug", flat=True), ["tecnologia", "ciencia"])
+
+    def test_refresh_removes_only_this_origins_categories_and_is_idempotent(self):
+        self.ingest(self.feed_a, "Tecnología")
+        self.ingest(self.feed_b, "Ciencia")
+        self.ingest(self.feed_a, "Etiqueta desconocida")
+        self.ingest(self.feed_b, "Ciencia")
+        article = Article.objects.get(original_url="https://example.com/article")
+        self.assertEqual(list(article.categories.values_list("slug", flat=True)), ["ciencia"])
+        self.assertEqual(article.origins.count(), 2)
+        self.assertEqual(Article.objects.filter(feed=self.feed_a).count(), 1)
+        self.assertEqual(ArticleOrigin.categories.through.objects.filter(articleorigin__article=article).count(), 1)
+
+    def test_secondary_guid_identifies_article_after_link_changes(self):
+        self.ingest(self.feed_a, "Tecnología", guid="a")
+        self.ingest(self.feed_b, "Ciencia", guid="b")
+        result = self.ingest(self.feed_b, "Ciencia", guid="b", url="https://example.com/updated")
+        self.assertEqual(result.duplicates, 1)
+        self.assertFalse(Article.objects.filter(original_url="https://example.com/updated").exists())
+        self.assertEqual(ArticleOrigin.objects.filter(feed=self.feed_b, guid="b").count(), 1)
+
+    def test_guid_is_scoped_to_feed_and_empty_guids_are_allowed(self):
+        self.ingest(self.feed_a, "Tecnología", guid="same", url="https://example.com/one")
+        result = self.ingest(self.feed_b, "Ciencia", guid="same", url="https://example.com/two")
+        self.assertEqual(result.created, 1)
+        self.assertEqual(ArticleOrigin.objects.filter(guid="same").count(), 2)
+        self.ingest(self.feed_a, "Tecnología", url="https://example.com/no-guid-1")
+        self.ingest(self.feed_a, "Tecnología", url="https://example.com/no-guid-2")
+        self.assertEqual(ArticleOrigin.objects.filter(feed=self.feed_a, guid="").count(), 2)
+
+    def test_missing_guid_does_not_erase_secondary_identifier(self):
+        self.ingest(self.feed_a, "Tecnología")
+        self.ingest(self.feed_b, "Ciencia", guid="b")
+        self.ingest(self.feed_b, "Ciencia")
+        self.assertEqual(ArticleOrigin.objects.get(feed=self.feed_b).guid, "b")
+
+    def test_origin_constraints_reject_duplicate_feed_and_guid(self):
+        self.ingest(self.feed_a, "Tecnología", guid="a")
+        self.ingest(self.feed_a, "Ciencia", url="https://example.com/other")
+        first = Article.objects.get(original_url="https://example.com/article")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ArticleOrigin.objects.create(article=first, feed=self.feed_a)
+        other = Article.objects.get(original_url="https://example.com/other")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ArticleOrigin.objects.filter(article=other, feed=self.feed_a).update(guid="a")
+
+    def test_admin_created_article_preserves_primary_categories(self):
+        article = Article.objects.create(
+            feed=self.feed_a, title="Noticia sintética", original_url="https://example.com/article",
+            published_at=timezone.now(),
+        )
+        article.categories.add(Category.objects.get(slug="tecnologia"))
+        self.ingest(self.feed_b, "Ciencia")
+        self.assertCountEqual(article.categories.values_list("slug", flat=True), ["tecnologia", "ciencia"])
+
+    def test_cleanup_removes_origins_and_their_category_relations(self):
+        self.ingest(self.feed_a, "Tecnología")
+        self.ingest(self.feed_b, "Ciencia")
+        article = Article.objects.get(original_url="https://example.com/article")
+        origin_ids = list(article.origins.values_list("pk", flat=True))
+        Article.objects.filter(pk=article.pk).update(published_at=timezone.now() - timedelta(days=15))
+        call_command("purge_old_articles", stdout=StringIO())
+        self.assertFalse(ArticleOrigin.objects.filter(pk__in=origin_ids).exists())
+        self.assertFalse(ArticleOrigin.categories.through.objects.filter(articleorigin_id__in=origin_ids).exists())
+
 
 class RetentionTests(TestCase):
     def setUp(self):
@@ -194,3 +408,47 @@ class RetentionTests(TestCase):
         self.assertEqual(result.skipped, 1)
         self.assertEqual(result.created, 0)
         self.assertFalse(Article.objects.filter(feed=self.feed).exists())
+
+
+class ArticleOriginMigrationTests(TransactionTestCase):
+    def test_existing_articles_keep_metadata_and_categories_after_migration(self):
+        old_target = [("news", "0006_argentina_markets")]
+        new_target = [("news", "0007_article_origins")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(old_target)
+        try:
+            old_apps = executor.loader.project_state(old_target).apps
+            OldSource = old_apps.get_model("news", "Source")
+            OldFeed = old_apps.get_model("news", "Feed")
+            OldArticle = old_apps.get_model("news", "Article")
+            OldCategory = old_apps.get_model("news", "Category")
+            source = OldSource.objects.create(name="Fuente sintética de migración")
+            feed = OldFeed.objects.create(source=source, name="RSS", url="https://example.com/migration")
+            article = OldArticle.objects.create(
+                feed=feed, guid="synthetic-guid", title="Título sintético",
+                original_url="https://example.com/legacy", canonical_url="https://example.com/legacy",
+                fingerprint="a" * 64, language="es", summary="Resumen sintético",
+                published_at=timezone.now(),
+            )
+            category, _ = OldCategory.objects.get_or_create(slug="ciencia", defaults={"name": "Ciencia"})
+            article.categories.add(category)
+            columns = ["id", "feed_id", "guid", "title", "original_url", "canonical_url",
+                       "fingerprint", "language", "summary", "published_at", "fetched_at"]
+            before = OldArticle.objects.filter(pk=article.pk).values(*columns).get()
+            without_guid = OldArticle.objects.create(
+                feed=feed, title="Sin GUID", original_url="https://example.com/legacy-no-guid",
+            )
+
+            executor = MigrationExecutor(connection)
+            executor.migrate(new_target)
+            new_apps = executor.loader.project_state(new_target).apps
+            NewArticle = new_apps.get_model("news", "Article")
+            NewOrigin = new_apps.get_model("news", "ArticleOrigin")
+            self.assertEqual(NewArticle.objects.filter(pk=article.pk).values(*columns).get(), before)
+            self.assertEqual(list(NewArticle.objects.get(pk=article.pk).categories.values_list("pk", flat=True)), [category.pk])
+            origin = NewOrigin.objects.get(article_id=article.pk)
+            self.assertEqual((origin.feed_id, origin.guid), (feed.pk, "synthetic-guid"))
+            self.assertEqual(list(origin.categories.values_list("pk", flat=True)), [category.pk])
+            self.assertEqual(NewOrigin.objects.get(article_id=without_guid.pk).guid, "")
+        finally:
+            MigrationExecutor(connection).migrate(new_target)

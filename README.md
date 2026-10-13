@@ -8,11 +8,13 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Preferencias individuales para ocho categorías, incluidas Argentina y Mercados y finanzas.
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
-- Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta.
+- Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
 - Filtros combinables por fuente e idioma en la página personalizada.
+- Paginación independiente de diez noticias por categoría, con estado en la URL.
+- Identidad editorial compartida en inicio, ingreso, registro, preferencias y noticias; fuentes locales y diseño adaptable.
 - Limpieza de noticias de más de 14 días, con vista previa.
 - Preparación de despliegue gratuito de Django en Render y PostgreSQL administrado en Supabase.
-- Workflow de GitHub Actions para limpieza e ingesta cuatro veces por día; pendiente de activar.
+- Workflow de GitHub Actions para limpieza e ingesta cada dos horas, de 06:00 a medianoche en hora argentina; pendiente de activar.
 
 ## Funcionalidades previstas
 
@@ -78,13 +80,25 @@ python manage.py runserver
 
 Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
 
-Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta las categorías elegidas en hasta cuatro columnas; pasa a dos o una columna en pantallas más chicas. Las columnas se ordenan por cantidad de noticias, de mayor a menor, y el encabezado indica el total filtrado de cada categoría. En cada una se muestran hasta diez titulares recientes con fuente, fecha, idioma y enlace al artículo original. El primero se destaca por ser el más reciente; aún no se calcula relevancia. Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros» y mantienen la selección en la URL, por ejemplo `/noticias/?source=1&language=es`. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran un error y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 14 días no aparecen, aunque todavía no haya corrido la limpieza.
+Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta hasta cuatro columnas desde 1280 px, dos entre 768 y 1279 px y una por debajo de 768 px. Las columnas se ordenan por el total de noticias filtradas, de mayor a menor, con desempate alfabético. Cada sección muestra diez titulares por página, con fuente, fecha, idioma y enlace original; la última puede tener menos. «Más reciente» identifica únicamente el primer artículo de la primera página; aún no se calcula relevancia.
+
+«Anterior», «Página X de Y» y «Siguiente» aparecen cuando una sección tiene más de diez noticias. La paginación es independiente: `/noticias/?source=1&language=es&page_tecnologia=2&page_ciencia=3` mantiene filtros y páginas de las otras categorías. Los enlaces regresan al encabezado de la sección mediante un fragmento. Una página ausente, no entera o menor que uno muestra la primera; una superior al máximo muestra la última. Funciona sin JavaScript y conserva el estado al recargar o usar el historial del navegador.
+
+Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros», antes de paginar, y mantienen la selección en la URL. Aplicar o limpiar filtros reinicia todas las páginas. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran errores y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 14 días no aparecen aunque todavía no haya corrido la limpieza.
+
+Inicio, ingreso y registro combinan un panel azul con la marca tipográfica y una zona clara para contenido o formularios. Las preferencias usan casillas nativas con etiquetas completas. La interfaz comparte colores, controles, mensajes y foco visible; mantiene los textos y recorridos anteriores. Archivo y Source Sans 3 se sirven desde `news/static/news/fonts/`, con sus licencias OFL y fuentes de respaldo, sin consultar Google al navegar. No se requieren paquetes ni variables de entorno nuevos.
 
 `ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los once feeds activos guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 14 días se omiten. La ejecución periódica queda pendiente de activar con una base pública.
 
-La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
+La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La clasificación se conserva por origen: actualizar un feed reemplaza su aporte y combina el resultado con los demás, sin borrar sus categorías ni duplicar la noticia. La atribución y los filtros siguen usando el feed original. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
 
 «Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como columnas en `/noticias/`.
+
+## Actualizar una instalación existente
+
+Después de incorporar estos cambios, ejecutar `python manage.py migrate` contra la base correspondiente antes de la ingesta. La migración `0007_article_origins` añade los orígenes y copia feed, GUID y categorías de las noticias existentes; conserva títulos, enlaces, fechas y atribución. No requiere recrear ni vaciar la base. Render la aplicará mediante el build ya configurado; Actions exige que esté aplicada y no modifica el esquema por su cuenta.
+
+La migración se verificó con datos sintéticos en SQLite. Su aplicación y comprobación en PostgreSQL real quedan para el siguiente bloque de despliegue.
 
 ## Limpieza de noticias antiguas
 
@@ -93,13 +107,15 @@ python manage.py purge_old_articles --dry-run
 python manage.py purge_old_articles
 ```
 
-El primer comando cuenta sin borrar; el segundo elimina de la base configurada. Se toma la fecha de publicación: se conserva una noticia de exactamente 14 días y se elimina cuando supera esa edad. Para registros sin fecha de publicación se usa la captura. Se limpian también noticias de feeds desactivados. Se conservan fuentes, feeds, categorías y preferencias; se eliminan las asociaciones de los artículos borrados.
+El primer comando cuenta sin borrar; el segundo elimina de la base configurada. Se toma la fecha de publicación: se conserva una noticia de exactamente 14 días y se elimina cuando supera esa edad. Para registros sin fecha de publicación se usa la captura. Se limpian también noticias de feeds desactivados. Se conservan fuentes, feeds, categorías y preferencias; se eliminan sus orígenes y todas las asociaciones de categorías de los artículos borrados.
 
 ## Ingesta periódica con GitHub Actions
 
-[.github/workflows/ingest-feeds.yml](./.github/workflows/ingest-feeds.yml) ejecuta la limpieza y después la ingesta cada seis horas, al minuto 17 UTC (cuatro veces por día), y permite una ejecución manual desde Actions. Usa Python 3.13, permisos de lectura y una única ejecución de mantenimiento a la vez. La limpieza ocurre antes de consultar los feeds para que un fallo de RSS no impida aplicar la conservación.
+[.github/workflows/ingest-feeds.yml](./.github/workflows/ingest-feeds.yml) tiene diez ejecuciones previstas todos los días: **06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 y 00:00**, en `America/Argentina/Buenos_Aires`. Usa el cron `0 0,6,8,10,12,14,16,18,20,22 * * *` y la zona horaria explícita. Ejecuta limpieza e ingesta, y permite una ejecución manual desde Actions fuera de esa franja. Usa Python 3.13, permisos de lectura y una única ejecución de mantenimiento a la vez. La limpieza ocurre antes de consultar los feeds para que un fallo de RSS no impida aplicar la conservación.
 
-**El workflow está preparado, pero no está activo.** GitHub Actions y Render usarán el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
+Medianoche cierra la jornada: no hay consultas previstas entre 00:00 y 06:00. Los feeds cortos pueden perder entradas durante esa pausa o en ráfagas. Las consultas cada dos horas reducen el riesgo durante el día, sin garantizar captura exhaustiva ni puntualidad del job. La comprobación de actividad se documenta en `SOURCES.md`.
+
+**El workflow está preparado, pero todavía no se activó ni se verificó una ejecución remota.** GitHub Actions y Render usarán el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
 
 Para activarlo:
 
@@ -116,7 +132,7 @@ El workflow comprueba los secretos sin imprimir sus valores y exige migraciones 
 
 `render.yaml` describe un servicio web gratuito, vinculado a la rama `main`, con Django, Gunicorn y WhiteNoise. Render genera `DJANGO_SECRET_KEY`; el resto de las credenciales de Supabase se solicitan al crear el Blueprint. Los cambios desplegados sirven archivos estáticos mediante WhiteNoise. Las migraciones se ejecutan durante el build, y las noticias continúan en PostgreSQL aunque el servicio se reinicie.
 
-El plan gratuito de Render duerme el servicio tras 15 minutos sin solicitudes y puede tardar cerca de un minuto en despertar. Tiene 750 horas de instancia por espacio de trabajo al mes y un sistema de archivos efímero; por eso no guardamos noticias en el disco de Render. Supabase Free ofrece 500 MB de base de datos y puede pausar proyectos con poca actividad durante siete días. La ingesta cuatro veces al día ayudará a mantener actividad, pero hay que revisar el estado y el uso desde ambos paneles. Render indica que Free es para pruebas y proyectos personales, no para aplicaciones con requisitos de disponibilidad; además, los excesos de cuota pueden generar cargos si se agrega un medio de pago. Para mantener este despliegue sin costo, no agregar recursos pagos ni un medio de pago y revisar las cuotas. Referencias: [límites gratuitos y condiciones de Render](https://render.com/docs/free), [preguntas frecuentes de facturación de Render](https://render.com/docs/faq), [despliegue Django en Render](https://render.com/docs/deploy-django), [conexiones PostgreSQL de Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres) y [pausa de proyectos Supabase](https://supabase.com/docs/guides/platform/free-project-pausing).
+El plan gratuito de Render duerme el servicio tras 15 minutos sin solicitudes y puede tardar cerca de un minuto en despertar. Tiene 750 horas de instancia por espacio de trabajo al mes y un sistema de archivos efímero; por eso no guardamos noticias en el disco de Render. Supabase Free ofrece 500 MB de base de datos y puede pausar proyectos con poca actividad durante siete días. La ingesta programada puede ayudar a mantener actividad, pero hay que revisar el estado y el uso desde ambos paneles. Render indica que Free es para pruebas y proyectos personales, no para aplicaciones con requisitos de disponibilidad; además, los excesos de cuota pueden generar cargos si se agrega un medio de pago. Para mantener este despliegue sin costo, no agregar recursos pagos ni un medio de pago y revisar las cuotas. Referencias: [límites gratuitos y condiciones de Render](https://render.com/docs/free), [preguntas frecuentes de facturación de Render](https://render.com/docs/faq), [despliegue Django en Render](https://render.com/docs/deploy-django), [conexiones PostgreSQL de Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres) y [pausa de proyectos Supabase](https://supabase.com/docs/guides/platform/free-project-pausing).
 
 ## Verificación
 
@@ -128,7 +144,7 @@ python manage.py check --settings=config.test_settings
 python manage.py makemigrations --check --dry-run --settings=config.test_settings
 ```
 
-`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker ni credenciales reales. Cubre filtros, autenticación, categorías, límites de resultados y conservación. Para comprobar PostgreSQL, usar `python manage.py test` con la configuración normal y una cuenta con permiso para crear la base de pruebas. La configuración de pruebas no debe usarse para ejecutar o desplegar la aplicación.
+`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker, credenciales reales ni `collectstatic`. Sólo en pruebas se desactiva la redirección HTTPS, se usa almacenamiento estático sin manifiesto y se excluye WhiteNoise; producción mantiene su configuración. La suite cubre filtros, protección de acceso, categorías, paginación y enlaces independientes, parámetros inválidos, orden, conservación, orígenes, reclasificación, GUID y migración con datos existentes. Para comprobar PostgreSQL, usar `python manage.py test` con la configuración normal y una cuenta con permiso para crear la base de pruebas. La configuración de pruebas no debe usarse para ejecutar o desplegar la aplicación.
 
 ## Documentación
 

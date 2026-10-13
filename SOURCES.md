@@ -4,7 +4,7 @@
 
 Este registro separa disponibilidad técnica de permiso de reutilización. Un feed accesible no autoriza a copiar el artículo completo ni necesariamente sus imágenes.
 
-El relevamiento general se realizó el **29 de septiembre de 2026**. Los feeds activados se volvieron a comprobar el **11 de octubre de 2026**. La frecuencia depende de cada medio y puede variar.
+El relevamiento general se realizó el **29 de septiembre de 2026**. Los feeds activados y sus etiquetas se comprobaron el **11 de octubre de 2026**; la actividad y capacidad se revisaron nuevamente el **13 de octubre de 2026**, según el snapshot agregado más abajo. La frecuencia depende de cada medio y puede variar.
 
 Campos:
 
@@ -40,7 +40,7 @@ El feed adicional de [EL PAÍS Ciencia](https://feeds.elpais.com/mrss-s/pages/ep
 - [Los Andes ofrece sus canales RSS](https://www.losandes.com.ar/contenidos/rss.html) para incluir noticias en un blog o sitio web. Se usa sólo el titular con atribución y enlace original; no se copia el artículo, el resumen ni la imagen. Sus [términos generales](https://www.losandes.com.ar/terminos) reservan el derecho de autor del material editorial.
 - [Cinco Días ofrece RSS](https://cincodias.elpais.com/info/rss/) gratuito para lectores y agregadores web. El canal Mercados procede de su directorio oficial. Se muestra sólo titular, fuente, fecha y enlace, sin resumen ni imagen.
 
-La primera ingesta de los tres feeds iniciales guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar los 60 días. Los ocho feeds añadidos después respondieron HTTP 200, con XML válido y publicaciones recientes. Los once feeds activos están configurados con `show_summary=False`.
+Registro histórico: la primera ingesta de los tres feeds iniciales guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar la ventana de 60 días usada entonces. La conservación vigente es de 14 días. Los ocho feeds añadidos después respondieron HTTP 200, con XML válido y publicaciones recientes. Los once feeds activos están configurados con `show_summary=False`.
 
 ### Etiquetas para clasificar las noticias
 
@@ -63,6 +63,32 @@ La lista efectiva está en `news/category_aliases.py`. Una entrada etiquetada si
 `argentina` reúne los feeds Clarín Política, Los Andes Política y Los Andes Economía. El feed de Clarín Economía no se agrega porque su muestra contenía muchas cotizaciones de otros países. `mercados-finanzas` es información periodística sobre bolsa e instrumentos financieros, no un servicio de precios en tiempo real.
 
 **Límite de precisión:** los feeds de Clarín no traen etiquetas por noticia. Mundo puede incluir sucesos internacionales no geopolíticos, y Economía incluyó varias cotizaciones diarias de divisas en la muestra. Se incluyen como secciones editoriales curadas, pero habrá que revisar un criterio de selección más fino si generan ruido para los usuarios. Las etiquetas de EL PAÍS seleccionan sólo una parte de las noticias de esas secciones.
+
+## Actividad y capacidad comprobadas el 13/10/2026
+
+Se reutiliza el snapshot de la revisión de frecuencia, obtenido a las **04:00:55 UTC del 13/10/2026**. Los once feeds activos se descargaron e interpretaron correctamente al primer intento con el lector de la aplicación. Se inspeccionaron en memoria; no se almacenaron noticias, XML ni enlaces de artículos en el repositorio.
+
+La mediana se calcula entre fechas de publicación válidas **distintas**. Varias noticias pueden compartir una fecha; el conteo de fechas distintas no equivale a entradas con fecha inválida. La ventana es la diferencia entre la publicación más antigua y la más reciente de la muestra, no una frecuencia de actualización del RSS.
+
+| Feed | Entradas | Fechas distintas | Mediana entre publicaciones (min) | Ventana de la muestra (h) | Publicación más reciente (UTC) |
+|---|---|---|---|---|---|
+| Cinco Días Mercados | 25 | 22 | 229.6 | 112.50 | 2026-10-13T03:30:01Z |
+| Clarín Economía | 10 | 9 | 68.0 | 15.26 | 2026-10-13T02:00:34Z |
+| Clarín Mundo | 10 | 10 | 33.5 | 5.71 | 2026-10-12T22:20:32Z |
+| Clarín Política | 10 | 10 | 68.3 | 12.00 | 2026-10-13T01:34:13Z |
+| Clarín Tecnología | 10 | 10 | 1440.2 | 176.52 | 2026-10-12T17:17:55Z |
+| EL PAÍS Economía | 40 | 28 | 160.6 | 491.96 | 2026-10-13T03:45:01Z |
+| EL PAÍS Internacional | 23 | 21 | 141.1 | 185.18 | 2026-10-12T18:52:33Z |
+| EL PAÍS Tecnología | 21 | 21 | 995.3 | 657.11 | 2026-10-12T03:30:01Z |
+| Los Andes Economía | 20 | 20 | 95.7 | 80.73 | 2026-10-13T02:59:43Z |
+| Los Andes Política | 20 | 19 | 98.5 | 74.73 | 2026-10-13T03:21:00Z |
+| MIT News Artificial Intelligence | 50 | 48 | 1395.0 | 2105.42 | 2026-10-08T21:25:00Z |
+
+Clarín Mundo fue el más frecuente según la mediana de esta muestra: 33,5 minutos y diez entradas que abarcan 5,71 horas. Una consulta cada seis horas podría llegar después de que desaparezcan entradas. La decisión acordada es consultar todos los feeds activos cada dos horas durante el día; no se afirma que todos los servidores RSS cambien cada dos horas.
+
+Horarios previstos, todos los días en Argentina: **06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 y 00:00**. La última consulta cierra la jornada y se retoma a las 06:00. Las ráfagas, esa pausa nocturna y los posibles retrasos de Actions pueden causar pérdidas: esta configuración no garantiza recuperar todas las noticias.
+
+Esta comprobación no cambia fuentes, permisos ni equivalencias; la revisión de etiquetas sigue fechada el 11/10/2026. No se agregan feeds de ciencia ni otras candidatas, y sigue pendiente evaluar el ruido temático ya registrado.
 
 ## Registrada pero desactivada
 

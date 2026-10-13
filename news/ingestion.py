@@ -13,7 +13,7 @@ from django.db import transaction
 from django.utils.html import strip_tags
 
 from .category_aliases import category_slugs_for_entry
-from .models import Article, Category
+from .models import Article, ArticleOrigin, Category
 from .retention import retention_cutoff
 
 
@@ -77,6 +77,9 @@ def permitted_summary(entry, feed):
 
 def existing_article(feed, guid, original_url, canonical_url, fingerprint):
     if guid:
+        origin = ArticleOrigin.objects.filter(feed=feed, guid=guid).select_related("article").first()
+        if origin:
+            return origin.article
         found = Article.objects.filter(feed=feed, guid=guid).first()
         if found:
             return found
@@ -95,6 +98,28 @@ def existing_article(feed, guid, original_url, canonical_url, fingerprint):
         if canonicalize_url(article.original_url) == canonical_url:
             return article
     return None
+
+
+def record_origin(article, feed, guid, category_ids):
+    """Reclasifica un origen y mantiene los aportes de los demás feeds."""
+    # También preserva noticias creadas desde admin después de la migración.
+    primary_origin, created = ArticleOrigin.objects.get_or_create(
+        article=article, feed_id=article.feed_id, defaults={"guid": article.guid},
+    )
+    if created:
+        primary_origin.categories.set(article.categories.all())
+
+    origin, _ = ArticleOrigin.objects.get_or_create(
+        article=article, feed=feed, defaults={"guid": guid},
+    )
+    # Una respuesta sin GUID no borra el último identificador conocido.
+    if guid and origin.guid != guid:
+        origin.guid = guid
+        origin.save(update_fields=["guid"])
+    origin.categories.set(category_ids)
+    article.categories.set(
+        Category.objects.filter(article_origins__article=article).distinct()
+    )
 
 
 def download_feed(feed, force_download=False):
@@ -164,8 +189,9 @@ def ingest_feed(feed, force_download=False):
         category_ids = [category_ids_by_slug[slug] for slug in category_slugs if slug in category_ids_by_slug]
         article = existing_article(feed, guid, original_url, canonical_url, fingerprint)
         if article:
-            if article.feed_id == feed.id:
-                article.categories.set(category_ids)
+            with transaction.atomic():
+                article = Article.objects.select_for_update().get(pk=article.pk)
+                record_origin(article, feed, guid, category_ids)
             result.duplicates += 1
             continue
 
@@ -181,7 +207,7 @@ def ingest_feed(feed, force_download=False):
                 language=(entry.get("language") or "")[:10] or feed.language,
                 published_at=published_at,
             )
-            article.categories.add(*category_ids)
+            record_origin(article, feed, guid, category_ids)
         result.created += 1
 
     feed.etag = etag

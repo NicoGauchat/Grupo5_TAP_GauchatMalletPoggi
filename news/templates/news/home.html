@@ -1,10 +1,15 @@
 {% extends 'news/base.html' %}
 
 {% block content %}
-<section class="panel intro">
-    <p class="eyebrow">Noticias de fuentes seleccionadas</p>
-    <h1>Elegí los temas que querés seguir.</h1>
-    <p>Reunimos titulares recientes de distintas fuentes y enlazamos los artículos originales. Creá una cuenta para elegir tus categorías y leer las noticias que te interesan.</p>
-    <a class="button" href="{% url 'register' %}">Crear cuenta</a>
+<section class="home-layout">
+    <div class="brand-panel home-brand">
+        <div class="brand-display" aria-hidden="true"><span>Sitio</span><span>Noticias</span></div>
+        <p>Noticias de fuentes seleccionadas</p>
+    </div>
+    <div class="home-copy">
+        <h1>Elegí los temas que querés seguir.</h1>
+        <p>Reunimos titulares recientes de distintas fuentes y enlazamos los artículos originales. Creá una cuenta para elegir tus categorías y leer las noticias que te interesan.</p>
+        <a class="button" href="{% url 'register' %}">Crear cuenta</a>
+    </div>
 </section>
 {% endblock %}
