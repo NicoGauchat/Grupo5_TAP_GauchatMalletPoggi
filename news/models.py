@@ -36,6 +36,14 @@ class Feed(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="feeds")
     is_active = models.BooleanField(default=False)
     show_summary = models.BooleanField(default=False)
+    allow_ai_briefing = models.BooleanField(
+        verbose_name="Permitir en presentación IA",
+        default=False,
+        help_text=(
+            "Activar sólo después de verificar que la fuente permite sintetizar sus titulares "
+            "mediante IA y mostrar el resultado."
+        ),
+    )
     etag = models.CharField(max_length=255, blank=True)
     last_modified = models.CharField(max_length=255, blank=True)
 
@@ -111,6 +119,30 @@ class SavedArticle(models.Model):
         ordering = ["-saved_at", "-id"]
         constraints = [
             models.UniqueConstraint(fields=["user", "article"], name="unique_saved_article_user"),
+        ]
+
+
+class NewsBriefing(models.Model):
+    """Resumen editorial común generado con noticias de una ventana móvil de 24 h."""
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+    window_start = models.DateTimeField()
+    article_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-generated_at", "-id"]
+
+
+class NewsBriefingItem(models.Model):
+    briefing = models.ForeignKey(NewsBriefing, on_delete=models.CASCADE, related_name="items")
+    position = models.PositiveSmallIntegerField()
+    text = models.TextField()
+    articles = models.ManyToManyField(Article, related_name="briefing_items")
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [
+            models.UniqueConstraint(fields=["briefing", "position"], name="unique_briefing_item_position"),
         ]
 
 

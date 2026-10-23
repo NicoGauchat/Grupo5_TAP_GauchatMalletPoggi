@@ -6,10 +6,43 @@
 {% block content %}
 <header class="feed-intro">
     <span class="edition-label">Tu edición personal</span>
-    <h1>Bienvenido, {{ user.username }}</h1>
+    <h1>{{ greeting }}, {{ user.username }}</h1>
     <p>Estas son las noticias recientes de tus categorías. Cada titular te lleva al artículo original de su fuente.</p>
     <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>
 </header>
+
+<section class="news-briefing" aria-labelledby="briefing-title">
+    <div class="briefing-heading">
+        <div>
+            <span class="briefing-eyebrow">Tu presentación</span>
+            <h2 id="briefing-title">Lo más importante de las últimas 24 horas</h2>
+        </div>
+        {% if briefing %}
+            <p class="briefing-window">Actualizado {{ briefing.generated_at|date:'j/m H:i' }} · noticias desde {{ briefing.window_start|date:'j/m H:i' }}</p>
+        {% endif %}
+    </div>
+    {% if briefing and briefing.items.all %}
+        <p class="briefing-count">Sucesos seleccionados entre {{ briefing.article_count }} titulares recientes</p>
+        <ol class="briefing-items">
+            {% for item in briefing.items.all %}
+                <li>
+                    <p>{{ item.text }}</p>
+                    <div class="briefing-sources" aria-label="Fuentes de este punto">
+                        {% for article in item.articles.all %}
+                            <a href="{{ article.original_url }}">{{ article.feed.source.name }}: {{ article.title }}</a>
+                        {% endfor %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ol>
+    {% elif briefing and briefing.article_count %}
+        <p class="briefing-empty">No surgieron sucesos que superen el nivel de importancia para destacar hoy.</p>
+    {% elif briefing %}
+        <p class="briefing-empty">No hay titulares de fuentes habilitadas para la presentación en las últimas 24 horas.</p>
+    {% else %}
+        <p class="briefing-empty">El resumen aparecerá después de la próxima ingesta de noticias.</p>
+    {% endif %}
+</section>
 
 {% if sections %}
     <form class="feed-filters" method="get" action="{% url 'news_feed' %}" aria-label="Filtrar noticias">

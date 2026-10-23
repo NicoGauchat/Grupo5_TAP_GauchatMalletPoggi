@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Article, Category, Feed, Source, UserPreference
+from .models import Article, Category, Feed, NewsBriefing, Source, UserPreference
 
 
 @admin.register(Category)
@@ -17,8 +17,8 @@ class SourceAdmin(admin.ModelAdmin):
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
-    list_display = ("name", "source", "language", "is_active", "show_summary")
-    list_filter = ("is_active", "show_summary", "source")
+    list_display = ("name", "source", "language", "is_active", "show_summary", "allow_ai_briefing")
+    list_filter = ("is_active", "show_summary", "allow_ai_briefing", "source")
     filter_horizontal = ("categories",)
 
 
@@ -34,3 +34,9 @@ class ArticleAdmin(admin.ModelAdmin):
 class UserPreferenceAdmin(admin.ModelAdmin):
     list_display = ("user", "classification_mode")
     filter_horizontal = ("categories",)
+
+
+@admin.register(NewsBriefing)
+class NewsBriefingAdmin(admin.ModelAdmin):
+    list_display = ("generated_at", "window_start", "article_count")
+    readonly_fields = ("generated_at", "window_start", "article_count")

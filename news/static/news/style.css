@@ -133,6 +133,19 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 .feed-intro { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 2rem; padding-block: 2rem; }
 .feed-intro h1 { flex: 1 1 60%; margin: 0; font-size: clamp(2rem, 2.6vw, 2.75rem); font-weight: 750; }
 .feed-intro p { flex: 1 1 100%; order: 2; margin: 0; color: var(--muted); font-size: 1.0625rem; }
+.news-briefing { margin: 0 0 2rem; padding: 1.5rem; border: 1px solid #d9e1fa; border-radius: var(--radius-surface); background: linear-gradient(135deg, #f4f6ff, var(--surface) 72%); box-shadow: var(--shadow-surface); }
+.briefing-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.briefing-eyebrow { color: var(--blue-hover); font-size: .75rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.briefing-heading h2 { margin: .25rem 0 0; font-size: clamp(1.25rem, 2vw, 1.75rem); line-height: 1.2; }
+.briefing-window, .briefing-count { margin: .5rem 0 0; color: var(--muted); font-size: .875rem; }
+.briefing-items { display: grid; gap: 1rem; margin: 0; padding: 1rem 0 0 1.25rem; }
+.briefing-items li { padding-left: .25rem; }
+.briefing-items li::marker { color: var(--blue); font-weight: 750; }
+.briefing-items li > p { margin: 0; line-height: 1.55; }
+.briefing-sources { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.briefing-sources a { max-width: 100%; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--blue-hover); font-size: .8125rem; line-height: 1.35; text-decoration: none; overflow-wrap: anywhere; }
+.briefing-sources a:hover { border-color: var(--blue); text-decoration: underline; }
+.briefing-empty { margin: 1rem 0 0; color: var(--muted); }
 .feed-edit-link { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 1rem; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); font-weight: 650; text-decoration: none; box-shadow: 0 2px 4px rgb(24 32 51 / 3%); }
 .feed-edit-link:hover { border-color: var(--blue); background: var(--blue-soft); }
 .feed-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem; padding: 1.25rem; margin-bottom: 2rem; border: 1px solid var(--line); border-radius: var(--radius-surface); background: var(--surface); box-shadow: var(--shadow-surface); }
@@ -330,6 +343,7 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 @media (max-width: 767px) {
     .feed-intro { margin-top: 1.25rem; padding: 1.25rem; gap: .75rem; }
     .feed-intro h1 { font-size: 2rem; }
+    .news-briefing { padding: 1.125rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

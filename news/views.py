@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
@@ -6,11 +8,12 @@ from django.core.paginator import Paginator
 from django.db import connection
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .forms import NewsFilterForm, PreferenceForm
-from .models import Article, SavedArticle, UserPreference
+from .models import Article, NewsBriefing, SavedArticle, UserPreference
 from .retention import retention_cutoff
 from .search import search_articles
 
@@ -126,12 +129,33 @@ def news_feed(request):
     # La lista de categorías ya viene en orden alfabético: en un empate se conserva.
     sections.sort(key=lambda section: -section["article_count"])
 
+    now = timezone.now()
+    now_local = timezone.localtime(now)
+    if now_local.hour < 12:
+        greeting = "Buenos días"
+    elif now_local.hour < 20:
+        greeting = "Buenas tardes"
+    else:
+        greeting = "Buenas noches"
+    briefing_cutoff = now - timedelta(hours=24)
+    briefing = NewsBriefing.objects.filter(
+        generated_at__gte=briefing_cutoff,
+    ).exclude(
+        items__articles__published_at__lt=briefing_cutoff,
+    ).exclude(
+        items__articles__feed__allow_ai_briefing=False,
+    ).distinct().prefetch_related(
+        "items__articles__feed__source",
+    ).first()
+
     return render(request, "news/feed.html", {
         "sections": sections, "filter_form": filter_form,
         "filters_active": filters_active,
         "search_text": search_text,
         "has_articles": any(section["article_count"] for section in sections),
         "saved_ids": set(SavedArticle.objects.filter(user=request.user).values_list("article_id", flat=True)),
+        "greeting": greeting,
+        "briefing": briefing,
     })
 
 
