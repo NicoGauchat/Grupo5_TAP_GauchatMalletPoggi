@@ -27,6 +27,7 @@ jobs:
       POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
       POSTGRES_PORT: ${{ vars.POSTGRES_PORT || '5432' }}
       POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -57,3 +58,6 @@ jobs:
         run: python manage.py purge_old_articles
       - name: Ingerir feeds
         run: python manage.py ingest_feeds
+      - name: Clasificar noticias con IA
+        if: env.GEMINI_API_KEY != ''
+        run: python manage.py classify_news_ai

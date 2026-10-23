@@ -1,20 +1,80 @@
 from datetime import timedelta
 from io import StringIO
+from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .ingestion import ingest_feed
+from .llm_classification import ClassificationError, classify_batch
 from .models import Article, ArticleOrigin, Category, Feed, SavedArticle, Source, UserPreference
 from .search import search_articles
+
+
+class AIResponseTests(SimpleTestCase):
+    def test_rejects_unrequested_article_id(self):
+        article = SimpleNamespace(
+            pk=7, title="Titular", language="es",
+            feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")),
+        )
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"}):
+            with patch("news.llm_classification.genai.Client") as client:
+                client.return_value.models.generate_content.return_value.text = (
+                    '{"articles":[{"article_id":8,"categories":["economia"]}]}'
+                )
+                with self.assertRaises(ClassificationError):
+                    classify_batch([article], ["economia"])
+
+
+class AIClassificationTests(TestCase):
+    def test_command_stores_ai_result_without_changing_rule_categories(self):
+        source = Source.objects.create(name="Fuente de prueba")
+        feed = Feed.objects.create(
+            source=source, name="RSS", url="https://example.com/ai-rss", is_active=True,
+        )
+        rule_category = Category.objects.get(slug="economia")
+        ai_category = Category.objects.get(slug="inteligencia-artificial")
+        article = Article.objects.create(
+            feed=feed, title="La IA impulsa un nuevo desarrollo",
+            original_url="https://example.com/ai", published_at=timezone.now(),
+        )
+        article.categories.add(rule_category)
+        with patch("news.management.commands.classify_news_ai.classify_batch", return_value={
+            article.pk: [ai_category.slug],
+        }):
+            call_command("classify_news_ai")
+        article.refresh_from_db()
+        self.assertCountEqual(article.categories.all(), [rule_category])
+        self.assertCountEqual(article.llm_categories.all(), [ai_category])
+        self.assertIsNotNone(article.llm_classified_at)
+
+        with patch("news.management.commands.classify_news_ai.classify_batch") as classify:
+            call_command("classify_news_ai")
+        classify.assert_not_called()
+
+    def test_api_failure_keeps_article_pending(self):
+        source = Source.objects.create(name="Fuente de prueba")
+        feed = Feed.objects.create(
+            source=source, name="RSS", url="https://example.com/ai-rss", is_active=True,
+        )
+        article = Article.objects.create(
+            feed=feed, title="Titular pendiente",
+            original_url="https://example.com/pendiente", published_at=timezone.now(),
+        )
+        with patch("news.management.commands.classify_news_ai.classify_batch", side_effect=ClassificationError("cuota")):
+            with self.assertRaises(CommandError):
+                call_command("classify_news_ai")
+        article.refresh_from_db()
+        self.assertIsNone(article.llm_classified_at)
 
 
 class NewsFeedTests(TestCase):
@@ -53,6 +113,35 @@ class NewsFeedTests(TestCase):
         self.client.logout()
         response = self.client.get(reverse("news_feed"))
         self.assertRedirects(response, reverse("login") + "?next=/noticias/", fetch_redirect_response=False)
+
+    def test_classification_preference_switches_visible_articles(self):
+        by_rules = self.article("clasificada-por-reglas")
+        by_ai = Article.objects.create(
+            feed=self.feed, title="clasificada-por-ia",
+            original_url="https://example.com/clasificada-por-ia",
+            published_at=timezone.now(),
+        )
+        by_ai.llm_categories.add(self.category)
+        preference = UserPreference.objects.get(user=self.user)
+
+        preference.classification_mode = UserPreference.CLASSIFICATION_BOTH
+        preference.save(update_fields=["classification_mode"])
+        self.assertCountEqual(
+            self.titles(self.client.get(reverse("news_feed"))), [by_rules.title, by_ai.title],
+        )
+        preference.classification_mode = UserPreference.CLASSIFICATION_RULES
+        preference.save(update_fields=["classification_mode"])
+        self.assertEqual(self.titles(self.client.get(reverse("news_feed"))), [by_rules.title])
+        preference.classification_mode = UserPreference.CLASSIFICATION_AI
+        preference.save(update_fields=["classification_mode"])
+        self.assertEqual(self.titles(self.client.get(reverse("news_feed"))), [by_ai.title])
+
+    def test_classification_mode_is_saved_with_preferences(self):
+        response = self.client.post(reverse("preferences"), {
+            "categories": [self.category.pk], "classification_mode": "ai",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(UserPreference.objects.get(user=self.user).classification_mode, "ai")
 
     def test_combines_source_and_language(self):
         self.article("correcta")

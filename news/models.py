@@ -49,6 +49,9 @@ class Feed(models.Model):
 class Article(models.Model):
     feed = models.ForeignKey(Feed, on_delete=models.PROTECT, related_name="articles")
     categories = models.ManyToManyField(Category, blank=True, related_name="articles")
+    llm_categories = models.ManyToManyField(Category, blank=True, related_name="llm_articles")
+    llm_classified_at = models.DateTimeField(null=True, blank=True)
+    llm_model = models.CharField(max_length=80, blank=True)
     guid = models.CharField(max_length=512, blank=True)
     original_url = models.URLField(max_length=2048, unique=True)
     canonical_url = models.URLField(max_length=2048, blank=True)
@@ -112,12 +115,23 @@ class SavedArticle(models.Model):
 
 
 class UserPreference(models.Model):
+    CLASSIFICATION_BOTH = "both"
+    CLASSIFICATION_RULES = "rules"
+    CLASSIFICATION_AI = "ai"
+    CLASSIFICATION_CHOICES = [
+        (CLASSIFICATION_BOTH, "Ambas"),
+        (CLASSIFICATION_RULES, "Sólo reglas"),
+        (CLASSIFICATION_AI, "Sólo IA"),
+    ]
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="news_preference",
     )
     categories = models.ManyToManyField(Category, blank=True, related_name="users")
+    classification_mode = models.CharField(
+        max_length=5, choices=CLASSIFICATION_CHOICES, default=CLASSIFICATION_BOTH,
+    )
 
     def __str__(self):
         return f"Preferencias de {self.user}"

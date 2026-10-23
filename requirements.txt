@@ -2,5 +2,6 @@ Django==5.2.18
 psycopg[binary]==3.3.6
 python-dotenv==1.2.4
 feedparser==6.0.14
+google-genai==2.33.0
 gunicorn==26.2.0; sys_platform != "win32"
 whitenoise==6.12.0

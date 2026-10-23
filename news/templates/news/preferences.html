@@ -17,6 +17,12 @@
             {{ form.categories.errors }}
             {{ form.categories }}
         </fieldset>
+        <fieldset>
+            <legend>Cómo clasificar las noticias</legend>
+            <p>Las reglas usan las etiquetas y la sección del medio. La IA analiza el titular. Las noticias aún no procesadas por IA no aparecen si elegís «Sólo IA».</p>
+            {{ form.classification_mode.errors }}
+            {{ form.classification_mode }}
+        </fieldset>
         <button class="button" type="submit">Guardar preferencias</button>
     </form>
 </section>

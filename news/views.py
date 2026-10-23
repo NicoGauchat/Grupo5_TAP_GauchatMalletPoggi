@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
 from django.db import connection
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -53,8 +54,15 @@ def preferences(request):
 def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
     categories = list(preference.categories.all())
+    mode = preference.classification_mode
+    if mode == UserPreference.CLASSIFICATION_RULES:
+        category_filter = Q(categories__in=categories)
+    elif mode == UserPreference.CLASSIFICATION_AI:
+        category_filter = Q(llm_categories__in=categories)
+    else:
+        category_filter = Q(categories__in=categories) | Q(llm_categories__in=categories)
     available_articles = Article.objects.filter(
-        categories__in=categories, feed__is_active=True,
+        category_filter, feed__is_active=True,
         published_at__gte=retention_cutoff(),
     ).distinct()
     filter_form = NewsFilterForm(request.GET, articles=available_articles)
@@ -81,8 +89,14 @@ def news_feed(request):
         filtered_articles = available_articles.none()
     sections = []
     for category in categories:
+        if mode == UserPreference.CLASSIFICATION_RULES:
+            section_filter = Q(categories=category)
+        elif mode == UserPreference.CLASSIFICATION_AI:
+            section_filter = Q(llm_categories=category)
+        else:
+            section_filter = Q(categories=category) | Q(llm_categories=category)
         category_articles = (
-            filtered_articles.filter(categories=category)
+            filtered_articles.filter(section_filter).distinct()
             .select_related("feed__source").order_by(
                 *(["-relevance"] if search_text and not filter_form.errors else []), "-published_at", "-id",
             )

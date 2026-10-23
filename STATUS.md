@@ -1,9 +1,13 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-10-13
-**Objetivo actual:** probar localmente el pulido visual del frontend conservando estructura y colores; pendiente de revisión del usuario.
+**Última actualización:** 2026-10-23
+**Objetivo actual:** completar el primer bloque de la entrega 3 con clasificación por IA y presentación de la última ingesta.
 
 ## Último paso completado
+
+Se implementó la clasificación adicional de titulares con `gemini-3.1-flash-lite`: migración `0010`, categorías LLM separadas de las reglas, fecha y modelo de procesamiento, lotes de diez con validación estricta de IDs y slugs, y comando `classify_news_ai` para noticias pendientes de los últimos 14 días. Cada usuario puede elegir «Ambas», «Sólo reglas» o «Sólo IA» en preferencias; el valor inicial es «Ambas». GitHub Actions ejecuta el comando después de la ingesta cuando el usuario cargue el secreto `GEMINI_API_KEY`. La clave y AI Studio quedan exclusivamente a cargo del usuario; no se creó ni configuró ninguna credencial. Un fallo de API deja las noticias pendientes y no cambia la clasificación por reglas. Se agregó `google-genai==2.33.0`; PROJECT registra revisión de licencia, mantenimiento, documentación oficial y proyectos comparables. Se actualizaron README y `.env.example`. SOURCES no requiere cambios: siguen los mismos feeds, campos permitidos y políticas. La API real y PostgreSQL remoto no se probaron sin la clave ni credenciales del usuario. Las pruebas locales SQLite fueron 57 en total: 45 aprobadas y 12 omitidas por requerir PostgreSQL; `manage.py check`, `makemigrations --check --dry-run` y `git diff --check` pasaron.
+
+Se definió el primer bloque de la entrega 3 sin cambiar código: conservar la clasificación actual por etiquetas y respaldo, agregar predicciones LLM separadas, y generar una presentación breve a partir de los titulares nuevos de cada ingesta. Se eligió inicialmente `gemini-3.1-flash-lite` en su nivel gratuito, con salida estructurada, ejecución por lotes desde el proceso de GitHub Actions y clave fuera del repositorio. Se revisaron documentación oficial, licencia y mantenimiento del SDK `google-genai`, y dos proyectos comparables. La clasificación y el resumen usarán sólo títulos y metadatos permitidos; el saludo se compondrá en Django según usuario y hora local. Las imágenes rotarán diariamente desde un banco propio o fuente licenciada que aún debe investigarse; no se generarán. PROJECT registra el diseño. README, SOURCES y `.env.example` no requieren cambios en esta etapa de planificación porque no se modificaron funciones, feeds, políticas ni variables. La implementación y la comprobación con una clave gratuita real siguen pendientes.
 
 Se amplió el experimento visual local por pedido del usuario: encabezado con la etiqueta «Tu edición personal» y luces azul/coral, entrada escalonada de columnas, elevación y acento coral al pasar el mouse, destello en botones y respuesta del marcador. Barra decorativa de avance mediante `animation-timeline: scroll(root)` sólo en navegadores compatibles. Animaciones de entrada finitas y efectos de hover limitados a puntero preciso; `prefers-reduced-motion` elimina animaciones, transiciones y desplazamientos de interacción. Sin JavaScript ni dependencias nuevas. Se conservan columnas, formularios, enlaces, colores y lógica. Se reinició el servidor local para actualizar las plantillas y se verificó el encabezado renderizado con sesión. Se inspeccionaron capturas del resultado y el ancho móvil de 375 px, sin desbordamiento en la página visible. `manage.py check` y `git diff --check` pasaron. La reducción de movimiento se revisó en CSS, sin emulación de la preferencia del sistema. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios nuevos. No se publicó en Render.
 
@@ -39,9 +43,11 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Revisar con el usuario la estética en la vista local antes de decidir su publicación.
+Implementar el registro de cada ingesta y la presentación superior de sus titulares nuevos con saludo personalizado.
 
 ## Completado
+
+- Clasificación adicional de titulares por Gemini, conservada por separado de las reglas, y preferencia individual entre IA, reglas o ambas.
 
 - Búsqueda en títulos con índice GIN, stop words, stemming por idioma y ranking dentro de cada categoría.
 

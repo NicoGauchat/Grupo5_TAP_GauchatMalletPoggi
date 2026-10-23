@@ -118,14 +118,16 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--er
 .preferences-intro > p { color: var(--muted); font-size: 1.125rem; }
 .account-caption { margin-bottom: 0; font-size: 1rem !important; }
 .preference-form { max-width: 54rem; margin-top: 2rem; }
+.preference-form fieldset + fieldset { margin-top: 2rem; }
+.preference-form fieldset > p { color: var(--muted); }
 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 650; }
-#id_categories { display: grid; gap: .75rem; }
-#id_categories > div { min-width: 0; }
-#id_categories label { display: flex; align-items: center; gap: 1rem; height: 100%; min-height: 64px; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: 0 2px 6px rgb(24 32 51 / 3%); background: var(--surface); font-size: 1.125rem; overflow-wrap: anywhere; cursor: pointer; }
-#id_categories input { width: 20px; height: 20px; flex-shrink: 0; margin: 0; }
-#id_categories label:has(input:checked) { border-color: var(--blue); background: #eaf0ff; color: var(--blue-hover); }
-#id_categories label:hover { border-color: var(--control-line); }
+#id_categories, #id_classification_mode { display: grid; gap: .75rem; }
+#id_categories > div, #id_classification_mode > div { min-width: 0; }
+#id_categories label, #id_classification_mode label { display: flex; align-items: center; gap: 1rem; height: 100%; min-height: 64px; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: 0 2px 6px rgb(24 32 51 / 3%); background: var(--surface); font-size: 1.125rem; overflow-wrap: anywhere; cursor: pointer; }
+#id_categories input, #id_classification_mode input { width: 20px; height: 20px; flex-shrink: 0; margin: 0; }
+#id_categories label:has(input:checked), #id_classification_mode label:has(input:checked) { border-color: var(--blue); background: #eaf0ff; color: var(--blue-hover); }
+#id_categories label:hover, #id_classification_mode label:hover { border-color: var(--control-line); }
 .preference-form .button { margin-top: 2rem; }
 
 .feed-intro { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 2rem; padding-block: 2rem; }

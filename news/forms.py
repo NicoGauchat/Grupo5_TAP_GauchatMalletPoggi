@@ -30,7 +30,16 @@ class NewsFilterForm(forms.Form):
 
 
 class PreferenceForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["classification_mode"].required = False
+
+    def clean_classification_mode(self):
+        return self.cleaned_data["classification_mode"] or (
+            self.instance.classification_mode or UserPreference.CLASSIFICATION_BOTH
+        )
+
     class Meta:
         model = UserPreference
-        fields = ["categories"]
-        widgets = {"categories": forms.CheckboxSelectMultiple}
+        fields = ["categories", "classification_mode"]
+        widgets = {"categories": forms.CheckboxSelectMultiple, "classification_mode": forms.RadioSelect}

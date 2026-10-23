@@ -24,13 +24,13 @@ class FeedAdmin(admin.ModelAdmin):
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ("title", "feed", "published_at", "fetched_at")
+    list_display = ("title", "feed", "published_at", "fetched_at", "llm_classified_at")
     list_filter = ("feed__source",)
     search_fields = ("title", "original_url")
-    filter_horizontal = ("categories",)
+    filter_horizontal = ("categories", "llm_categories")
 
 
 @admin.register(UserPreference)
 class UserPreferenceAdmin(admin.ModelAdmin):
-    list_display = ("user",)
+    list_display = ("user", "classification_mode")
     filter_horizontal = ("categories",)
