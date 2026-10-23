@@ -5,7 +5,7 @@
 
 ## Último paso completado
 
-Se implementó la clasificación adicional de titulares con `gemini-3.1-flash-lite`: migración `0010`, categorías LLM separadas de las reglas, fecha y modelo de procesamiento, lotes de diez con validación estricta de IDs y slugs, y comando `classify_news_ai` para noticias pendientes de los últimos 14 días. Cada usuario puede elegir «Ambas», «Sólo reglas» o «Sólo IA» en preferencias; el valor inicial es «Ambas». GitHub Actions ejecuta el comando después de la ingesta cuando el usuario cargue el secreto `GEMINI_API_KEY`. La clave y AI Studio quedan exclusivamente a cargo del usuario; no se creó ni configuró ninguna credencial. Un fallo de API deja las noticias pendientes y no cambia la clasificación por reglas. Se agregó `google-genai==2.33.0`; PROJECT registra revisión de licencia, mantenimiento, documentación oficial y proyectos comparables. Se actualizaron README y `.env.example`. SOURCES no requiere cambios: siguen los mismos feeds, campos permitidos y políticas. La API real y PostgreSQL remoto no se probaron sin la clave ni credenciales del usuario. Las pruebas locales SQLite fueron 57 en total: 45 aprobadas y 12 omitidas por requerir PostgreSQL; `manage.py check`, `makemigrations --check --dry-run` y `git diff --check` pasaron.
+Se corrigió el orden de `classify_news_ai`: las hasta cien noticias pendientes por ejecución ahora se seleccionan por fecha de publicación descendente y se clasifican primero las más recientes. La causa era el orden ascendente por ID, que hacía que las ejecuciones iniciales consumieran el cupo con noticias antiguas antes de llegar a las nuevas. README y PROJECT documentan el orden actualizado; SOURCES y `.env.example` no requieren cambios. No se llamó a Gemini, no se ejecutaron pruebas y no se modificó el despliegue remoto. `git diff --check` pasó.
 
 Se definió el primer bloque de la entrega 3 sin cambiar código: conservar la clasificación actual por etiquetas y respaldo, agregar predicciones LLM separadas, y generar una presentación breve a partir de los titulares nuevos de cada ingesta. Se eligió inicialmente `gemini-3.1-flash-lite` en su nivel gratuito, con salida estructurada, ejecución por lotes desde el proceso de GitHub Actions y clave fuera del repositorio. Se revisaron documentación oficial, licencia y mantenimiento del SDK `google-genai`, y dos proyectos comparables. La clasificación y el resumen usarán sólo títulos y metadatos permitidos; el saludo se compondrá en Django según usuario y hora local. Las imágenes rotarán diariamente desde un banco propio o fuente licenciada que aún debe investigarse; no se generarán. PROJECT registra el diseño. README, SOURCES y `.env.example` no requieren cambios en esta etapa de planificación porque no se modificaron funciones, feeds, políticas ni variables. La implementación y la comprobación con una clave gratuita real siguen pendientes.
 
@@ -43,7 +43,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Implementar el registro de cada ingesta y la presentación superior de sus titulares nuevos con saludo personalizado.
+Integrar el cambio de `develop` en `main`, desplegarlo y ejecutar el workflow de ingesta para que clasifique primero las noticias recientes pendientes.
 
 ## Completado
 

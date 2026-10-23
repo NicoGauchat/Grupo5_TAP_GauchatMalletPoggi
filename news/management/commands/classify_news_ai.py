@@ -24,7 +24,7 @@ class Command(BaseCommand):
             Article.objects.filter(
                 llm_classified_at__isnull=True, published_at__gte=retention_cutoff(),
                 feed__is_active=True,
-            ).select_related("feed__source").order_by("id")[:limit]
+            ).select_related("feed__source").order_by("-published_at", "-id")[:limit]
         )
         if not pending:
             self.stdout.write("No hay noticias pendientes de clasificación por IA.")
