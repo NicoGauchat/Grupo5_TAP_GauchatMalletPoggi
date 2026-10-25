@@ -1,9 +1,43 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-25
-**Objetivo actual:** preparar la publicación en Render sin que la configuración del servidor dependa del entorno local.
+**Objetivo actual:** repartir las funciones Gemini entre dos credenciales configurables, conservando compatibilidad y asignación fija.
 
 ## Último paso completado
+
+Se implementó la asignación de dos claves en `news/llm_keys.py`: `GEMINI_API_KEY` para clasificación y agrupamiento; `GEMINI_API_KEY_SECONDARY` para importancia y resumen. Las cuatro integraciones y el estado de configuración del resumen usan la misma selección. El reparto inicial aproxima las solicitudes a plena carga (14 frente a 11 con cien pendientes por etapa y un bloque de candidatos), sin prometer igualdad de tokens ni de costos; cuotas y facturación dependen de los proyectos autorizados.
+
+Si falta la secundaria o está vacía, se conserva el funcionamiento previo con la principal y se avisa en Actions y `dev.ps1`. Si sólo hay secundaria, se ejecutan importancia y resumen, dejando clasificación/agrupamiento pendientes. Una clave configurada que devuelve cuota, conexión o respuesta inválida no se sustituye por otra. Actions recibe el secreto opcional y habilita cada etapa según su asignación. El arranque local obtiene sólo nombres de funciones disponibles y mantiene `-RefreshBriefing`; nunca imprime valores. Las visitas no llaman al proveedor.
+
+Se comprobó únicamente la presencia de nombres de secretos en GitHub: la principal existe, la secundaria aún no. No se pueden extraer sus valores de esa lista, no se copiaron a esta computadora ni se creó una clave. La nueva credencial debe cargarla el usuario como `GEMINI_API_KEY_SECONDARY` en Actions o `.env.local`, según dónde ejecute. `.env.example`, README y PROJECT actualizados. SOURCES no requiere cambios: no cambian feeds, atribución, políticas ni metadatos transmitidos. Sin dependencias, migraciones, publicación, cambios de datos o facturación.
+
+Se verificaron asignaciones de las cuatro funciones, compatibilidad con una sola clave, secundaria sola, ausencia/espacios, estado web y rechazo de conmutación ante cuota, usando claves sintéticas y clientes simulados. Las pruebas focalizadas pasaron 38 casos (36 aprobados y dos omitidos en SQLite); la sintaxis PowerShell y el diff no presentan errores. La suite completa y los controles finales se registran en Última verificación.
+
+### Historial de importancia, fecha y ampliación de cobertura
+
+Se completaron las funciones restantes aprobadas: `Story` conserva importancia general de 1 a 5, explicación breve, fecha y modelo; `score_news_ai` evalúa titulares por acontecimiento con la rúbrica de alcance, impacto, novedad y urgencia. Fama de marca y cantidad de coberturas no bastan. Cada lote se valida y guarda atómicamente, con timeout y conservación del resultado anterior ante errores. El agrupamiento y las correcciones administrativas dejan pendiente la reevaluación; las visitas no llaman al modelo.
+
+Las categorías permiten elegir Más recientes o Más importantes; al buscar también se conserva Relevancia de búsqueda. El orden inicial sin búsqueda sigue siendo cronológico. Las noticias sin puntuar quedan visibles al final en el modo importante, con indicación de pendiente. La explicación se despliega con HTML nativo. Fecha ofrece Hoy (Buenos Aires), últimas 24 horas, 3 días, semana y 14 días; los filtros se aplican antes de elegir la cobertura representativa, excluyen fechas futuras y conservan todas las coberturas autorizadas en el desplegable. Ver más, guardados y regreso conservan fecha/orden; cursores inválidos o de otro día en Hoy se rechazan.
+
+Se agregaron Salud, Medioambiente y Deportes con ilustraciones SVG originales y soporte en reglas/LLM. `0017` incorpora evaluación, autoría RSS y vínculo de licencia; `0018` agrega quince canales para **26 feeds precargados de ocho medios**. Argentina: Perfil (seis canales), Clarín (Deportes/Buena Vida), Los Andes (Sociedad). Europa: cuatro canales de EL PAÍS y elDiario.es Internacional. Estados Unidos: NASA Technology. Agência Brasil fue retirada de la propuesta por pedido del usuario: no se incorpora y se eliminó de candidatas. Las fuentes nuevas conservan imágenes, resúmenes RSS y síntesis desactivados; permiten agrupar/puntuar titulares. elDiario.es conserva autoría pública y licencia junto a los enlaces. La reversión desactiva fuentes sin borrar noticias ni preferencias.
+
+Para admitir más noticias se reemplazó el bloqueo de 500 candidatos por comparaciones en bloques de hasta 500, sin recortar grupos. Se conservan asignación incremental, originales, retención de 14 días y corrección administrativa. No se agregan dependencias ni servicios. El arranque local incorpora clasificación, agrupamiento, importancia y resumen si hay clave; Actions agrega evaluación al flujo existente. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios porque no se agregaron variables. Los cambios anteriores sin commit se preservaron y ampliaron; no se publicó ni se modificaron bases del usuario.
+
+Verificación: **92 pruebas aprobadas en PostgreSQL 17 nativo aislado**; SQLite **77 aprobadas y 15 omitidas**. Incluye nuevas categorías y permisos, particiones, puntajes/explicaciones inválidos, caché y reevaluación, fallos sin pérdida, orden/búsqueda/cursor, fecha local/futura y migraciones con artículos existentes en ambos sentidos. Se probó ingesta real de los quince canales nuevos en PostgreSQL temporal: 396 noticias creadas, ocho duplicadas y 213 omitidas por retención. El catálogo tiene 26 feeds y ocho medios; los tres medios/feeds sintéticos de la base de QA no forman parte del catálogo. La calidad semántica de Gemini sigue sin medirse por falta de clave local; API simulada en pruebas.
+
+### Historial del primer bloque de agrupamiento
+
+Se implementó el primer bloque aprobado de agrupamiento con código dentro del monolito existente: `Story`, relación opcional `Article.story`, permiso independiente `Feed.allow_ai_grouping` y comando `group_news_ai`. Reutiliza Gemini y el SDK ya instalados, procesa pendientes en lotes de treinta y admite hasta cien por ejecución (ajustable a quinientos), comparándolos con los grupos recientes autorizados. Valida que cada ID aparezca exactamente una vez; aplica cada lote de forma atómica con comprobación de concurrencia. No envía cuerpos, resúmenes RSS, URLs ni datos de usuarios. Ante error no oculta noticias ni pierde asociaciones válidas. Actions y el arranque local ejecutan el comando si hay clave, sin llamadas durante la navegación.
+
+Cada categoría muestra una tarjeta por grupo con el titular original atribuido y fotografía de una cobertura que coincide con los filtros. Un desplegable HTML nativo lista todos los medios, títulos completos, fechas e idiomas y enlaces externos disponibles; cuenta medios distintos sin confundirlos con cantidad de artículos. Fuente/idioma/búsqueda seleccionan acontecimientos, conservando las otras coberturas en su desplegable. Totales, cursores y Ver más trabajan con acontecimientos; el navegador identifica tarjetas por grupo para no duplicarlas. Guardar conserva su significado de artículo individual. La migración reversible `0016` habilita agrupamiento sólo en los once feeds existentes para el uso educativo aprobado; nuevas fuentes comienzan deshabilitadas. Revocar el permiso retira sus coberturas de los grupos inmediatamente y mantiene sus artículos individuales. Administración permite inspeccionar y corregir asociaciones, y la limpieza elimina grupos vacíos sin prolongar la retención.
+
+Verificación de este bloque: **78 pruebas aprobadas en PostgreSQL 17 nativo aislado**; SQLite **64 aprobadas y 14 omitidas**. Se probaron particiones inválidas, incremento/idempotencia, fallo sin pérdida, permisos, distintas categorías/modos, fuentes únicas, filtros, búsqueda PostgreSQL, paginación agrupada, guardados, retención y migración con artículos existentes en ambos sentidos. Django check, ausencia de migraciones pendientes, `pip check` y `git diff --check` aprobados. Las comprobaciones de navegador y estáticos se detallan en Última verificación.
+
+Se aplicó UI/UX Pro Max al desplegable de fuentes (teclado, foco, reflujo y titulares completos) y Playwright para verificarlo, conservando identidad y dependencias. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios porque se reutiliza `GEMINI_API_KEY`. Investigación oficial y comparación con dos proyectos activos registradas en PROJECT. Sin dependencias nuevas, publicación, cambios remotos ni noticias reales incorporadas al repositorio.
+
+Límites: no se fusionan automáticamente grupos ya creados; sólo se envía su titular más reciente como representante. El LLM puede confundir hechos o separarlos y se conserva corrección administrativa. Al superar 500 grupos candidatos el comando se detiene explícitamente sin ocultar pendientes. No hay clave Gemini en este entorno, por lo que no se ejecutó una llamada real ni se midió calidad semántica: las respuestas de la API están simuladas en pruebas. Importancia general/selector de orden, fecha y ampliación de categorías/fuentes siguen en la secuencia acordada, fuera de este primer bloque.
+
+### Historial anterior de preparación del despliegue
 
 Se ajustó la separación entre desarrollo y producción para publicar `main`: `config.settings` conserva el perfil WSGI/Gunicorn del servidor, usa PostgreSQL por defecto en `5432` con SSL obligatorio y exige las credenciales de producción cuando `DEBUG` está desactivado, en vez de caer silenciosamente en `localhost:5433`. El hostname de Render se agrega a `ALLOWED_HOSTS` y a `CSRF_TRUSTED_ORIGINS`; los dominios propios pueden declararse con `DJANGO_ALLOWED_HOSTS` y `DJANGO_CSRF_TRUSTED_ORIGINS`. `config.local_settings` y `dev.ps1` siguen siendo exclusivamente locales y cargan `.env.local` sin afectar al servidor. README y PROJECT documentan qué variables van en Render y cuáles en GitHub Actions. No se modificó la base ni se versionaron secretos.
 
@@ -92,10 +126,13 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar el despliegue en Render con las variables de producción y el workflow de ingesta configurados.
+Cargar `GEMINI_API_KEY_SECONDARY` del usuario y verificar el reparto real con ambas credenciales antes de publicar.
 
 ## Completado
 
+- Asignación fija de dos claves Gemini por función, con compatibilidad y condiciones de ejecución locales/Actions.
+- Importancia general por acontecimiento, explicación, orden seleccionable, filtro temporal, once categorías y 26 feeds de ocho medios.
+- Agrupamiento LLM persistente en acontecimientos, una tarjeta por grupo y todas sus coberturas desplegables con enlaces originales.
 - Clasificación adicional de titulares por Gemini, conservada por separado de las reglas, y preferencia individual entre IA, reglas o ambas.
 
 - Búsqueda en títulos con índice GIN, stop words, stemming por idioma y ranking dentro de cada categoría.
@@ -123,16 +160,26 @@ Comprobar el despliegue en Render con las variables de producción y el workflow
 - Verificar el build de Render, conexión a Supabase, aplicación publicada y persistencia; la configuración preparada no acredita un despliegue correcto.
 - Configurar o comprobar credenciales en los paneles y `NEWS_INGESTION_ENABLED`, y verificar la primera ejecución manual y programada en Actions. Este bloque no carga secretos ni activa servicios remotos.
 - Los horarios de Actions son previstos: puede haber retrasos u omisiones. La pausa de 00:00 a 06:00 y los feeds cortos pueden causar pérdidas de entradas; las consultas cada dos horas no garantizan captura exhaustiva.
-- Sigue pendiente evaluar el ruido de Clarín Mundo y Economía y la cobertura de ciencia. No se incorporaron fuentes ni se cambiaron los criterios de clasificación en esta tarea.
+- Sigue pendiente medir ruido temático y calidad semántica en las once categorías. Ciencia ya se amplió con EL PAÍS, Perfil y etiquetas específicas de NASA; las fuentes y reglas nuevas están registradas en SOURCES.
 - No se guardan artículos completos ni archivos de fotografías RSS; se conservan metadatos de imágenes autorizadas y fotografías temáticas locales. Los once feeds conservan los resúmenes RSS deshabilitados.
 
 ## Bloqueos
 
-No hay bloqueos locales activos. El motor Docker ya responde y el arranque real con PostgreSQL 17 quedó comprobado. El despliegue remoto permanece fuera de este bloque.
+No hay clave Gemini disponible en este entorno para la evaluación semántica real. La implementación, migraciones y pruebas se verificaron con PostgreSQL 17 nativo aislado y respuestas simuladas de la API. El historial de Docker y servidores locales corresponde a sesiones anteriores; este bloque no comprueba su estado actual. El despliegue remoto permanece fuera del bloque.
 
 ## Última verificación
 
-El último ajuste visual pasó 11 pruebas de resumen y comprobaciones de navegador, teclado y funcionamiento sin JavaScript, descritas al inicio. La suite completa del bloque anterior pasó 69 pruebas en PostgreSQL 17.11 y 56 aprobadas/13 omitidas en SQLite. Servidor local activo con resumen renovado; configuración y diff sin errores.
+Reparto de claves: suite actual **100 pruebas en SQLite, 85 aprobadas y 15 omitidas por requerir PostgreSQL**; incluye ocho pruebas nuevas de asignación/compatibilidad/clientes/fallos/estado web. Django check, ausencia de migraciones nuevas, `git diff --check` y análisis de sintaxis PowerShell aprobados. Se ejecutó el bloque IA real de `dev.ps1` con el ejecutable Python simulado para cinco configuraciones (dos claves, sólo principal, sólo secundaria, ninguna y resumen forzado sin claves), comprobando qué comandos se ejecutan sin acceder a red ni bases. La suite PostgreSQL del bloque previo permanece como antecedente debajo; este ajuste de credenciales no cambia SQL, esquema ni interfaz.
+
+Sólo se verificaron los nombres de secretos de Actions: principal presente y secundaria ausente. Sin claves locales ni llamadas reales; no se cargaron secretos, no se alteró facturación ni se publicó. La separación efectiva queda pendiente de que el usuario configure la segunda clave. README, PROJECT y `.env.example` actualizados; SOURCES no requiere cambios.
+
+### Antecedente de la ampliación funcional
+
+Suite completa final: **92 pruebas aprobadas en PostgreSQL 17 nativo temporal** y **77 aprobadas/15 omitidas en SQLite**. Configuración, ausencia de migraciones pendientes, dependencias y `git diff --check` sin errores. Migraciones verificadas desde estados anteriores y en reversa, conservando artículos y grupos. `collectstatic` con manifiesto y compresión aprobado en un directorio temporal externo.
+
+Chrome a 1440 y 375 px: selector de orden cambia los titulares iniciales, fecha/orden se conservan al pasar de diez a diecinueve tarjetas sin duplicados, modificar filtros reinicia a diez, Guardar no pierde selección ni tarjetas. Explicación operable con Enter y foco visible. Sin JavaScript: explicación desplegable, Ver más hasta diecinueve y formulario de semana/recientes funcionales. Once categorías visibles, tres SVG nuevos cargados al entrar en viewport, fuentes/licencia/autoría conservadas y noticias sin puntaje identificadas. Movimiento reducido y ausencia de desbordamiento comprobados; capturas de escritorio/móvil inspeccionadas. Sin errores JavaScript; sólo el 404 previo del favicon.
+
+Los quince RSS nuevos se ingirieron en PostgreSQL temporal, sin cuerpos ni fotografías. Se comprobó después la reclasificación de las 24 entradas de elDiario.es con su regla editorial acotada. Navegador, servidor web y PostgreSQL de QA detenidos al terminar. Quedan datos sintéticos y metadatos RSS reales sólo en el directorio temporal externo; no se modificaron bases del usuario ni secretos, y no se publicó. La llamada real a Gemini sigue pendiente por falta de clave disponible.
 
 ### Verificaciones históricas
 

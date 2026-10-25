@@ -1,6 +1,6 @@
 {% load static %}
 {% for article in articles %}
-<article id="news-{{ article.pk }}" class="article-card{% if leading and forloop.first %} article-lead{% endif %}" data-article-id="{{ article.pk }}">
+<article id="{% if article.story_id and article.feed.allow_ai_grouping %}story-{{ article.story_id }}{% else %}news-{{ article.pk }}{% endif %}" class="article-card{% if leading and forloop.first %} article-lead{% endif %}" data-article-id="{{ article.pk }}">
     <figure class="article-media">
         <a href="{{ article.original_url }}" target="_blank" rel="noopener" aria-label="Leer {{ article.title }} (nueva pestaña)">
             <img src="{% if article.image_url and article.feed.show_images %}{{ article.image_url }}{% else %}{% static category_image %}{% endif %}" data-fallback="{% static category_image %}" alt="" width="960" height="600" {% if leading and forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" referrerpolicy="no-referrer">
@@ -8,10 +8,31 @@
         <figcaption class="image-credit">{% if article.image_url and article.feed.show_images %}{{ article.image_credit }}{% if article.feed.url == 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml' %} · <a href="https://news.mit.edu/terms-of-use" target="_blank" rel="noopener">CC BY-NC-ND</a>{% endif %}{% else %}Imagen ilustrativa{% endif %}</figcaption>
     </figure>
     <div class="article-copy">
-        {% if leading and forloop.first %}<p class="leading-label">La más reciente</p>{% endif %}
+        {% if leading and forloop.first %}<p class="leading-label">{{ leading_label }}</p>{% endif %}
+        {% if article.coverages|length > 1 %}<p class="news-meta">Titular de {{ article.feed.source.name }}</p>{% endif %}
         <h2><a href="{{ article.original_url }}" target="_blank" rel="noopener">{{ article.title }}</a></h2>
+        {% if article.feed.allow_ai_grouping and article.story.importance_score %}
+        <details class="importance-note">
+            <summary>Importancia general {{ article.story.importance_score }}/5 · IA</summary>
+            <p>{{ article.story.importance_reason }}</p>
+        </details>
+        {% elif sort == 'important' %}<p class="news-meta">Importancia pendiente de evaluación</p>{% endif %}
+        {% if article.coverages|length > 1 %}
+        <div class="story-coverage">
+            <p class="news-meta">{{ article.coverage_sources|join:" · " }}</p>
+            <details class="story-sources">
+                <summary>Ver {{ article.coverage_sources|length }} fuente{{ article.coverage_sources|length|pluralize }} · {{ article.coverages|length }} coberturas</summary>
+                <ul>
+                    {% for coverage in article.coverages %}
+                    <li><a href="{{ coverage.original_url }}" target="_blank" rel="noopener"><strong>{{ coverage.feed.source.name }}</strong><span>{{ coverage.title }}</span></a><time datetime="{{ coverage.published_at|date:'c' }}">{{ coverage.published_at|date:'j/m H:i' }}{% if coverage.language %} · {{ coverage.language|upper }}{% endif %}</time>{% if coverage.feed.source.license_url %}<p class="news-meta">{% if coverage.byline %}{{ coverage.byline }} · {% endif %}<a href="{{ coverage.feed.source.license_url }}" target="_blank" rel="noopener">Licencia de uso</a></p>{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </div>
+        {% endif %}
         {% if leading and forloop.first and article.summary and article.feed.show_summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
         <footer class="news-item-footer">
+            {% if article.feed.source.license_url %}<p class="news-meta">{% if article.byline %}{{ article.byline }} · {% endif %}<a href="{{ article.feed.source.license_url }}" target="_blank" rel="noopener">Licencia de uso</a></p>{% endif %}
             <p class="news-meta"><span>{{ article.feed.source.name }}</span><time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>{% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}</p>
             {% include 'news/save_button.html' %}
         </footer>

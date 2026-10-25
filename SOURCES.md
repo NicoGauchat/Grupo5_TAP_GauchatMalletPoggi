@@ -16,6 +16,57 @@ Campos:
 
 ## Feeds activos
 
+### Ampliación vigente del 25/10/2026
+
+Por pedido del usuario, se prioriza cobertura argentina y se agregan fuentes de Estados Unidos y Europa. **Agência Brasil queda fuera**: no se incorpora su fuente, feeds ni equivalencias a la migración. `0018` agrega quince RSS a los once originales: **26 feeds activos precargados de ocho medios**. Los medios nuevos son Perfil (Argentina), NASA (Estados Unidos) y elDiario.es (España); además se amplían canales de Clarín, Los Andes y EL PAÍS. Las tres categorías nuevas son Salud, Medioambiente y Deportes.
+
+Los quince RSS se comprobaron el 25/10/2026 con el lector de la aplicación: HTTP 200, RSS 2.0 válido, menos de 2 MB y publicaciones dentro de los últimos 14 días. La siguiente muestra registra cantidad recibida y entradas elegibles por fecha, incluidas las que ya existían por otro canal; no es una garantía de disponibilidad futura. Los datos se inspeccionaron en memoria y se importaron únicamente a PostgreSQL temporal de QA, fuera del repositorio.
+
+| Medio / canal | URL | Idioma | Entradas / elegibles en 14 días | Categoría base |
+|---|---|---|---|---|
+| Clarín Deportes | https://www.clarin.com/rss/deportes/ | es | 10 / 10 | Deportes |
+| Clarín Buena Vida | https://www.clarin.com/rss/buena-vida/ | es | 10 / 10 | Salud |
+| Los Andes Sociedad | https://www.losandes.com.ar/rss/pages/sociedad.xml | es | 20 / 20 | Argentina |
+| Perfil Política | https://www.perfil.com/feed/politica | es | 70 / 70 | Política argentina y Argentina |
+| Perfil Salud | https://www.perfil.com/feed/salud | es | 70 / 18 | Salud |
+| Perfil Deportes | https://www.perfil.com/feed/deportes | es | 70 / 70 | Deportes |
+| Perfil Ciencia | https://www.perfil.com/feed/ciencia | es | 70 / 26 | Ciencia |
+| Perfil Economía | https://www.perfil.com/feed/economia | es | 70 / 70 | Economía |
+| Perfil Tecnología | https://www.perfil.com/feed/tecnologia | es | 70 / 9 | Tecnología |
+| EL PAÍS Salud | https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/salud-y-bienestar/portada | es | 32 / 16 | Salud |
+| EL PAÍS Clima y medio ambiente | https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/clima-y-medio-ambiente/portada | es | 20 / 11 | Medioambiente |
+| EL PAÍS Deportes | https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/deportes/portada | es | 31 / 26 | Deportes |
+| EL PAÍS Ciencia | https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada | es | 40 / 17 | Ciencia |
+| elDiario.es Internacional | https://www.eldiario.es/rss/internacional/ | es | 24 / 24 | Geopolítica |
+| NASA Technology | https://www.nasa.gov/technology/feed/ | en | 10 / 7 | Tecnología; Ciencia/Medioambiente según etiquetas |
+
+En la primera ingesta aislada de estos canales se crearon 396 artículos, se detectaron ocho duplicados y se omitieron 213 entradas fuera de la ventana; no se guardaron cuerpos ni XML. Tres noticias de Salud de EL PAÍS y otras de Perfil ya estaban en otros canales y conservaron su origen inicial. La categoría de respaldo se usa cuando no hay etiquetas; EL PAÍS usa equivalencias exactas de Salud, Salud pública, Salud mental, Medicina, Enfermedades, Medio ambiente, Cambio climático, Biodiversidad, Contaminación y Deportes, observadas en los RSS. NASA limita `Technology`, `Technology Research`, `Science & Research` y `Earth Science` a su canal. Los Andes Sociedad aplica su etiqueta de sección sólo en su URL.
+
+El feed Internacional de elDiario.es tiene principalmente etiquetas de países/personas, sin categoría temática constante. Se incorpora como sección editorial curada de Geopolítica, sin convertir nombres de países o políticos en equivalencias globales. Como en Clarín Mundo, puede incluir sucesos internacionales que no sean geopolítica estricta. Los canales de salud/bienestar y sociedad también requieren medir ruido temático antes de refinar la selección; no se filtran por notoriedad de marcas ni se excluyen medios completos por ello.
+
+### Permisos de la ampliación
+
+- **Perfil:** su [directorio y condiciones RSS](https://www.perfil.com/canales-rss) conceden exhibición de titulares y enlaces en sitios propios, conservándolos y atribuyendo al medio. Se revisaron también sus [términos generales](https://www.perfil.com/terminos-privacidad). Se usan los canales publicados en ese directorio, sin cuerpos ni fotografías.
+- **Clarín:** se reutilizan el [directorio RSS](https://www.clarin.com/rss.html) y sus [condiciones específicas](https://www.clarin.com/filer/RSS/terminos_condiciones.html), que permiten titulares/enlaces sin alteración. Los dos canales nuevos no heredan permiso para imágenes ni síntesis.
+- **Los Andes:** se conserva la política de [RSS](https://www.losandes.com.ar/contenidos/rss.html) y [términos](https://www.losandes.com.ar/terminos) ya documentada: titular original con atribución y enlace; se agrega Sociedad sin habilitar imágenes ni resúmenes.
+- **EL PAÍS:** los cuatro canales se ofrecen como titulares en su [directorio oficial](https://elpais.com/info/rss/). Se conserva el alcance de titulares y enlaces en agregador; la presencia de Media RSS no habilita fotografías.
+- **NASA:** se revisaron su [directorio RSS](https://www.nasa.gov/rss-feeds/) y [directrices de uso y atribución](https://www.nasa.gov/nasa-brand-center/images-and-media/). Se usa el feed Technology con reconocimiento de NASA, sin presentar aval ni reutilizar marcas/fotografías o material de terceros. El supuesto feed `https://science.nasa.gov/feed/` devolvió HTML y se descartó; no se intenta scraping.
+- **elDiario.es:** su [aviso legal, apartado 3](https://www.eldiario.es/aviso-legal-eldiario-es/) declara uso bajo [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Se usa para este proyecto educativo no comercial, con titular original, medio, autor público recibido en RSS y vínculo a la licencia. La ingesta guarda `Article.byline` y `Source.license_url`; las referencias y guardadas conservan esa atribución. No se copian cuerpos ni imágenes y no se extiende la licencia al contenido de terceros.
+
+Los quince feeds nuevos tienen `show_images=False`, `show_summary=False` y `allow_ai_briefing=False`. `allow_ai_grouping=True` permite analizar únicamente los titulares/metadatos para agrupar y estimar importancia, conservando originales; esa operación no se interpreta como autorización para entrenar modelos, republicar artículos o generar resúmenes de esos nuevos canales. La síntesis diaria continúa limitada a los feeds previamente habilitados. No se habilita facturación ni se cambia el proveedor; se mantienen las condiciones de Gemini ya documentadas. Cada fuente puede revocar permisos mediante los controles existentes.
+
+La ampliación no incorpora ScienceDaily: aunque tiene RSS recientes, sus [términos RSS sobre almacenamiento](https://www.sciencedaily.com/terms.htm) requieren autorización previa para ingresar materiales en una base de datos; es incompatible con la persistencia de este proyecto. Chequeado `/feed/` y Tiempo Argentino `/feed/` resultaron antiguos; Chequeado ofrece un feed actualizado con `?post_type=nota`, pero falta resolver su política general de republicación. No se activan esas candidatas. BBC Mundo, DW y France 24 permanecen pendientes de condiciones aplicables al uso, aunque sus RSS respondieron; Infobae, Página/12 y Ámbito conservan las restricciones anteriores. No se elige una fuente sólo porque responda HTTP 200.
+
+Las categorías nuevas utilizan tres SVG originales del proyecto (`salud.svg`, `medioambiente.svg`, `deportes.svg`), sin imágenes de terceros ni licencias externas. Son ilustrativos; su uso como respaldo conserva la etiqueta «Imagen ilustrativa».
+
+### Once feeds originales (antecedente)
+
+### Agrupamiento de coberturas (25/10/2026)
+
+El usuario aprobó reunir titulares del mismo acontecimiento y presentar todas sus fuentes dentro del uso educativo vigente. La migración `0016` habilita `allow_ai_grouping` únicamente en los once feeds existentes enumerados en `0015`; las fuentes nuevas conservan el control desactivado. Es un permiso operativo del proyecto, independiente de imágenes y síntesis, no una licencia adicional concedida por los medios. No se activan fuentes nuevas ni se modifican sus URL o resúmenes RSS.
+
+Para agrupar se transmiten a Gemini exclusivamente ID, título, medio, idioma, fecha y referencia al grupo existente. No se transmiten cuerpos, resúmenes RSS, URLs ni datos de usuarios. Se preservan todos los títulos y enlaces originales, sin producir un titular fusionado. El desplegable enumera medios distintos y todas sus coberturas vigentes con atribución y enlaces, incluso cuando sólo una coincide con los filtros de la categoría. Una cobertura se excluye del grupo visible al desactivar el feed, revocar `allow_ai_grouping` o superar 14 días; revocar agrupamiento no oculta su artículo individual. Las restricciones históricas de cada fuente siguen registradas debajo.
+
 | Fuente y feed | Tema principal | Resultado del 11/10/2026 | Clasificación | Política inicial |
 |---|---|---|---|---|
 | [Clarín Tecnología](https://www.clarin.com/rss/tecnologia/) | Tecnología | HTTP 200; 10 entradas | Respaldo del feed, sin etiquetas | Título, fecha, fuente y enlace; sin resumen ni imagen |
@@ -141,7 +192,6 @@ La selección busca evitar que la cobertura quede limitada a Argentina y Estados
 | África / inglés | Africanews | [General](https://www.africanews.com/feed/rss) | Cobertura panafricana |
 | África / inglés | Mail & Guardian | [General](https://mg.co.za/feed/) | África austral |
 | África / inglés | Daily Maverick | [General](https://www.dailymaverick.co.za/feed/) | Política y análisis sudafricano |
-| Brasil / portugués | Agência Brasil | [Últimas noticias](https://agenciabrasil.ebc.com.br/rss/ultimasnoticias/feed.xml) | Cobertura pública brasileña y regional |
 | Global / español | The Conversation | [Español](https://theconversation.com/es/articles.atom) | Divulgación académica y científica; formato Atom |
 
 ## GDELT como complemento futuro

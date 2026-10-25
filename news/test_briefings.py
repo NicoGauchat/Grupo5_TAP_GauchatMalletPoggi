@@ -59,7 +59,7 @@ class BriefingResponseTests(SimpleTestCase):
             self.assertEqual(caught.exception.code, code)
             self.assertNotIn("secret-response", str(caught.exception))
 
-    @patch.dict("os.environ", {"GEMINI_API_KEY": ""})
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "", "GEMINI_API_KEY_SECONDARY": ""})
     def test_missing_key_and_no_input_do_not_call_provider(self):
         with patch("news.llm_briefing.genai.Client") as client:
             self.assertEqual(summarize_articles([]), [])
@@ -127,7 +127,7 @@ class BriefingTests(TestCase):
 
     def test_no_sources_no_articles_and_missing_key_have_distinct_states(self):
         self.assertEqual(briefing_context(self.now)["briefing_state"], "pending")
-        with patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "", "GEMINI_API_KEY_SECONDARY": ""}):
             call_command("generate_news_briefing", stdout=StringIO())
             self.assertEqual(NewsBriefing.objects.first().error_code, "missing_key")
             self.assertContains(self.client.get(reverse("news_feed")), "todavía no está configurado")

@@ -65,7 +65,7 @@
                 <img src="{% static section.image %}" alt="" width="960" height="600" loading="lazy">
                 <div class="topic-card-copy">
                     <h2>{{ section.category.name }}</h2>
-                    <p>{% if section.article_count %}{{ section.article_count }} noticia{{ section.article_count|pluralize }}{% else %}Todavía no hay noticias{% endif %}</p>
+                    <p>{% if section.article_count %}{{ section.article_count }} acontecimiento{{ section.article_count|pluralize }}{% else %}Todavía no hay noticias{% endif %}</p>
                     <span class="topic-open">Explorar categoría <span aria-hidden="true">→</span></span>
                 </div>
             </a>

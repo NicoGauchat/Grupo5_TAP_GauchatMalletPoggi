@@ -5,12 +5,13 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 ## Ya implementado
 
 - Registro e inicio de sesión con usuarios de Django.
-- Preferencias individuales para ocho categorías, incluidas Argentina y Mercados y finanzas.
+- Preferencias individuales para once categorías, incluidas Salud, Medioambiente y Deportes.
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
-- Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
-- Filtros combinables por fuente e idioma en la página personalizada.
+- Ingesta de 26 feeds RSS de ocho medios, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
+- Filtros combinables por fuente, idioma y fecha; orden por recientes o importancia general estimada con IA.
 - Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
+- Agrupamiento LLM persistente con una tarjeta por acontecimiento y todas sus coberturas originales desplegables.
 - Fotografías temáticas locales y fotografías RSS de fuentes habilitadas, con crédito y respaldo ilustrativo.
 - Arranque local con un comando PowerShell y PostgreSQL aislado.
 - Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
@@ -23,8 +24,8 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 ## Funcionalidades previstas
 
 - Crear el proyecto de Supabase, desplegar Django en Render y activar la recolección periódica.
-- Ampliar la cobertura de las ocho categorías. Deportes queda para una etapa posterior.
-- Incorporar posteriormente agrupamiento de coberturas y GDELT como complemento.
+- Evaluar precisión de agrupamiento, clasificación e importancia con Gemini real y ampliar cobertura según su resultado.
+- Incorporar GDELT como complemento y evaluar la calidad del agrupamiento de coberturas.
 
 ## Stack acordado
 
@@ -46,7 +47,7 @@ Render aloja la aplicación Django y Supabase PostgreSQL mantiene los datos. La 
 
 ## Estado
 
-Ya existe el proyecto Django, la base PostgreSQL, el registro de usuarios, la ingesta manual de once feeds de Clarín, EL PAÍS, MIT News, Los Andes y Cinco Días, y la página de noticias personalizada. Los artículos importados pueden consultarse desde `/admin/` y cada usuario registrado ve los de sus categorías en `/noticias/`.
+El proyecto incluye Django, PostgreSQL, usuarios y 26 feeds de Clarín, EL PAÍS, MIT News, Los Andes, Cinco Días, Perfil, NASA y elDiario.es. Los artículos importados pueden consultarse desde `/admin/` y cada usuario ve los de sus categorías en `/noticias/`. Agência Brasil no se incorpora por decisión del usuario.
 
 El próximo paso vigente se mantiene en [STATUS.md](./STATUS.md).
 
@@ -94,7 +95,11 @@ docker compose --env-file .env.local --project-name sitio-noticias-local down
 
 Mis noticias (`/noticias/`) presenta tarjetas fotográficas de las categorías elegidas, en orden alfabético estable. Incluye las categorías sin noticias y conserva el módulo de presentación LLM existente. Cada tarjeta lleva a `/noticias/categoria/<slug>/`; sólo se accede a categorías elegidas en Mis categorías.
 
-Dentro de cada categoría se combinan búsqueda en títulos, fuente e idioma. Sin búsqueda, la primera noticia es la apertura editorial «La más reciente», seguida de nueve tarjetas. La grilla tiene tres columnas en escritorio amplio, dos en tamaños intermedios y una en móvil; la apertura se apila en móvil. Con búsqueda se muestran diez tarjetas uniformes por relevancia, con desempate por fecha e ID. Los titulares completos permanecen visibles. Títulos y fotografías enlazan al medio original en una nueva pestaña, al igual que Mis guardadas y las fuentes del resumen.
+Dentro de cada categoría se combinan búsqueda en títulos, fuente, idioma, fecha y orden. Sin búsqueda, la primera tarjeta abre el listado como «La más reciente» o «La más importante», seguida de nueve tarjetas. La grilla tiene tres columnas en escritorio amplio, dos en tamaños intermedios y una en móvil; la apertura se apila en móvil. Al buscar, se muestran diez tarjetas uniformes y el selector permite relevancia, recientes o importancia. Los titulares completos permanecen visibles. Títulos y fotografías enlazan al medio original en una nueva pestaña, al igual que Mis guardadas y las fuentes del resumen.
+
+«Fecha» ofrece Hoy, Últimas 24 horas, Últimos 3 días, Última semana y Últimos 14 días (inicial). Hoy comienza a medianoche en Buenos Aires; los otros períodos son ventanas móviles y se excluyen fechas futuras. Se selecciona un acontecimiento si alguna cobertura de la categoría coincide con el período; el desplegable conserva las demás coberturas autorizadas de los últimos 14 días. Cambiar fecha u orden reinicia la lista; Ver más y Guardar conservan ambas selecciones. Un cursor de Hoy vence al cambiar el día local. No hay archivo histórico ni rangos fuera de los 14 días.
+
+«Más importantes» ordena por el puntaje general del acontecimiento, luego por relevancia si hay búsqueda, fecha e ID. No oculta las noticias de puntaje bajo; las no evaluadas quedan al final, identificadas. «Más recientes» ordena por fecha e ID, también al buscar. Sin elegir otro orden, una búsqueda mantiene el ranking de relevancia anterior. La explicación se despliega bajo «Importancia general N/5 · IA»: es una estimación del modelo, no una medida objetiva ni una certificación de veracidad.
 
 «Ver más» agrega nueve noticias sin recargar ni desplazar la lectura. Mantiene filtros, controla solicitudes repetidas y permite reintentar ante fallos. Al finalizar indica que ya se vieron todas. La continuación usa un cursor firmado vinculado a categoría, filtros y modo de clasificación, ordenado por fecha/ID y también relevancia cuando corresponde. No depende de posiciones desplazadas por nuevas ingestas. Los enlaces vencen a los 14 días. La URL conserva `visible` para reconstruir la cantidad cargada; la posición se recuerda temporalmente por usuario en el navegador. Los resultados se vuelven a validar al reconstruir: pueden variar si ingresaron o vencieron noticias. Sin JavaScript, Ver más y Guardar funcionan mediante navegación y POST normales. Guardar/quitar dentro de una categoría conserva los lotes y la posición mediante los mismos POST con CSRF.
 
@@ -108,9 +113,43 @@ La ingesta actualiza imágenes y créditos de noticias existentes de su feed ori
 
 La clasificación por reglas conserva los alias revisados en `news/category_aliases.py` y las categorías por origen. `--refresh` reemplaza el aporte del feed consultado y combina las categorías de los otros orígenes. La clasificación LLM permanece independiente, como se describe a continuación.
 
-### Clasificación adicional con IA
+### Una tarjeta por acontecimiento
 
-El comando `python manage.py classify_news_ai` envía en lotes de diez el título, la fuente y el idioma de noticias recientes aún pendientes a `gemini-3.1-flash-lite`. Sólo acepta respuestas con IDs del lote y slugs de las ocho categorías previstas. Guarda las categorías LLM separadas de las categorías por reglas, junto con fecha y modelo; una respuesta inválida o un error de API deja el lote pendiente para la siguiente ejecución. Procesa hasta cien noticias por ejecución, empezando por las más recientes dentro de los últimos 14 días. Puede reducirse con `--limit 20`. No envía artículos completos, resúmenes RSS, etiquetas no guardadas ni datos de usuarios.
+Las categorías reúnen las coberturas agrupadas por Gemini en una tarjeta. Se conserva el titular original de la cobertura más reciente que coincide con categoría y filtros (la de mayor relevancia al buscar), identificando su medio; no se genera un titular supuestamente neutral. «Ver N fuentes · M coberturas» despliega todos los titulares, medios, fechas y enlaces originales disponibles del acontecimiento, en orden alfabético de medio. N cuenta medios distintos, aunque alguno publique varias coberturas. El filtro por fuente, idioma o búsqueda selecciona acontecimientos; el desplegable mantiene sus otras coberturas aunque no coincidan con esos filtros o categorías. Los totales y «Ver más» cuentan acontecimientos. Guardar sigue guardando el artículo representativo, no todas las coberturas.
+
+Aplicar las migraciones antes de ejecutar el comando:
+
+```powershell
+python manage.py migrate
+python manage.py group_news_ai
+```
+
+En el entorno de desarrollo se agrega `--settings=config.local_settings` a ambos comandos. La migración `0016` crea `Story`, vincula opcionalmente cada artículo y habilita `Feed.allow_ai_grouping` en los once feeds originales; `0018` lo habilita en los quince RSS nuevos revisados. Otras fuentes creadas en administración comienzan deshabilitadas. Revocar el permiso deja inmediatamente de agrupar y de exponer sus coberturas dentro de otros grupos; sus artículos siguen disponibles individualmente y sin puntaje visible.
+
+Se procesan hasta cien pendientes por ejecución, de más antiguas a más recientes dentro de los 14 días, en lotes de treinta. `--limit 500` permite completar una carga inicial mayor. Cada lote compara las nuevas noticias con el titular más reciente de cada acontecimiento vigente y autorizado; no separa por categoría ni idioma. Se envían únicamente ID, título, medio, idioma, fecha e ID del grupo. El modelo debe devolver todos los IDs nuevos exactamente una vez, sin referencias inventadas. Una noticia sola también forma un acontecimiento; las nuevas coberturas pueden incorporarse después. Si la respuesta es inválida, falta clave o falla la API, el lote queda pendiente y sus noticias siguen visibles por separado. Los lotes anteriores válidos se conservan.
+
+El cliente tiene timeout de 60 segundos y un intento por llamada. No hay llamadas al navegar. Actions ejecuta el comando después de la ingesta si hay clave, incluso si falla otra etapa LLM; `dev.ps1` lo comprueba al arrancar si existe clave. No reenvía artículos ya agrupados como pendientes. Los candidatos se comparan en bloques de hasta 500; las noticias sin coincidencia continúan al siguiente bloque. No se omiten candidatos por superar ese número, aunque aumenta la cantidad de llamadas. Los grupos existentes siguen sin fusionarse automáticamente.
+
+El agrupamiento es conservador: compartir tema, empresa o protagonista no basta. No fusiona automáticamente grupos ya existentes y puede equivocarse al interpretar titulares; todavía requiere evaluación con Gemini real en este entorno. Desde la administración de artículos, `story` permite corregir el grupo o dejarlo vacío para reprocesar; la administración de acontecimientos permite inspeccionar sus miembros. Borrar un grupo no borra artículos. La limpieza de 14 días elimina grupos sin artículos, sin extender la retención de guardados. Ante ingestas, correcciones o vencimientos durante la lectura, la continuación refleja los datos vigentes; el navegador evita repetir tarjetas por ID de acontecimiento.
+
+### Dos claves Gemini: reparto por función
+
+| Variable / secreto | Funciones asignadas |
+|---|---|
+| `GEMINI_API_KEY` (existente) | Clasificación y agrupamiento |
+| `GEMINI_API_KEY_SECONDARY` (nueva) | Importancia general y resumen diario |
+
+Agregar tu segunda clave en **GitHub → Settings → Secrets and variables → Actions → New repository secret**, con nombre `GEMINI_API_KEY_SECONDARY`, conservando el secreto existente. Para desarrollo local, agregarla a `.env.local`; el perfil local carga ambas variables automáticamente. No versionar valores ni compartirlos por chat. El código no crea claves ni copia secretos de GitHub a la computadora; son configuraciones independientes. La presencia del secreto principal se comprobó, pero el secundario todavía debe cargarlo el usuario.
+
+El reparto es fijo: cada función usa la clave asignada y no cambia de cuenta al agotarse una cuota, fallar la conexión o recibirse una respuesta inválida. Si la segunda variable está ausente o vacía, se conserva compatibilidad con la instalación anterior: todas las funciones usan `GEMINI_API_KEY`, con aviso en Actions y en el arranque local. Si sólo existe la secundaria, se pueden actualizar importancia de grupos existentes y resumen; clasificación y agrupamiento quedan pendientes. Los estados de la web reconocen la clave de resumen correspondiente. Las visitas siguen sin llamar al proveedor.
+
+El reparto inicial aproxima la cantidad de solicitudes: con cien pendientes en cada etapa y un bloque de candidatos por lote, la principal haría diez llamadas de clasificación y cuatro de agrupamiento; la secundaria, diez de importancia y una de resumen si corresponde regenerarlo. La caché, cantidad de grupos y bloques extra de candidatos cambian esa cuenta; no garantiza 50 % de tokens, gasto o cuota. Los límites efectivos y la facturación se revisan en AI Studio para cada proyecto autorizado. Según la [documentación de Gemini](https://ai.google.dev/gemini-api/docs/rate-limits), la cuota es por proyecto y no por clave: dos claves del mismo proyecto no reparten la capacidad. No se implementa rotación de claves como respuesta a un límite ni se habilita facturación.
+
+### Clasificación de titulares
+
+La clasificación admite once categorías. Salud, Medioambiente y Deportes se incorporan en `0018`, con descripciones LLM y etiquetas RSS observadas. Las once vigentes son Argentina, Política argentina, Geopolítica, Economía, Mercados y finanzas, Tecnología, Inteligencia artificial, Ciencia, Salud, Medioambiente y Deportes.
+
+El comando `python manage.py classify_news_ai` envía en lotes de diez el título, la fuente y el idioma de noticias recientes aún pendientes a `gemini-3.1-flash-lite`. Sólo acepta respuestas con IDs del lote y slugs de las once categorías previstas. Guarda las categorías LLM separadas de las categorías por reglas, junto con fecha y modelo; una respuesta inválida o un error de API deja el lote pendiente para la siguiente ejecución. Procesa hasta cien noticias por ejecución, empezando por las más recientes dentro de los últimos 14 días. Puede reducirse con `--limit 20`. No envía artículos completos, resúmenes RSS, etiquetas no guardadas ni datos de usuarios.
 
 Cada usuario elige en «Mis categorías» entre «Ambas», «Sólo reglas» y «Sólo IA»; «Ambas» es el valor inicial y muestra la unión de ambas clasificaciones. «Sólo IA» puede mostrar menos noticias hasta que termine el procesamiento; las pendientes más recientes se procesan primero. Esta combinación no quita una categoría incorrecta asignada por las reglas; las predicciones se conservan aparte para poder compararlas. Mis guardadas sigue mostrando los artículos guardados según su política de 14 días.
 
@@ -129,6 +168,20 @@ También puede ejecutarse manualmente con `python manage.py generate_news_briefi
 «Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como tarjetas en `/noticias/`.
 
 ## Actualizar una instalación existente
+
+Aplicar `0017` y `0018` con `python manage.py migrate`. `0017` agrega puntaje, explicación, fecha/modelo de evaluación, autoría RSS y enlace de licencia por medio, conservando artículos y grupos existentes. `0018` suma tres categorías y quince feeds revisados (26 en total, ocho medios): nueve canales argentinos de Perfil, Clarín y Los Andes; cuatro nuevos de EL PAÍS y uno de elDiario.es en Europa; y NASA Technology en Estados Unidos. Los nuevos canales mantienen imágenes, resúmenes RSS y síntesis desactivados; permiten agrupar y evaluar titulares. La licencia y autoría de elDiario.es acompañan sus enlaces, también en guardadas. La reversión de `0018` desactiva los canales agregados, sin borrar artículos, categorías ni preferencias. Reaplicarla no fuerza la activación de canales ya existentes que el usuario haya desactivado.
+
+Después de importar, ejecutar:
+
+```powershell
+python manage.py classify_news_ai
+python manage.py group_news_ai
+python manage.py score_news_ai
+```
+
+`score_news_ai` usa el modelo existente para hasta cien acontecimientos por ejecución, en lotes de diez; `--limit 500` aumenta la carga y `--force` reevalúa los ya puntuados. Envía hasta tres titulares de medios distintos por grupo, con fechas e idiomas. Asigna importancia absoluta 1–5 por alcance, impacto, novedad y urgencia; fama, marca y número de publicaciones no bastan. Conserva una razón de hasta 300 caracteres, fecha y modelo. Valida IDs, puntajes y explicaciones antes de guardar cada lote de manera atómica. Nuevas coberturas o correcciones administrativas del grupo dejan pendiente la reevaluación, conservando el puntaje anterior ante fallos. El cliente tiene timeout de 60 segundos y un intento. Sin clave o ante cuota no oculta noticias ni transforma pendientes en puntaje cero: cero sólo se usa internamente para colocarlas al final. Actions y `dev.ps1` incorporan estas etapas cuando hay clave. Las visitas siguen sin llamar a Gemini.
+
+Las tres categorías nuevas utilizan ilustraciones SVG locales propias, sin descargar fotografías adicionales. Los controles de fecha y orden no requieren variables nuevas; `.env.example` mantiene `GEMINI_API_KEY`. La configuración de producción y los secretos se cargan como antes.
 
 La migración `0015_educational_feeds_and_briefing_status` habilita imágenes y síntesis en los once feeds actuales, elimina sus validadores HTTP para que la siguiente ingesta descargue el contenido y añade estado/código de los intentos. Su reversión restaura los permisos previos (sólo MIT con imágenes, ningún feed en la síntesis). Los validadores se reconstruyen al consultar cada RSS. Aplicar migraciones y ejecutar `ingest_feeds --refresh` para completar fotografías existentes. Las migraciones anteriores incorporan la presentación, el permiso individual y las categorías IA; la clasificación continúa independiente. Sin clave, RSS y reglas siguen funcionando.
 

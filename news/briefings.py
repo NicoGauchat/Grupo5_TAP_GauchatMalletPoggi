@@ -1,9 +1,9 @@
 """Selección de resúmenes vigentes y estados visibles de la presentación."""
 
-import os
 from datetime import timedelta
 
 from .models import Article, Feed, NewsBriefing
+from .llm_keys import api_key_for
 
 
 def valid_briefings(now):
@@ -24,7 +24,7 @@ def briefing_context(now):
     if not feeds.exists():
         state = "no_feeds"
         briefing = None
-    elif not os.environ.get("GEMINI_API_KEY", "").strip() and not briefing:
+    elif not api_key_for("briefing") and not briefing:
         state = "missing_key"
     elif latest and latest.status == "error":
         state = "error"

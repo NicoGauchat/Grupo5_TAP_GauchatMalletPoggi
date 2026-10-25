@@ -3,7 +3,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
-from news.models import Article
+from news.models import Article, Story
 from news.retention import retention_cutoff
 
 
@@ -24,4 +24,5 @@ class Command(BaseCommand):
             self.stdout.write(f"Se eliminarían {count} noticias.")
             return
         old_articles.delete()
+        Story.objects.filter(articles__isnull=True).delete()
         self.stdout.write(f"Se eliminaron {count} noticias.")

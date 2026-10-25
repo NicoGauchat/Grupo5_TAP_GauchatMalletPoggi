@@ -1,10 +1,11 @@
 """Clasificación adicional de titulares mediante Gemini."""
 
 import json
-import os
 
 from google import genai
 from google.genai import types
+
+from .llm_keys import api_key_for
 
 
 MODEL = "gemini-3.1-flash-lite"
@@ -18,6 +19,9 @@ CATEGORY_DESCRIPTIONS = {
     "politica-argentina": "Política interna de Argentina.",
     "argentina": "Acontecimientos cuyo ámbito principal es Argentina.",
     "mercados-finanzas": "Bolsas, inversiones, instrumentos y mercados financieros.",
+    "salud": "Salud pública, medicina, prevención e investigación clínica; sin consejos médicos personalizados.",
+    "medioambiente": "Clima, biodiversidad, contaminación, conservación y políticas ambientales.",
+    "deportes": "Competiciones, resultados, deportistas y actualidad del deporte.",
 }
 
 
@@ -27,7 +31,7 @@ class ClassificationError(Exception):
 
 def classify_batch(articles, available_slugs):
     """Devuelve categorías por ID; valida el lote completo antes de persistirlo."""
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = api_key_for("classification")
     if not api_key:
         raise ClassificationError("Falta GEMINI_API_KEY")
     slugs = sorted(set(available_slugs) & CATEGORY_DESCRIPTIONS.keys())

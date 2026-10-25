@@ -28,6 +28,7 @@ jobs:
       POSTGRES_PORT: ${{ vars.POSTGRES_PORT || '5432' }}
       POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY_SECONDARY: ${{ secrets.GEMINI_API_KEY_SECONDARY }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -50,6 +51,11 @@ jobs:
             require|verify-ca|verify-full) ;;
             *) echo 'POSTGRES_SSLMODE debe exigir SSL'; exit 1 ;;
           esac
+          if [ -n "$GEMINI_API_KEY" ] && [ -z "$GEMINI_API_KEY_SECONDARY" ]; then
+            echo 'IA: sólo hay clave principal; todas las funciones usarán esa clave.'
+          elif [ -n "$GEMINI_API_KEY_SECONDARY" ] && [ -z "$GEMINI_API_KEY" ]; then
+            echo 'IA: sólo hay segunda clave; clasificación y agrupamiento quedan pendientes.'
+          fi
       - name: Instalar dependencias
         run: python -m pip install -r requirements.txt
       - name: Comprobar migraciones
@@ -65,5 +71,12 @@ jobs:
         if: env.GEMINI_API_KEY != ''
         run: python manage.py classify_news_ai
       - name: Generar presentación de las últimas 24 horas
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && env.GEMINI_API_KEY != '' }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: python manage.py generate_news_briefing
+      - name: Agrupar coberturas del mismo acontecimiento
+        id: grouping
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && env.GEMINI_API_KEY != '' }}
+        run: python manage.py group_news_ai
+      - name: Evaluar importancia general
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        run: python manage.py score_news_ai

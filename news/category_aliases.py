@@ -16,6 +16,9 @@ CATEGORY_ALIASES = {
     "politica-argentina": set(),
     "argentina": set(),
     "mercados-finanzas": {"Mercados financieros", "Bolsa", "Finanzas", "Renta variable", "Renta fija"},
+    "salud": {"Salud", "Salud pública", "Salud mental", "Medicina", "Enfermedades"},
+    "medioambiente": {"Medio ambiente", "Cambio climático", "Biodiversidad", "Contaminación"},
+    "deportes": {"Deportes"},
 }
 
 
@@ -23,6 +26,11 @@ CATEGORY_ALIASES = {
 # equivalencias se limitan a cada feed para no tratar una etiqueta genérica
 # "Política" de otro medio como política argentina.
 FEED_CATEGORY_ALIASES = {
+    "https://www.losandes.com.ar/rss/pages/sociedad.xml": {"Sociedad": {"argentina"}},
+    "https://www.nasa.gov/technology/feed/": {
+        "Technology": {"tecnologia"}, "Technology Research": {"tecnologia"},
+        "Science & Research": {"ciencia"}, "Earth Science": {"ciencia", "medioambiente"},
+    },
     "https://www.losandes.com.ar/rss/pages/politica.xml": {
         "Pol�tica": {"politica-argentina", "argentina"},
         "Política": {"politica-argentina", "argentina"},
@@ -51,14 +59,16 @@ FEED_ALIASES_TO_SLUGS = {
     for url, aliases in FEED_CATEGORY_ALIASES.items()
 }
 
+CURATED_FEEDS = {"https://www.eldiario.es/rss/internacional/": {"geopolitica"}}
+
 
 def category_slugs_for_entry(entry, fallback_slugs, feed_url=""):
     """Usa etiquetas del elemento; recurre al feed sólo si no hay etiquetas."""
     tags = entry.get("tags") or []
     if not tags:
-        return set(fallback_slugs)
+        return set(fallback_slugs) | CURATED_FEEDS.get(feed_url, set())
 
-    slugs = set()
+    slugs = set(CURATED_FEEDS.get(feed_url, ()))
     feed_aliases = FEED_ALIASES_TO_SLUGS.get(feed_url, {})
     for tag in tags:
         normalized = normalize_category_name(tag.get("term") or "")

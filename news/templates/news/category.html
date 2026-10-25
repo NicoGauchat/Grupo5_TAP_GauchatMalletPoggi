@@ -5,8 +5,8 @@
 {% block content %}
 <header class="category-intro">
     <a href="{% url 'news_feed' %}" class="back-to-topics">Mis noticias</a>
-    <div class="category-title-row"><h1>{{ category.name }}</h1><p>{{ article_count }} noticia{{ article_count|pluralize }} reciente{{ article_count|pluralize }}</p></div>
-    <p>Explorá las noticias de esta categoría. Cada artículo se abre en otra pestaña.</p>
+    <div class="category-title-row"><h1>{{ category.name }}</h1><p>{{ article_count }} acontecimiento{{ article_count|pluralize }} reciente{{ article_count|pluralize }}</p></div>
+    <p>Una tarjeta por acontecimiento agrupado. Desplegá sus coberturas y elegí qué medio leer. Cada artículo se abre en otra pestaña.</p>
 </header>
 <form class="feed-filters" method="get" action="{% url 'category_news' category.slug %}" aria-label="Filtrar noticias">
     {{ filter_form.non_field_errors }}
@@ -14,7 +14,9 @@
     <button class="button" type="submit">Aplicar filtros</button>
     <a class="filter-reset" href="{% url 'category_news' category.slug %}">Limpiar filtros</a>
 </form>
-{% if search_text and not filter_form.errors %}<p>Resultados para «{{ search_text }}», ordenados por relevancia.</p>{% endif %}
+{% if search_text and not filter_form.errors %}<p>Resultados para «{{ search_text }}»{% if not sort %}, ordenados por relevancia{% endif %}.</p>{% endif %}
+{% if sort == 'important' %}<p>Orden por importancia pública general estimada con IA dentro de la fecha elegida. Las noticias sin evaluar aparecen al final y siguen disponibles.</p>{% endif %}
+{% if filters_active and not filter_form.errors %}<p>Los filtros seleccionan acontecimientos. Sus desplegables conservan las demás coberturas disponibles.</p>{% endif %}
 <section data-news-reader data-user="{{ user.pk }}" aria-label="Noticias de {{ category.name }}">
     <div id="article-grid" class="article-grid">{% include 'news/article_cards.html' %}</div>
     {% if not articles %}

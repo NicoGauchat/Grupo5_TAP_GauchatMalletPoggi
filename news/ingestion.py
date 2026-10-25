@@ -203,6 +203,7 @@ def ingest_feed(feed, force_download=False):
             continue
 
         guid = (entry.get("id") or "").strip()
+        byline = " ".join(unescape(strip_tags(entry.get("author") or "")).split())[:300]
         if len(guid) > 512:
             guid = ""
         fingerprint = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
@@ -214,7 +215,8 @@ def ingest_feed(feed, force_download=False):
                 article = Article.objects.select_for_update().get(pk=article.pk)
                 if article.feed_id == feed.pk:
                     article.image_url, article.image_credit = permitted_image(entry, feed)
-                    article.save(update_fields=["image_url", "image_credit"])
+                    article.byline = byline or article.byline
+                    article.save(update_fields=["image_url", "image_credit", "byline"])
                 record_origin(article, feed, guid, category_ids)
             result.duplicates += 1
             continue
@@ -228,6 +230,7 @@ def ingest_feed(feed, force_download=False):
                 canonical_url=canonical_url,
                 fingerprint=fingerprint,
                 title=title,
+                byline=byline,
                 summary=permitted_summary(entry, feed),
                 image_url=image_url, image_credit=image_credit,
                 language=(entry.get("language") or "")[:10] or feed.language,

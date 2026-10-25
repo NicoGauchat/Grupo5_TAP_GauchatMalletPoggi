@@ -20,6 +20,7 @@ class Category(models.Model):
 class Source(models.Model):
     name = models.CharField(max_length=120, unique=True)
     website_url = models.URLField(max_length=2048, blank=True)
+    license_url = models.URLField(max_length=2048, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -46,6 +47,10 @@ class Feed(models.Model):
     )
     etag = models.CharField(max_length=255, blank=True)
     last_modified = models.CharField(max_length=255, blank=True)
+    allow_ai_grouping = models.BooleanField(
+        default=False, verbose_name="Permitir agrupamiento IA",
+        help_text="Enviar titulares y metadatos para agrupar coberturas y evaluar su importancia pública.",
+    )
 
     class Meta:
         ordering = ["source__name", "name"]
@@ -54,7 +59,26 @@ class Feed(models.Model):
         return f"{self.source.name} — {self.name}"
 
 
+class Story(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    llm_model = models.CharField(max_length=80, blank=True)
+    importance_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    importance_reason = models.CharField(max_length=300, blank=True)
+    importance_scored_at = models.DateTimeField(null=True, blank=True)
+    importance_model = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(
+            condition=models.Q(importance_score__isnull=True) | models.Q(importance_score__range=(1, 5)),
+            name="story_importance_1_to_5",
+        )]
+
+    def __str__(self):
+        return f"Acontecimiento {self.pk}"
+
+
 class Article(models.Model):
+    story = models.ForeignKey(Story, null=True, blank=True, on_delete=models.SET_NULL, related_name="articles")
     feed = models.ForeignKey(Feed, on_delete=models.PROTECT, related_name="articles")
     categories = models.ManyToManyField(Category, blank=True, related_name="articles")
     llm_categories = models.ManyToManyField(Category, blank=True, related_name="llm_articles")
@@ -65,6 +89,7 @@ class Article(models.Model):
     canonical_url = models.URLField(max_length=2048, blank=True)
     fingerprint = models.CharField(max_length=64, blank=True, db_index=True)
     title = models.CharField(max_length=500)
+    byline = models.CharField(max_length=300, blank=True)
     summary = models.TextField(blank=True)
     image_url = models.URLField(max_length=2048, blank=True)
     image_credit = models.CharField(max_length=500, blank=True)

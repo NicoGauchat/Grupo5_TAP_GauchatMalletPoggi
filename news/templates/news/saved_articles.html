@@ -16,6 +16,7 @@
                     <p class="news-meta">
                         <span>{{ saved.article.feed.source.name }}</span>
                         <time datetime="{{ saved.article.published_at|date:'c' }}">{{ saved.article.published_at|date:'j/m/Y H:i' }}</time>
+                        {% if saved.article.feed.source.license_url %}{% if saved.article.byline %}<span>{{ saved.article.byline }}</span>{% endif %}<a href="{{ saved.article.feed.source.license_url }}" target="_blank" rel="noopener">Licencia de uso</a>{% endif %}
                         {% if saved.article.language %}<span>{{ saved.article.language|upper }}</span>{% endif %}
                     </p>
                     {% include 'news/save_button.html' with article=saved.article removing=True %}

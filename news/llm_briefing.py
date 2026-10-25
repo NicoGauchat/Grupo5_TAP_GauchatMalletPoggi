@@ -1,13 +1,13 @@
 """Generación y validación de la presentación compartida de noticias recientes."""
 
 import json
-import os
 
 import httpx
 from google import genai
 from google.genai import errors, types
 
 from .llm_classification import MODEL
+from .llm_keys import api_key_for
 
 
 MAX_ITEMS = 3
@@ -26,7 +26,7 @@ def summarize_articles(articles):
     """Resume titulares y devuelve puntos asociados sólo a IDs de entrada."""
     if not articles:
         return []
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = api_key_for("briefing")
     if not api_key:
         raise BriefingError("Falta configurar la clave de Gemini.", "missing_key")
 

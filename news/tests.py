@@ -384,7 +384,7 @@ class ArticleSearchTests(TestCase):
         self.assertIn("cursor", query)
         self.assertEqual(query["source"], [str(self.source.pk)])
         self.assertNotContains(response, "article-lead")
-        self.assertNotContains(response, "Más reciente")
+        self.assertNotContains(response, "La más reciente")
         next_url = reverse("category_news", args=[self.category.slug]) + "?q=robots+mercado&visible=19"
         response = self.client.post(reverse("save_article", args=[results[0].pk]), {"next": next_url})
         self.assertRedirects(response, next_url, fetch_redirect_response=False)

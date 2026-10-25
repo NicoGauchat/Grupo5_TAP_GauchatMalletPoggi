@@ -13,9 +13,20 @@ class NewsFilterForm(forms.Form):
         empty_label="Todas las fuentes",
     )
     language = forms.ChoiceField(label="Idioma", required=False)
+    period = forms.ChoiceField(label="Fecha", required=False, choices=[
+        ("", "Últimos 14 días"), ("today", "Hoy"), ("24h", "Últimas 24 horas"),
+        ("3d", "Últimos 3 días"), ("7d", "Última semana"),
+    ])
+    sort = forms.ChoiceField(label="Orden", required=False, choices=[
+        ("recent", "Más recientes"), ("important", "Más importantes"),
+    ])
 
     def __init__(self, *args, articles, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.data.get("q", "").strip():
+            self.fields["sort"].choices = [
+                ("", "Relevancia de búsqueda"), ("recent", "Más recientes"), ("important", "Más importantes"),
+            ]
         self.fields["source"].queryset = Source.objects.filter(
             pk__in=articles.values("feed__source_id")
         )

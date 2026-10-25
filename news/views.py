@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .browsing import article_batch, articles_for, category_image, filter_articles
+from .browsing import add_coverages, article_batch, articles_for, category_image, filter_articles, story_articles
 from .briefings import briefing_context
 from .forms import PreferenceForm
 from .models import Article, SavedArticle, UserPreference
@@ -56,7 +56,7 @@ def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
     sections = [
         {"category": category, "image": category_image(category.slug),
-         "article_count": articles_for([category], preference.classification_mode).count()}
+         "article_count": story_articles(articles_for([category], preference.classification_mode)).count()}
         for category in preference.categories.all()
     ]
 
@@ -80,22 +80,30 @@ def category_news(request, slug):
     category = get_object_or_404(preference.categories, slug=slug)
     available = articles_for([category], preference.classification_mode)
     form, articles, text = filter_articles(request, available)
-    filters = {key: request.GET.get(key, "").strip() for key in ("source", "language", "q")}
-    cursor_context = [category.pk, preference.classification_mode, filters]
+    sort = form.cleaned_data.get("sort", "") if not form.errors else ""
+    articles = story_articles(articles, text if not form.errors and sort != "recent" else "")
+    filters = {key: request.GET.get(key, "").strip() for key in ("source", "language", "q", "period", "sort")}
+    day = str(timezone.localdate()) if filters["period"] == "today" else ""
+    cursor_context = [category.pk, preference.classification_mode, filters, day]
     response_status = 200
     try:
-        rows, next_url = article_batch(request, articles, cursor_context, text if not form.errors else "")
+        rows, next_url = article_batch(request, articles, cursor_context, text if not form.errors else "", sort)
     except ValueError as error:
         if "application/json" in request.headers.get("Accept", ""):
             return JsonResponse({"error": str(error)}, status=400)
         form.add_error(None, str(error))
         rows, next_url, response_status = [], None, 400
     is_json = "application/json" in request.headers.get("Accept", "")
+    add_coverages(rows)
+    leading_label = "La más reciente"
+    if sort == "important":
+        leading_label = "La más importante" if rows and rows[0].importance else "Pendiente de evaluación"
     context = {
         "category": category, "category_image": category_image(slug),
         "articles": rows, "article_count": articles.count(),
         "leading": bool(rows) and not text and not is_json,
-        "filter_form": form, "search_text": text,
+        "filter_form": form, "search_text": text, "sort": sort,
+        "leading_label": leading_label,
         "filters_active": any(filters.values()), "next_url": next_url,
         "saved_ids": set(SavedArticle.objects.filter(user=request.user, article__in=rows).values_list("article_id", flat=True)),
     }

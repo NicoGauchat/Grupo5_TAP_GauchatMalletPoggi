@@ -53,13 +53,26 @@ Path(".env.local").write_text("".join(f"{key}={value or ''}\n" for key, value in
         & $python @feedArguments
         if ($LASTEXITCODE -ne 0) { Write-Warning 'Algunos RSS no respondieron. El sitio se iniciará con los datos disponibles.' }
     }
-    & $python -c "import django, os; django.setup(); raise SystemExit(0 if os.environ.get('GEMINI_API_KEY', '').strip() else 1)"
-    if ($LASTEXITCODE -eq 0 -or $RefreshBriefing) {
-        $briefingArguments = @('manage.py', 'generate_news_briefing')
-        if ($RefreshBriefing) { $briefingArguments += '--force' }
-        & $python @briefingArguments
-        if ($LASTEXITCODE -ne 0) { Write-Warning 'No se pudo actualizar el resumen. El sitio se iniciará igualmente.' }
-    } else { Write-Warning 'El resumen requiere GEMINI_API_KEY en .env.local.' }
+    $configuredTasks = @(& $python -c "import django; django.setup(); from news.llm_keys import configured_tasks; print('\n'.join(configured_tasks()))")
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo comprobar la configuración IA local.' }
+    & $python -c "import django, os; django.setup(); raise SystemExit(0 if os.environ.get('GEMINI_API_KEY', '').strip() and not os.environ.get('GEMINI_API_KEY_SECONDARY', '').strip() else 1)"
+    if ($LASTEXITCODE -eq 0) { Write-Warning 'Sólo hay clave principal; todas las funciones IA usarán esa clave.' }
+    $aiCommands = [ordered]@{
+        classification = 'classify_news_ai'
+        grouping = 'group_news_ai'
+        importance = 'score_news_ai'
+        briefing = 'generate_news_briefing'
+    }
+    foreach ($task in $aiCommands.Keys) {
+        if ($configuredTasks -notcontains $task -and -not ($task -eq 'briefing' -and $RefreshBriefing)) {
+            Write-Warning ($aiCommands[$task] + ': falta su clave de Gemini en .env.local.')
+            continue
+        }
+        $aiArguments = @('manage.py', $aiCommands[$task])
+        if ($task -eq 'briefing' -and $RefreshBriefing) { $aiArguments += '--force' }
+        & $python @aiArguments
+        if ($LASTEXITCODE -ne 0) { Write-Warning ($aiCommands[$task] + ': no se pudo completar; el sitio se iniciará igualmente.') }
+    }
     Write-Host 'Abrí http://127.0.0.1:8000/ y registrate para elegir tus categorías. Ctrl+C detiene la web; la base conserva los datos.'
     & $python manage.py runserver 127.0.0.1:8000
 } finally {
