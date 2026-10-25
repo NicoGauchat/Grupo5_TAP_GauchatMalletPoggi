@@ -9,6 +9,8 @@ Se ajustó la separación entre desarrollo y producción para publicar `main`: `
 
 Verificación de este ajuste: `config.settings` pasa `check --deploy` con variables de producción sintéticas, falla con un mensaje explícito cuando falta una credencial, y `config.test_settings` continúa aislado de esa validación. `config.local_settings` mantiene `DEBUG=True`, loopback, puerto `5433` y SSL opcional. La suite completa pasó **69 pruebas en PostgreSQL local**, `collectstatic` procesó 407 archivos y `git diff --check` no encontró errores. El chequeo de despliegue sólo informa las advertencias estándar de HSTS y de la clave sintética usada para la prueba.
 
+El commit `538f7da` se publicó en `origin/main`. No se copiaron secretos ni datos locales al repositorio; Render debe recibir sus variables de entorno y GitHub Actions las de la ingesta por separado.
+
 El siguiente bloque de revisión visual queda registrado debajo como historial.
 
 Se refinó la presentación del resumen: encabezado «Resumen», fondo blanco, separación coral y columnas de sucesos adaptables. Las fuentes se pliegan bajo «Ver N fuentes» mediante HTML nativo; al abrir muestran medio y titular completo con enlace en nueva pestaña. El total analizado queda al pie. Se aplicó frontend-design para concentrar la jerarquía en los sucesos y reducir la densidad de referencias, conservando identidad, contenido y generación.
@@ -90,7 +92,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Publicar `main` y comprobar el despliegue en Render con las variables de producción y el workflow de ingesta configurados.
+Comprobar el despliegue en Render con las variables de producción y el workflow de ingesta configurados.
 
 ## Completado
 
