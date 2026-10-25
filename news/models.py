@@ -36,12 +36,12 @@ class Feed(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="feeds")
     is_active = models.BooleanField(default=False)
     show_summary = models.BooleanField(default=False)
+    show_images = models.BooleanField(default=False, help_text="Mostrar fotografías recibidas en el RSS, conservando créditos.")
     allow_ai_briefing = models.BooleanField(
         verbose_name="Permitir en presentación IA",
         default=False,
         help_text=(
-            "Activar sólo después de verificar que la fuente permite sintetizar sus titulares "
-            "mediante IA y mostrar el resultado."
+            "Incluir los titulares de este feed en la síntesis común de las últimas 24 horas."
         ),
     )
     etag = models.CharField(max_length=255, blank=True)
@@ -66,6 +66,8 @@ class Article(models.Model):
     fingerprint = models.CharField(max_length=64, blank=True, db_index=True)
     title = models.CharField(max_length=500)
     summary = models.TextField(blank=True)
+    image_url = models.URLField(max_length=2048, blank=True)
+    image_credit = models.CharField(max_length=500, blank=True)
     language = models.CharField(max_length=10, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
     fetched_at = models.DateTimeField(auto_now_add=True)
@@ -128,6 +130,10 @@ class NewsBriefing(models.Model):
     generated_at = models.DateTimeField(auto_now_add=True)
     window_start = models.DateTimeField()
     article_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=10, default="ready", choices=[
+        ("ready", "Generado"), ("empty", "Vacío"), ("error", "Error"),
+    ])
+    error_code = models.CharField(max_length=30, blank=True)
 
     class Meta:
         ordering = ["-generated_at", "-id"]

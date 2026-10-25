@@ -3,8 +3,9 @@
 import json
 import os
 
+import httpx
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from .llm_classification import MODEL
 
@@ -16,6 +17,10 @@ MIN_DISPLAY_IMPORTANCE = 4
 class BriefingError(Exception):
     """Gemini no produjo un resumen estructurado que se pueda guardar."""
 
+    def __init__(self, message, code="invalid_response"):
+        super().__init__(message)
+        self.code = code
+
 
 def summarize_articles(articles):
     """Resume titulares y devuelve puntos asociados sólo a IDs de entrada."""
@@ -23,7 +28,7 @@ def summarize_articles(articles):
         return []
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        raise BriefingError("Falta GEMINI_API_KEY")
+        raise BriefingError("Falta configurar la clave de Gemini.", "missing_key")
 
     items = [
         {
@@ -77,7 +82,9 @@ def summarize_articles(articles):
     }
     client = None
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
+            timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1),
+        ))
         response = client.models.generate_content(
             model=MODEL,
             contents=prompt,
@@ -88,6 +95,16 @@ def summarize_articles(articles):
             ),
         )
         result = json.loads(response.text or "")
+    except errors.APIError as error:
+        code = "quota" if error.code == 429 else "configuration" if error.code in {400, 401, 403, 404} else "connection"
+        message = {"quota": "La cuota de Gemini no está disponible.",
+                   "configuration": "Gemini rechazó la configuración de la solicitud.",
+                   "connection": "Gemini no está disponible temporalmente."}[code]
+        raise BriefingError(message, code) from error
+    except (httpx.TimeoutException, TimeoutError) as error:
+        raise BriefingError("Gemini superó el tiempo de espera.", "timeout") from error
+    except httpx.TransportError as error:
+        raise BriefingError("No se pudo conectar con Gemini.", "connection") from error
     except Exception as error:
         raise BriefingError("No se obtuvo una respuesta válida de Gemini") from error
     finally:

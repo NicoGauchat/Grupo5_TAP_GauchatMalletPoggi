@@ -17,8 +17,8 @@ class SourceAdmin(admin.ModelAdmin):
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
-    list_display = ("name", "source", "language", "is_active", "show_summary", "allow_ai_briefing")
-    list_filter = ("is_active", "show_summary", "allow_ai_briefing", "source")
+    list_display = ("name", "source", "language", "is_active", "show_summary", "show_images", "allow_ai_briefing")
+    list_filter = ("is_active", "show_summary", "show_images", "allow_ai_briefing", "source")
     filter_horizontal = ("categories",)
 
 
@@ -38,5 +38,6 @@ class UserPreferenceAdmin(admin.ModelAdmin):
 
 @admin.register(NewsBriefing)
 class NewsBriefingAdmin(admin.ModelAdmin):
-    list_display = ("generated_at", "window_start", "article_count")
-    readonly_fields = ("generated_at", "window_start", "article_count")
+    list_display = ("generated_at", "window_start", "article_count", "status", "error_code")
+    readonly_fields = list_display
+    list_filter = ("status", "error_code")

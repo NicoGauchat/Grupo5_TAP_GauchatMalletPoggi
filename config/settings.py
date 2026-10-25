@@ -41,6 +41,35 @@ render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 if render_hostname:
     ALLOWED_HOSTS.append(render_hostname)
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if render_hostname:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{render_hostname}")
+
+# La configuración general es la que usa WSGI y los comandos del servidor.
+# Fallar temprano evita arrancar una instancia de producción contra localhost
+# por una variable de base ausente. El perfil local y el de pruebas quedan
+# fuera de esta validación y definen sus propios valores.
+production_settings = os.getenv("DJANGO_SETTINGS_MODULE", "config.settings") == "config.settings"
+if production_settings and not DEBUG:
+    required_production_env = (
+        "POSTGRES_DB",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_HOST",
+    )
+    missing_production_env = [name for name in required_production_env if not os.getenv(name, "").strip()]
+    if missing_production_env:
+        names = ", ".join(missing_production_env)
+        raise ImproperlyConfigured(f"Faltan variables de producción: {names}")
+    if not ALLOWED_HOSTS:
+        raise ImproperlyConfigured(
+            "Configurá DJANGO_ALLOWED_HOSTS o RENDER_EXTERNAL_HOSTNAME en producción."
+        )
+
 
 # Application definition
 
@@ -95,10 +124,10 @@ DATABASES = {
         'USER': os.getenv('POSTGRES_USER', 'noticias_app'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5433'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
         'OPTIONS': {
             'connect_timeout': 3,
-            'sslmode': os.getenv('POSTGRES_SSLMODE', 'prefer'),
+            'sslmode': os.getenv('POSTGRES_SSLMODE', 'require'),
         },
     }
 }

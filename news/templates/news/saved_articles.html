@@ -11,7 +11,7 @@
     <section class="category-column" aria-label="Noticias guardadas">
         {% for saved in page %}
             <article class="news-item">
-                <h2><a href="{{ saved.article.original_url }}">{{ saved.article.title }}</a></h2>
+                <h2><a href="{{ saved.article.original_url }}" target="_blank" rel="noopener">{{ saved.article.title }}</a></h2>
                 <footer class="news-item-footer">
                     <p class="news-meta">
                         <span>{{ saved.article.feed.source.name }}</span>

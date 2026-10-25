@@ -1,0 +1,32 @@
+{% extends 'news/base.html' %}
+{% load static %}
+{% block title %}{{ category.name }} · Sitio Noticias{% endblock %}
+{% block main_class %} category-wide{% endblock %}
+{% block content %}
+<header class="category-intro">
+    <a href="{% url 'news_feed' %}" class="back-to-topics">Mis noticias</a>
+    <div class="category-title-row"><h1>{{ category.name }}</h1><p>{{ article_count }} noticia{{ article_count|pluralize }} reciente{{ article_count|pluralize }}</p></div>
+    <p>Explorá las noticias de esta categoría. Cada artículo se abre en otra pestaña.</p>
+</header>
+<form class="feed-filters" method="get" action="{% url 'category_news' category.slug %}" aria-label="Filtrar noticias">
+    {{ filter_form.non_field_errors }}
+    {% for field in filter_form %}<div class="filter-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+    <button class="button" type="submit">Aplicar filtros</button>
+    <a class="filter-reset" href="{% url 'category_news' category.slug %}">Limpiar filtros</a>
+</form>
+{% if search_text and not filter_form.errors %}<p>Resultados para «{{ search_text }}», ordenados por relevancia.</p>{% endif %}
+<section data-news-reader data-user="{{ user.pk }}" aria-label="Noticias de {{ category.name }}">
+    <div id="article-grid" class="article-grid">{% include 'news/article_cards.html' %}</div>
+    {% if not articles %}
+    <div class="feed-empty">
+        {% if filter_form.errors %}<h2>Revisá los filtros</h2><p>Corregí los campos indicados o <a href="{% url 'category_news' category.slug %}">limpiá los filtros</a>.</p>
+        {% elif filters_active %}<h2>No hay noticias con estos filtros</h2><p>No hay noticias de esta categoría con los filtros elegidos. Podés <a href="{% url 'category_news' category.slug %}">limpiar los filtros</a>.</p>
+        {% else %}<h2>Todavía no hay noticias recientes de esta categoría</h2><p>Volvé más tarde o elegí otros temas en <a href="{% url 'preferences' %}">Mis categorías</a>.</p>{% endif %}
+    </div>
+    {% endif %}
+    <div class="load-more-area">
+        <a class="button button-secondary" data-load-more href="{{ next_url|default:'#' }}" {% if not next_url %}hidden{% endif %} aria-controls="article-grid">Ver más</a>
+        <p data-reader-status role="status" aria-live="polite" tabindex="-1">{% if articles and not next_url %}Ya viste todas las noticias disponibles.{% endif %}</p>
+    </div>
+</section>
+{% endblock %}

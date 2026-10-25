@@ -42,7 +42,7 @@ El feed adicional de [EL PAÍS Ciencia](https://feeds.elpais.com/mrss-s/pages/ep
 
 Registro histórico: la primera ingesta de los tres feeds iniciales guardó 70 noticias recientes; 11 entradas de MIT News se omitieron por superar la ventana de 60 días usada entonces. La conservación vigente es de 14 días. Los ocho feeds añadidos después respondieron HTTP 200, con XML válido y publicaciones recientes. Los once feeds activos están configurados con `show_summary=False`.
 
-### Presentación generada por IA
+### Presentación generada por IA: criterio anterior al 25/10/2026
 
 La presentación de actualidad usa únicamente título, fuente, fecha de publicación e idioma de noticias RSS dentro de las últimas 24 horas; no envía ni muestra los campos `R` o `I`, ni descarga artículos. Cada punto enlaza las noticias que lo respaldan y diferencia esta síntesis del resumen editorial del feed. Esto no amplía el permiso para reutilizar resúmenes RSS ni imágenes. El campo `Feed.allow_ai_briefing` comienza desactivado en todos los feeds y es independiente de `show_summary`; sólo se debe activar después de verificar que el titular permite procesar títulos con IA y publicar una síntesis derivada. Las condiciones verificadas para Clarín se limitan a exhibir títulos y enlaces sin alterar contenido; MIT define condiciones específicas para republicar historias; Los Andes reserva derechos editoriales; EL PAÍS y Cinco Días describen sus RSS como servicios de titulares para lectores/agregadores. Esos textos no conceden de forma expresa permiso para republicar una síntesis generada por IA. La función requiere revisión de las condiciones aplicables antes de desplegarse públicamente y, si una fuente no permite ese uso, mantener sus titulares fuera del resumen. Referencias: [condiciones RSS de Clarín](https://www.clarin.com/filer/RSS/terminos_condiciones.html), [RSS de EL PAÍS](https://elpais.com/info/rss/), [términos de MIT News](https://news.mit.edu/terms-of-use), [términos de Los Andes](https://www.losandes.com.ar/terminos), [RSS de Cinco Días](https://cincodias.elpais.com/info/rss/) y [condiciones de Cinco Días](https://cincodias.elpais.com/info/condiciones/).
 
@@ -161,8 +161,46 @@ Cuando se implemente:
 
 GDELT amplía cobertura, pero no reemplaza los feeds seleccionados ni resuelve el agrupamiento de historias.
 
-## Política común de imágenes
+## Decisión vigente para la presentación educativa (25/10/2026)
 
-La primera entrega no consulta, descarga, guarda ni muestra imágenes de los feeds. El campo `I` de las tablas sólo registra lo observado durante el relevamiento histórico. Si se incorpora el uso de imágenes en una entrega posterior, se revisarán antes las condiciones de cada fuente y se documentará una política de almacenamiento y atribución.
+Por decisión expresa del usuario, la migración `0015` habilita `show_images` y `allow_ai_briefing` en los once feeds actuales para una presentación escolar no comercial, sin publicación en este bloque. Se usarán fotografías recibidas en el RSS y se sintetizarán titulares con Gemini conservando créditos y enlaces. Esta es una decisión de uso del proyecto, no una licencia concedida por los medios; el análisis de condiciones que sigue permanece como antecedente. No se cambia `show_summary` y fuentes nuevas conservan ambos controles desactivados por defecto.
 
-El campo `show_summary` de cada feed comienza desactivado. Sólo se habilita tras confirmar que la política de esa fuente permite reutilizar el resumen.
+Se completaron imágenes mediante una descarga forzada de los RSS: la base local conserva 204 noticias con URL de imagen sobre 210; las seis restantes utilizan respaldo temático. El crédito procede de Media RSS cuando existe y de la fuente como respaldo. Una noticia compartida conserva la imagen de su feed original; no se copian archivos ni se extraen cuerpos de artículos. Las imágenes remotas pueden fallar o desaparecer; el navegador reemplaza esas fotografías por el recurso temático identificado como ilustrativo.
+
+Se verificó una síntesis real con `gemini-3.1-flash-lite`: tres puntos basados en 56 titulares de las últimas 24 horas, asociados a sus fuentes. Sólo se transmitieron titulares, fuente, idioma, fecha e ID, sin datos de usuario, cuerpos ni resúmenes RSS. Los intentos tienen timeout y códigos seguros; la clave permanece fuera del repositorio. La síntesis es común y no altera la clasificación existente.
+
+El collage inicial reutiliza las fotografías Pexels de Argentina, geopolítica y tecnología listadas más abajo. El blanco y negro y las transiciones se aplican únicamente a estos recursos ilustrativos locales, no a las fotografías RSS.
+
+Revisión de peso del 25/10/2026, una fotografía remota por fuente, leída sólo en memoria: Clarín 1200×630 / 130.379 bytes JPEG; EL PAÍS 4500×3000 / 871.197 bytes JPEG; Cinco Días 5000×3357 / 1.065.569 bytes JPEG; Los Andes 1200×675 / 1.417.805 bytes PNG; MIT 3600×2400 / 3.568.470 bytes JPEG. No es un promedio ni representa todos los artículos. El tamaño declarado por MIT en su RSS (390×260 en la entrada revisada) no coincide con el archivo real; no se debe asumir que una referencia es una miniatura por esos metadatos. Las ocho fotografías temáticas locales suman 461.172 bytes. No se alteraron URLs ni se agregó descarga o caché de fotografías: queda evaluar variantes oficiales o miniaturas locales para reducir la transferencia.
+
+## Política anterior de imágenes (24/10/2026)
+
+Las tablas anteriores conservan el relevamiento y la política de la primera entrega. El permiso nuevo `Feed.show_images` es independiente de `show_summary` y `allow_ai_briefing`, y comienza desactivado. La revisión para este bloque habilita únicamente MIT News en la migración `0014`; no amplía la autorización de otras fuentes.
+
+- **MIT News:** sus [condiciones para imágenes web](https://news.mit.edu/terms-of-use) permiten uso no comercial bajo CC BY-NC-ND, con crédito y recorte de tamaño. Para este proyecto universitario no comercial se muestran las imágenes recibidas en su RSS, con el crédito proporcionado (MIT News como respaldo) y enlace a las condiciones. No se aplican filtros, alteraciones ni copias al almacenamiento del sitio. La restricción adicional de impresión no se interpreta como autorización para otros usos.
+- **Clarín:** las [condiciones RSS](https://www.clarin.com/filer/RSS/terminos_condiciones.html) no ofrecen una autorización clara para reutilizar fotografías; permanecen deshabilitadas.
+- **EL PAÍS y Cinco Días:** los directorios RSS describen el servicio de titulares y agregadores, sin resolver una licencia específica de fotografías. No se habilitan por la sola presencia de Media RSS y créditos.
+- **Los Andes:** sus [términos generales](https://www.losandes.com.ar/terminos) reservan los derechos editoriales; no se habilitan fotografías sin una autorización aplicable.
+
+La aplicación sólo persiste URL y crédito de imágenes permitidas. Al actualizar una noticia existente se conserva la imagen del feed original; no se reemplaza por la de un origen secundario. Revocar el permiso deja de mostrar inmediatamente sus fotografías y la próxima consulta del feed limpia esos metadatos. Las noticias que ya no estén en el RSS utilizan el respaldo. No se extrae HTML de artículos ni se recuperan imágenes mediante scraping.
+
+La comprobación técnica del 24/10/2026 encontró referencias de imagen en los once feeds: Clarín 10/10 en cada canal; EL PAÍS Tecnología 17/21, Internacional 24/24 y Economía 37/37; MIT 50/50; Los Andes Política 17/20 y Economía 19/20; Cinco Días 25/25. Son referencias observadas en memoria, no permisos ni garantía de disponibilidad futura. En ese bloque muchos artículos usaban respaldo temático porque sólo MIT estaba habilitado.
+
+### Fotografías temáticas locales
+
+Se eligió [Pexels](https://www.pexels.com/license/), cuya licencia permite descarga, uso web gratuito y modificación sin atribución obligatoria. Se registran igualmente autores y enlaces. No se presenta a las personas o marcas fotografiadas como aval del sitio, no se revenden archivos ni se crea un banco de imágenes. Los recursos se recortaron a 960 × 600 y convirtieron a WebP; se sirven localmente, sin API ni consultas al proveedor al navegar. El total es inferior a 500 KB.
+
+| Categoría / archivo | Autor | Fotografía original |
+|---|---|---|
+| Argentina / `argentina.webp` | Mauro Rodriguez | [Obelisco de Buenos Aires](https://www.pexels.com/photo/buenos-aires-27954172/) |
+| Política argentina / `politica-argentina.webp` | Rafael Rodrigues | [Congreso y bandera argentina](https://www.pexels.com/photo/argentinian-congress-building-with-national-flag-36699718/) |
+| Geopolítica / `geopolitica.webp` | Ali Levlog | [Globo terráqueo](https://www.pexels.com/photo/a-globe-on-a-white-background-14181516/) |
+| Tecnología / `tecnologia.webp` | ClickerHappy | [Circuito electrónico](https://www.pexels.com/photo/shallow-focus-photography-of-black-circuit-board-1448561/) |
+| Inteligencia artificial / `inteligencia-artificial.webp` | Sharath G. | [Microcircuito](https://www.pexels.com/photo/close-up-of-computer-circuit-on-table-13089944/) |
+| Ciencia / `ciencia.webp` | Edward Jenner | [Investigación en laboratorio](https://www.pexels.com/photo/two-scientists-working-inside-the-laboratory-4031693/) |
+| Economía / `economia.webp` | Diego F. Parra | [Contenedores en puerto](https://www.pexels.com/photo/aerial-view-of-containers-and-machinery-in-a-port-24244232/) |
+| Mercados y finanzas / `mercados-finanzas.webp` | George Morina | [Pantalla de mercados](https://www.pexels.com/photo/stock-exchange-charts-4960438/) |
+
+Las fotografías temáticas identifican categorías. Cuando reemplazan una imagen de noticia ausente, fallida o no autorizada, se rotulan «Imagen ilustrativa». Se usa la categoría visitada y no se atribuye esa foto al artículo o al medio. Las categorías nuevas sin un recurso seleccionado usan el globo terráqueo como respaldo neutral.
+
+Los resúmenes RSS permanecen deshabilitados. Los controles de imágenes y síntesis de titulares para esta presentación educativa se describen en la decisión vigente del 25/10/2026.

@@ -1,9 +1,54 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-10-23
-**Objetivo actual:** dejar lista para revisión la presentación LLM de noticias de las últimas 24 horas y confirmar qué fuentes autorizan su síntesis.
+**Última actualización:** 2026-10-25
+**Objetivo actual:** preparar la publicación en Render sin que la configuración del servidor dependa del entorno local.
 
 ## Último paso completado
+
+Se ajustó la separación entre desarrollo y producción para publicar `main`: `config.settings` conserva el perfil WSGI/Gunicorn del servidor, usa PostgreSQL por defecto en `5432` con SSL obligatorio y exige las credenciales de producción cuando `DEBUG` está desactivado, en vez de caer silenciosamente en `localhost:5433`. El hostname de Render se agrega a `ALLOWED_HOSTS` y a `CSRF_TRUSTED_ORIGINS`; los dominios propios pueden declararse con `DJANGO_ALLOWED_HOSTS` y `DJANGO_CSRF_TRUSTED_ORIGINS`. `config.local_settings` y `dev.ps1` siguen siendo exclusivamente locales y cargan `.env.local` sin afectar al servidor. README y PROJECT documentan qué variables van en Render y cuáles en GitHub Actions. No se modificó la base ni se versionaron secretos.
+
+Verificación de este ajuste: `config.settings` pasa `check --deploy` con variables de producción sintéticas, falla con un mensaje explícito cuando falta una credencial, y `config.test_settings` continúa aislado de esa validación. `config.local_settings` mantiene `DEBUG=True`, loopback, puerto `5433` y SSL opcional. La suite completa pasó **69 pruebas en PostgreSQL local**, `collectstatic` procesó 407 archivos y `git diff --check` no encontró errores. El chequeo de despliegue sólo informa las advertencias estándar de HSTS y de la clave sintética usada para la prueba.
+
+El siguiente bloque de revisión visual queda registrado debajo como historial.
+
+Se refinó la presentación del resumen: encabezado «Resumen», fondo blanco, separación coral y columnas de sucesos adaptables. Las fuentes se pliegan bajo «Ver N fuentes» mediante HTML nativo; al abrir muestran medio y titular completo con enlace en nueva pestaña. El total analizado queda al pie. Se aplicó frontend-design para concentrar la jerarquía en los sucesos y reducir la densidad de referencias, conservando identidad, contenido y generación.
+
+Verificación de este ajuste: 11 pruebas de resumen aprobadas y Django check/diff sin errores. Edge 1440 y 375 px: tres columnas/una columna, fuentes cerradas inicialmente, apertura con teclado y sin JavaScript, titulares completos, enlaces externos y ausencia de desbordamiento o errores JS. Se inspeccionaron capturas; el resumen cerrado mide 359 px de alto en el escritorio comprobado. La síntesis anterior dejó de ser visible al vencer una de sus referencias de 24 horas; se ejecutó el comando existente para renovarla, obteniendo tres puntos sobre 55 titulares. No se cambió ese criterio de vigencia ni se disparan llamadas al visitar la web.
+
+Se midió una imagen remota por fuente: entre 130 KB y 3,57 MB, con algunas de 4500–5000 px. La base guarda URLs, no archivos. Las ocho imágenes temáticas WebP ya suman 461.172 bytes; reducir las remotas requiere variantes del medio o una caché de miniaturas, no cambiar sus dimensiones CSS. SOURCES registra la muestra y sus límites. No se añadió almacenamiento ni se redujo la calidad de las imágenes en este ajuste. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios. La cuenta/sesión de QA se eliminaron; servidor local activo y sin publicación.
+
+### Bloque anterior de fotografías, collage y LLM
+
+Se completó el bloque aprobado de fotografías RSS, collage editorial y resumen LLM. `0015` habilita imágenes y síntesis en los once feeds existentes para la presentación educativa por decisión del usuario, sin afirmar que esa decisión conceda una licencia. Las fuentes nuevas conservan los controles desactivados. Se descargaron nuevamente los RSS para completar fotografías de noticias existentes: 204 de 210 tienen imagen original; las otras seis usan respaldo ilustrativo. Se conservaron créditos, orígenes y deduplicación.
+
+Portada y Mis noticias comparten un collage HTML/CSS de Argentina, geopolítica y tecnología con recursos locales Pexels: blanco y negro, degradado a blanco, transición levemente desenfocada y franja móvil. Los títulos de categorías permanecen blancos en hover/foco y la acción cambia a coral claro. Se reutilizó la pauta de frontend-design para concentrar el tratamiento visual en el encabezado y preservar la lectura y la identidad.
+
+El resumen genera hasta tres puntos de alta importancia con los 250 titulares elegibles más recientes como máximo. Cada intento registra generado/vacío/error y un código seguro; timeout de 60 segundos, un intento y conservación del último resultado válido sólo mientras todas sus referencias estén vigentes y habilitadas. Se distinguen estados pendientes, configuración/fuentes ausentes, noticias ausentes, falta de sucesos destacados y errores. Se reutiliza un resultado satisfactorio durante dos horas; `--force` y `dev.ps1 -RefreshBriefing` permiten regenerar. El arranque local lo comprueba automáticamente si hay clave; las visitas y la recarga de Django no llaman al modelo. La clasificación se conserva.
+
+Se ejecutó una llamada real a Gemini con la clave local: tres puntos sobre 56 titulares recientes, guardados y visibles con sus enlaces. La clave no se imprimió ni se versionó. El arranque real mediante `dev.ps1` se comprobó con el contenedor PostgreSQL 17.11 de Docker: migraciones aplicadas, reutilización del resumen sin otra llamada y HTTP 200 en `http://127.0.0.1:8000/`. El servidor queda ejecutándose para revisión.
+
+Verificación vigente: **69 pruebas aprobadas en PostgreSQL 17.11 local de Docker**; en SQLite **56 aprobadas y 13 omitidas**. Incluye migración reversible, permisos por defecto, actualización de imágenes tras 304, resumen/errores/caché/ventana/250 titulares y referencias inválidas. Edge: registro y preferencias, tres puntos reales, collage en escritorio/móvil, categorías blancas en hover y foco, Ver más de diez a diecinueve sin duplicar apertura, Guardar/quitar y respaldo ante imagen fallida. Sin errores JavaScript ni desbordamiento a 375 px; capturas inspeccionadas. Se eliminaron la cuenta y la sesión temporales de QA, manteniendo los datos del usuario.
+
+README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios porque no hay variables nuevas. Sin dependencias nuevas, cambios remotos ni publicación. El siguiente bloque conserva el historial de la implementación anterior.
+
+### Implementación anterior de categorías
+
+Se implementó el bloque aprobado de entrega 2: Mis noticias ahora muestra tarjetas fotográficas de las categorías elegidas en orden alfabético estable; cada categoría tiene una ruta privada, filtros y búsqueda existentes, apertura «La más reciente» y grilla de tres/dos/una columnas. Ver más agrega nueve noticias sin recargar, con cursor firmado por categoría/filtros/modo de clasificación; la URL reconstruye la cantidad cargada y se recuerda temporalmente la posición. Guardar/quitar acepta JSON además del POST tradicional, conserva CSRF y mantiene la lectura. Titulares y fotos originales, Mis guardadas y fuentes del resumen abren en otra pestaña. Clasificación y funcionamiento del resumen LLM conservados; el agrupamiento sigue pendiente.
+
+Las migraciones `0013` y `0014` agregan URL/crédito y permiso de imágenes por feed, habilitando únicamente MIT News tras revisar sus condiciones no comerciales y crédito. Se guardan metadatos, no fotografías RSS; las noticias existentes se completan al volver a aparecer en su feed original. Los demás feeds y las imágenes fallidas usan el respaldo temático rotulado «Imagen ilustrativa». Ocho fotografías Pexels con licencia verificada se sirven localmente como WebP (menos de 500 KB en total). La política y créditos están en SOURCES; la disponibilidad técnica de imágenes en los once RSS no autoriza su reutilización.
+
+`dev.ps1` prepara el entorno, genera `.env.local`, inicia PostgreSQL 17 con healthcheck en un proyecto/volumen Docker independiente, migra, ingiere RSS reales cuando faltan noticias y ejecuta Django con recarga automática. `-RefreshFeeds` actualiza antes de abrir. El perfil local impide conexión remota, no ejecuta Gemini ni crea usuarios predeterminados y no hereda credenciales de producción. Se corrigió la limpieza/restauración de variables de entorno de PowerShell para que Compose use correctamente `.env.local` aunque la sesión tenga variables vacías heredadas.
+
+Verificación actual: **57 pruebas aprobadas en PostgreSQL 18.1 nativo aislado**; se mantuvo PostgreSQL 17 como versión prevista de Docker. SQLite: **44 pruebas aprobadas y 13 omitidas** por requerir PostgreSQL. Se comprobaron migración reversible con noticias existentes, valores y permisos, orden de búsqueda entre lotes (incluida la corrección de precisión del ranking), filtros, retención, cursor inválido/cambiado/vencido, imágenes y guardados. System check, ausencia de migraciones pendientes, dependencias, `collectstatic` con manifiesto y `git diff --check` pasaron.
+
+Microsoft Edge: registro y preferencias; apertura y nueve tarjetas; Ver más hasta diecinueve sin duplicados ni desplazamiento (delta 0 px); error y Reintentar; Guardar/quitar sin perder tarjetas; popup externo; regreso con cantidad/posición restauradas; filtros reinician la lista; fin de resultados; cuatro fotografías MIT fallidas reemplazadas por respaldo. Escritorio 1440 y 1024 y móvil 375 px, sin desbordamiento horizontal; capturas de escritorio y móvil inspeccionadas. Ver más y Guardar también se comprobaron sin JavaScript. Con teclado se verificaron salto al contenido y foco en el primer titular incorporado sin desplazamiento; controles comprobados de al menos 44 px y movimiento reducido sin zoom de imágenes al pasar el mouse.
+
+El comando se verificó en una copia externa sin `.venv` ni configuración: creó entorno/configuración, aplicó migraciones, importó 190 noticias RSS reales y sirvió HTTP 200; también en el entorno existente con los once feeds inaccesibles, conservando datos y arrancando HTTP 200 tras advertirlo. Se probaron prioridad sobre variables/archivo de producción, rechazo de host remoto y conservación de claves. **En esas pruebas se sustituyeron las llamadas a Docker por un ejecutable de prueba y se usó PostgreSQL nativo aislado**: el motor Docker real no respondió. El CLI real validó el Compose; el arranque real del contenedor sigue sin verificarse. El script detectó el motor detenido/no respondiente con espera acotada y mensaje accionable. Los servidores/bases temporales de prueba se detuvieron al terminar.
+
+README, PROJECT y SOURCES actualizados. `.env.example` no requiere cambios porque se reutilizan sus variables; no se agregaron dependencias ni servicios, ADR o documentación adicional. Sin cambios en Render, Supabase, secretos ni ejecución de Gemini; no se publicó.
+
+### Historial anterior
+
 
 Se integró desde el remoto el arreglo de `classify_news_ai`: las hasta cien noticias pendientes por ejecución se seleccionan por fecha de publicación descendente y se clasifican primero las más recientes. Se conserva la clasificación adicional por `gemini-3.1-flash-lite`, separada de las reglas, con lotes de diez, validación estricta de IDs/slugs y preferencia individual «Ambas», «Sólo reglas» o «Sólo IA». También se implementó la presentación común de Mis noticias: considera titulares de las últimas 24 horas, agrupa coberturas del mismo suceso, elige como máximo tres hechos de importancia alta y enlaza sus fuentes; no envía cuerpos ni resúmenes RSS. `GEMINI_API_KEY` sigue siendo un secreto configurado por el usuario. La presentación usa `allow_ai_briefing`, desactivado por defecto hasta revisar las condiciones por fuente. El resumen no fue desplegado ni probado contra Gemini. No se ejecutaron pruebas nuevas para resolver la divergencia.
 
@@ -45,7 +90,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Revisar y habilitar en `/admin/` sólo los feeds cuyas condiciones permitan una síntesis derivada por IA; luego desplegar `main`, aplicar las migraciones y ejecutar el workflow para comprobar los tres destacados con la clave gratuita.
+Publicar `main` y comprobar el despliegue en Render con las variables de producción y el workflow de ingesta configurados.
 
 ## Completado
 
@@ -77,13 +122,17 @@ Revisar y habilitar en `/admin/` sólo los feeds cuyas condiciones permitan una 
 - Configurar o comprobar credenciales en los paneles y `NEWS_INGESTION_ENABLED`, y verificar la primera ejecución manual y programada en Actions. Este bloque no carga secretos ni activa servicios remotos.
 - Los horarios de Actions son previstos: puede haber retrasos u omisiones. La pausa de 00:00 a 06:00 y los feeds cortos pueden causar pérdidas de entradas; las consultas cada dos horas no garantizan captura exhaustiva.
 - Sigue pendiente evaluar el ruido de Clarín Mundo y Economía y la cobertura de ciencia. No se incorporaron fuentes ni se cambiaron los criterios de clasificación en esta tarea.
-- No se guardan artículos completos ni imágenes; los once feeds conservan los resúmenes deshabilitados.
+- No se guardan artículos completos ni archivos de fotografías RSS; se conservan metadatos de imágenes autorizadas y fotografías temáticas locales. Los once feeds conservan los resúmenes RSS deshabilitados.
 
 ## Bloqueos
 
-No hay bloqueos conocidos para validar el despliegue. La comprobación remota requiere acceso a las cuentas y credenciales configuradas fuera del repositorio.
+No hay bloqueos locales activos. El motor Docker ya responde y el arranque real con PostgreSQL 17 quedó comprobado. El despliegue remoto permanece fuera de este bloque.
 
 ## Última verificación
+
+El último ajuste visual pasó 11 pruebas de resumen y comprobaciones de navegador, teclado y funcionamiento sin JavaScript, descritas al inicio. La suite completa del bloque anterior pasó 69 pruebas en PostgreSQL 17.11 y 56 aprobadas/13 omitidas en SQLite. Servidor local activo con resumen renovado; configuración y diff sin errores.
+
+### Verificaciones históricas
 
 - Cambio sólo de presentación y documentación de estado. README, PROJECT y SOURCES no requieren cambios; `.env.example` tampoco porque no se agregaron variables. `git diff --check` pasó. El detector Impeccable no encontró coincidencias, pero se ejecutó en modo degradado por faltar sus módulos HTML/CSS; no evaluó selectores ni contraste. La revisión visual en el navegador no fue posible porque el servidor local no respondió (`ERR_CONNECTION_REFUSED`).
 

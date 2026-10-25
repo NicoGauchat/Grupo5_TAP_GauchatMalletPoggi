@@ -10,7 +10,9 @@ Aplicación web universitaria para reunir noticias de fuentes seleccionadas, org
 - Modelos y administración de categorías, fuentes, feeds y artículos.
 - Ingesta manual de once feeds RSS preseleccionados, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
 - Filtros combinables por fuente e idioma en la página personalizada.
-- Paginación independiente de diez noticias por categoría, con estado en la URL.
+- Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
+- Fotografías temáticas locales y fotografías RSS de fuentes habilitadas, con crédito y respaldo ilustrativo.
+- Arranque local con un comando PowerShell y PostgreSQL aislado.
 - Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
 - Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
 - Identidad editorial compartida en inicio, ingreso, registro, preferencias y noticias; fuentes locales y diseño adaptable.
@@ -50,55 +52,61 @@ El próximo paso vigente se mantiene en [STATUS.md](./STATUS.md).
 
 ## Desarrollo local en Windows
 
-Requisitos: Python 3.13 y Docker Desktop con el motor iniciado. La base de datos corre en un contenedor PostgreSQL 17 y escucha sólo en `127.0.0.1:5433`, para evitar conflicto con una instalación local en el puerto 5432.
-
-En PowerShell, desde la raíz del repositorio:
+Requisitos: Python 3.13 y Docker Desktop con el motor iniciado. Desde PowerShell, en la raíz del repositorio:
 
 ```powershell
-py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
+.\dev.ps1
 ```
 
-Gunicorn se instala automáticamente en sistemas POSIX como Render; en Windows se omite porque no se usa para ejecutar el servidor local.
+El comando prepara `.venv`, instala las dependencias existentes, crea `.env.local` con claves aleatorias cuando falta, inicia PostgreSQL 17 en el proyecto Docker independiente `sitio-noticias-local`, espera a que esté disponible, aplica migraciones e importa RSS reales si no hay noticias. Si `.env.local` contiene `GEMINI_API_KEY`, genera el resumen cuando falta un resultado de las últimas dos horas. Luego sirve Django con recarga automática en `http://127.0.0.1:8000/`. Registrarse y elegir categorías; no se crean cuentas predeterminadas. Ctrl+C detiene la web; el volumen conserva la base.
 
-Editar `.env` y completar `DJANGO_SECRET_KEY` y `POSTGRES_PASSWORD` con valores distintos y aleatorios. Se pueden generar con estos comandos y copiarlos al archivo local:
+Para actualizar los RSS antes de abrir la aplicación:
 
 ```powershell
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+.\dev.ps1 -RefreshFeeds
 ```
 
-El archivo `.env` está ignorado por Git. No compartirlo ni subirlo al repositorio.
+Para forzar también un resumen nuevo, combinar ambos modificadores:
 
 ```powershell
-docker compose up -d db
-python manage.py migrate
-python manage.py ingest_feeds
-python manage.py createsuperuser
-python manage.py runserver
+.\dev.ps1 -RefreshFeeds -RefreshBriefing
 ```
 
-Abrir `http://127.0.0.1:8000/` para crear una cuenta y elegir categorías, o `/admin/` para gestionar fuentes y modelos. `createsuperuser` solicita usuario y contraseña para la administración. Para detener sólo la base de datos, ejecutar `docker compose down`. El volumen conserva los datos entre reinicios.
+`-RefreshFeeds` descarga los RSS aunque no hayan cambiado, para completar las fotografías de noticias existentes. `-RefreshBriefing` puede usarse solo. Configurar `GEMINI_API_KEY` únicamente en `.env.local`, nunca en el código ni por chat. Una falla de Gemini se informa y no impide iniciar la web; la recarga automática y las visitas no llaman al modelo.
 
-Después de ingresar, abrir `http://127.0.0.1:8000/noticias/`. La página usa hasta 1680 px de ancho y presenta hasta cuatro columnas desde 1280 px, dos entre 768 y 1279 px y una por debajo de 768 px. Las columnas se ordenan por el total de noticias filtradas, de mayor a menor, con desempate alfabético. Cada sección muestra diez titulares por página, con fuente, fecha, idioma y enlace original; la última puede tener menos. «Más reciente» identifica únicamente el primer artículo de la primera página sin búsqueda; al buscar se muestra «Más relevante».
+Un feed inaccesible produce un aviso y se inicia la web con los datos disponibles. Si Docker está detenido o no responde, se solicita iniciarlo o reiniciarlo. El puerto inicial de PostgreSQL es `5433`; puede cambiarse en `.env.local` si ya está ocupado. El perfil `config.local_settings` exige un host local y carga ese archivo antes que cualquier configuración de producción. El script restaura las variables del proceso al salir; no utiliza credenciales remotas. `.env.local` y `.venv` están ignorados por Git.
 
-«Anterior», «Página X de Y» y «Siguiente» aparecen cuando una sección tiene más de diez noticias. La paginación es independiente: `/noticias/?source=1&language=es&page_tecnologia=2&page_ciencia=3` mantiene filtros y páginas de las otras categorías. Los enlaces regresan al encabezado de la sección mediante un fragmento. Una página ausente, no entera o menor que uno muestra la primera; una superior al máximo muestra la última. Funciona sin JavaScript y conserva el estado al recargar o usar el historial del navegador.
+Con la base iniciada, también pueden ejecutarse comandos locales directamente:
 
-Los selectores «Fuente» e «Idioma» se combinan al pulsar «Aplicar filtros», antes de paginar, y mantienen la selección en la URL. Aplicar o limpiar filtros reinicia todas las páginas. «Limpiar filtros» muestra todas las fuentes e idiomas disponibles en las categorías elegidas. Los filtros inválidos muestran errores y ningún resultado; las combinaciones sin coincidencias permiten limpiarlos. Las noticias de más de 14 días no aparecen aunque todavía no haya corrido la limpieza.
+```powershell
+.\.venv\Scripts\python.exe manage.py createsuperuser --settings=config.local_settings
+.\.venv\Scripts\python.exe manage.py ingest_feeds --refresh --settings=config.local_settings
+.\.venv\Scripts\python.exe manage.py generate_news_briefing --force --settings=config.local_settings
+```
 
-«Buscar en títulos» permite ingresar hasta 200 caracteres. Por ejemplo, `la empresa` encuentra títulos en español que contienen `empresas`: se descarta `la` y se aplica stemming. Se buscan todas las palabras significativas, sin distinguir mayúsculas; no es una búsqueda por fragmentos ni una traducción. Español, inglés y portugués usan sus respectivos diccionarios según el idioma de la noticia; los demás usan palabras sin stemming. Una consulta compuesta sólo por stop words queda sin resultados. El stemming no relaciona todas las variantes de una palabra.
+Para detener la base conservando los datos:
 
-Los resultados se ordenan por relevancia dentro de cada categoría, con desempate por fecha e ID. La búsqueda se combina con fuente e idioma, se conserva al paginar o guardar noticias y se limpia con «Limpiar filtros». Una búsqueda vacía vuelve al orden cronológico. Ejemplo: `/noticias/?q=empresa&language=es&page_tecnologia=2`. PostgreSQL mantiene el índice GIN cuando ingresan noticias o cambian títulos o idiomas; no requiere otro comando ni nuevas dependencias.
+```powershell
+docker compose --env-file .env.local --project-name sitio-noticias-local down
+```
 
-Inicio, ingreso y registro combinan un panel azul con la marca tipográfica y una zona clara para contenido o formularios. Las preferencias usan casillas nativas con etiquetas completas. La interfaz comparte colores, controles, mensajes y foco visible; mantiene los textos y recorridos anteriores. Archivo y Source Sans 3 se sirven desde `news/static/news/fonts/`, con sus licencias OFL y fuentes de respaldo, sin consultar Google al navegar.
+## Explorar noticias
 
-El pulido visual conserva esa estructura y el azul/coral: columnas y filtros con profundidad suave, bordes redondeados, navegación activa y controles con estados de foco y guardado claros. Mantiene la distribución responsive y las fuentes locales, sin bibliotecas nuevas. La propuesta se está revisando localmente antes de publicarse. Incluye entrada escalonada de columnas, elevación al pasar el mouse, destello en botones y respuesta del marcador; el encabezado mantiene la identidad azul/coral. Una línea superior indica el avance de lectura en navegadores compatibles. La preferencia del sistema para reducir movimiento desactiva estos efectos. No requiere JavaScript ni paquetes adicionales.
+Mis noticias (`/noticias/`) presenta tarjetas fotográficas de las categorías elegidas, en orden alfabético estable. Incluye las categorías sin noticias y conserva el módulo de presentación LLM existente. Cada tarjeta lleva a `/noticias/categoria/<slug>/`; sólo se accede a categorías elegidas en Mis categorías.
 
-`ingest_feeds` procesa los feeds activos y puede ejecutarse manualmente de nuevo. Para procesar sólo uno: `python manage.py ingest_feeds --feed-id 1`, sustituyendo `1` por el ID mostrado en la administración. El comando informa cuántas noticias creó, encontró duplicadas u omitió. Los once feeds activos guardan título, fuente, fecha, enlace e idioma; **no** guardan resúmenes, imágenes ni el texto completo. Las entradas de más de 14 días se omiten. La ejecución periódica queda pendiente de activar con una base pública.
+Dentro de cada categoría se combinan búsqueda en títulos, fuente e idioma. Sin búsqueda, la primera noticia es la apertura editorial «La más reciente», seguida de nueve tarjetas. La grilla tiene tres columnas en escritorio amplio, dos en tamaños intermedios y una en móvil; la apertura se apila en móvil. Con búsqueda se muestran diez tarjetas uniformes por relevancia, con desempate por fecha e ID. Los titulares completos permanecen visibles. Títulos y fotografías enlazan al medio original en una nueva pestaña, al igual que Mis guardadas y las fuentes del resumen.
 
-La clasificación usa la lista editable de [news/category_aliases.py](./news/category_aliases.py). Cada alias debe ser el nombre de una etiqueta realmente observada en un feed y se compara completo, ignorando mayúsculas, tildes y espacios extra. Una noticia puede recibir varias categorías. Si la entrada no trae etiquetas, se usan las categorías de respaldo configuradas en el feed desde `/admin/`; si trae etiquetas no aprobadas, queda sin categoría. Después de modificar la lista, ejecutar `python manage.py ingest_feeds --refresh` para volver a descargar y reclasificar las noticias existentes. La clasificación se conserva por origen: actualizar un feed reemplaza su aporte y combina el resultado con los demás, sin borrar sus categorías ni duplicar la noticia. La atribución y los filtros siguen usando el feed original. La revisión inicial de etiquetas está registrada en [SOURCES.md](./SOURCES.md).
+«Ver más» agrega nueve noticias sin recargar ni desplazar la lectura. Mantiene filtros, controla solicitudes repetidas y permite reintentar ante fallos. Al finalizar indica que ya se vieron todas. La continuación usa un cursor firmado vinculado a categoría, filtros y modo de clasificación, ordenado por fecha/ID y también relevancia cuando corresponde. No depende de posiciones desplazadas por nuevas ingestas. Los enlaces vencen a los 14 días. La URL conserva `visible` para reconstruir la cantidad cargada; la posición se recuerda temporalmente por usuario en el navegador. Los resultados se vuelven a validar al reconstruir: pueden variar si ingresaron o vencieron noticias. Sin JavaScript, Ver más y Guardar funcionan mediante navegación y POST normales. Guardar/quitar dentro de una categoría conserva los lotes y la posición mediante los mismos POST con CSRF.
+
+La búsqueda admite hasta 200 caracteres y se limita a títulos. PostgreSQL aplica stop words y stemming en español, inglés y portugués, incluidos códigos regionales, y exige todas las palabras significativas. Otros idiomas usan `simple`. No busca fragmentos arbitrarios, no traduce ni agrega sinónimos. Una consulta compuesta sólo por stop words no devuelve resultados. El índice GIN existente se conserva.
+
+Las fotografías de categoría son ocho archivos WebP locales con licencia Pexels, documentados con sus autores y enlaces en SOURCES. El collage inicial reutiliza Argentina, geopolítica y tecnología en blanco y negro mediante HTML/CSS, con degradado hacia blanco, versión compacta en Mis noticias y franja móvil. Los títulos de categorías conservan el blanco al pasar el cursor o enfocar; la acción cambia a coral claro.
+
+Las fotografías RSS requieren `Feed.show_images`; `0013` incorpora URL/crédito, `0014` habilitó MIT y `0015` habilita los once feeds actuales por decisión expresa del usuario para su presentación educativa. Esa decisión no acredita una licencia de los medios; SOURCES conserva las condiciones revisadas. Nuevas fuentes siguen deshabilitadas por defecto. Se mantienen créditos, atribución y respaldo temático rotulado «Imagen ilustrativa» si falta o falla una fotografía o se deshabilita el feed para imágenes. No se descargan ni almacenan fotografías RSS en el servidor.
+
+La ingesta actualiza imágenes y créditos de noticias existentes de su feed original, sin sustituir la atribución por un origen secundario. Para completar imágenes autorizadas ya almacenadas, ejecutar `ingest_feeds --refresh`; sólo pueden recuperarse las entradas que todavía estén en el RSS. Los resúmenes RSS siguen deshabilitados en los once feeds. No se guardan cuerpos de artículos.
+
+La clasificación por reglas conserva los alias revisados en `news/category_aliases.py` y las categorías por origen. `--refresh` reemplaza el aporte del feed consultado y combina las categorías de los otros orígenes. La clasificación LLM permanece independiente, como se describe a continuación.
 
 ### Clasificación adicional con IA
 
@@ -106,19 +114,23 @@ El comando `python manage.py classify_news_ai` envía en lotes de diez el títul
 
 Cada usuario elige en «Mis categorías» entre «Ambas», «Sólo reglas» y «Sólo IA»; «Ambas» es el valor inicial y muestra la unión de ambas clasificaciones. «Sólo IA» puede mostrar menos noticias hasta que termine el procesamiento; las pendientes más recientes se procesan primero. Esta combinación no quita una categoría incorrecta asignada por las reglas; las predicciones se conservan aparte para poder compararlas. Mis guardadas sigue mostrando los artículos guardados según su política de 14 días.
 
-Para activar la IA sin pagar, el titular de la cuenta crea un proyecto y una clave de **Gemini API Free Tier** en [Google AI Studio](https://aistudio.google.com/apikey), comprueba allí la cuota de `gemini-3.1-flash-lite` y mantiene la facturación desactivada. Luego agrega la clave como secreto de repositorio `GEMINI_API_KEY` en **GitHub → Settings → Secrets and variables → Actions**. El workflow de ingesta ejecuta la clasificación después de `ingest_feeds` cuando existe ese secreto. Para uso local, colocar la clave sólo en `.env` o en una variable de entorno. No pegar la clave en el código ni enviarla por chat. Google indica que los datos enviados en su nivel gratuito pueden utilizarse para mejorar sus productos; revisar sus [condiciones](https://ai.google.dev/gemini-api/terms) antes de activar la clave. Los límites efectivos se muestran en [AI Studio](https://ai.google.dev/gemini-api/docs/rate-limits).
+Para activar la IA sin pagar, el titular de la cuenta crea un proyecto y una clave de **Gemini API Free Tier** en [Google AI Studio](https://aistudio.google.com/apikey), comprueba allí la cuota de `gemini-3.1-flash-lite` y mantiene la facturación desactivada. Luego agrega la clave como secreto de repositorio `GEMINI_API_KEY` en **GitHub → Settings → Secrets and variables → Actions**. El workflow de ingesta ejecuta la clasificación después de `ingest_feeds` cuando existe ese secreto. Para el perfil local, colocar la clave sólo en `.env.local` y usar `--settings=config.local_settings`. No pegar la clave en el código ni enviarla por chat. Google indica que los datos enviados en su nivel gratuito pueden utilizarse para mejorar sus productos; revisar sus [condiciones](https://ai.google.dev/gemini-api/terms) antes de activar la clave. Los límites efectivos se muestran en [AI Studio](https://ai.google.dev/gemini-api/docs/rate-limits).
 
 ### Presentación de las últimas 24 horas
 
-Después de ingestar feeds, el workflow también ejecuta `python manage.py generate_news_briefing` si existe `GEMINI_API_KEY`. Usa noticias de feeds activos con «Permitir en presentación IA» habilitado en la administración, cuya fecha de publicación esté entre la hora de ejecución y las 24 horas anteriores. El permiso empieza desactivado: verificá antes que la fuente autorice una síntesis derivada de titulares y su procesamiento mediante IA. Envía a Gemini titulares, fuente, fecha e idioma; no envía artículos completos ni resúmenes RSS. El modelo agrupa noticias del mismo suceso, las evalúa por impacto, urgencia, novedad y alcance, y devuelve como máximo tres con puntuación alta (4 o 5 sobre 5); la cobertura en varios medios es sólo corroboración secundaria. Cada punto enlaza los titulares fuente. Si ningún suceso supera el umbral, no se agregan puntos de relleno. La portada muestra el saludo según la hora de Buenos Aires, la ventana cubierta y esos enlaces. Si no hay titulares habilitados se guarda el estado vacío; si Gemini falla o agota su cuota, se conserva la presentación válida anterior sólo mientras sus fuentes sigan habilitadas y las noticias citadas estén dentro de la ventana. No se llama a Gemini al abrir la web.
+En Mis noticias aparece como «Resumen»: sucesos en columnas en escritorio y apilados en móvil, con fecha de actualización y fuentes plegadas bajo «Ver N fuentes». Los desplegables funcionan con teclado y sin JavaScript; al abrirlos muestran el medio y el titular completo, enlazados en otra pestaña. El número de titulares analizados queda al pie.
+
+El workflow y el arranque local ejecutan el mismo comando `generate_news_briefing`. La migración `0015` habilita los once feeds actuales para esta síntesis educativa; fuentes nuevas conservan el permiso desactivado. Se analizan hasta 250 titulares elegibles de las últimas 24 horas, los más recientes primero con desempate por ID; si hay más se informa el recorte. Se envían título, fuente, fecha e idioma, sin artículos completos ni resúmenes RSS. El modelo agrupa sucesos y selecciona hasta tres de importancia alta (4 o 5), con referencias validadas. Un resultado vacío también es válido y se reutiliza durante dos horas; `--force` permite regenerar.
+
+Cada intento conserva estado generado/vacío/error y un código seguro. La llamada tiene un timeout de 60 segundos y un solo intento. Ante cuota, conexión o respuesta inválida se mantiene el último resultado válido mientras sus fuentes sigan activas, habilitadas y dentro de las últimas 24 horas, con un aviso de actualización fallida. La interfaz diferencia falta de configuración, fuentes deshabilitadas, noticias ausentes, sucesos sin importancia suficiente y generación pendiente. Las visitas no llaman a Gemini y los mensajes no exponen secretos ni respuestas técnicas del proveedor.
 
 También puede ejecutarse manualmente con `python manage.py generate_news_briefing` después de aplicar las migraciones. Como ocurre con la clasificación, el nivel gratuito no garantiza cuotas fijas: se revisan en AI Studio y una cuota agotada no activa facturación por sí sola.
 
-«Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como columnas en `/noticias/`.
+«Argentina» combina noticias de política nacional de Clarín y Los Andes con economía argentina de Los Andes. «Mercados y finanzas» muestra noticias sobre bolsa, inversiones y finanzas de Cinco Días y artículos pertinentes de EL PAÍS. Son titulares y enlaces periodísticos; no hay cotizaciones bursátiles en tiempo real. Las dos categorías se pueden elegir en «Mis categorías» y aparecen como tarjetas en `/noticias/`.
 
 ## Actualizar una instalación existente
 
-La migración `0012_feed_allow_ai_briefing` incorpora el permiso por feed para la síntesis; `0011_newsbriefing_newsbriefingitem` agrega la presentación común y sus enlaces a noticias; `0010_article_llm_categories_article_llm_classified_at_and_more` agrega las predicciones IA y el modo de clasificación. Ejecutar `python manage.py migrate` antes de estos comandos; el build de Render aplica migraciones al publicar. Los feeds existentes quedan deshabilitados para resúmenes LLM. Las noticias existentes quedan pendientes de IA y se procesan gradualmente dentro de la ventana de 14 días. Si el secreto `GEMINI_API_KEY` aún no existe, la ingesta y las reglas siguen funcionando y los pasos de IA se omiten.
+La migración `0015_educational_feeds_and_briefing_status` habilita imágenes y síntesis en los once feeds actuales, elimina sus validadores HTTP para que la siguiente ingesta descargue el contenido y añade estado/código de los intentos. Su reversión restaura los permisos previos (sólo MIT con imágenes, ningún feed en la síntesis). Los validadores se reconstruyen al consultar cada RSS. Aplicar migraciones y ejecutar `ingest_feeds --refresh` para completar fotografías existentes. Las migraciones anteriores incorporan la presentación, el permiso individual y las categorías IA; la clasificación continúa independiente. Sin clave, RSS y reglas siguen funcionando.
 
 La migración `0009_article_article_title_search_gin` crea el índice de búsqueda para los títulos existentes y futuros en PostgreSQL. Aplicar con `python manage.py migrate`; el build de Render ejecuta este comando. La construcción normal del índice puede bloquear escrituras mientras termina.
 
@@ -154,15 +166,16 @@ Para activarlo:
 1. Crear el proyecto de Supabase en **East US (North Virginia)** para usar una región cercana a Render Virginia.
 2. En Connect → Session pooler, copiar host, nombre de base, usuario y contraseña. La configuración esperada es puerto `5432` y SSL `require`; el pooler compartido admite IPv4, necesario para estos servicios.
 3. Subir `render.yaml` a `main` y crear un Blueprint desde el panel de Render. Al aplicarlo, completar las variables de conexión a Supabase cuando Render las solicite. El build instala las dependencias, recoge archivos estáticos y aplica migraciones; no crea una segunda base.
-4. En Settings → Secrets and variables → Actions, agregar los secretos `DJANGO_SECRET_KEY`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_HOST`. Usar los mismos valores de conexión de Supabase; `DJANGO_SECRET_KEY` puede generarse con el comando indicado arriba.
-5. En Variables → Actions, establecer `POSTGRES_PORT=5432`, `POSTGRES_SSLMODE=require` y `NEWS_INGESTION_ENABLED=true`. Ejecutar manualmente «Ingesta y limpieza de noticias» para comprobar la conexión. Para pausar, cambiar `NEWS_INGESTION_ENABLED` a `false`.
-6. El plan gratuito de Render no incluye Shell. Para crear la cuenta administradora, configurar temporalmente el `.env` local con las credenciales de Supabase y ejecutar `python manage.py createsuperuser`; después, restaurar la configuración local. Gestionar feeds desde `/admin/`.
+4. En el servicio web de Render, completar `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_HOST`; `DJANGO_SECRET_KEY` se genera automáticamente por el Blueprint. La configuración de servidor usa puerto `5432` y SSL `require`, y falla temprano si falta una credencial en lugar de intentar PostgreSQL local.
+5. En Settings → Secrets and variables → Actions, agregar los secretos `DJANGO_SECRET_KEY`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_HOST`. Usar los mismos valores de conexión de Supabase; `DJANGO_SECRET_KEY` puede generarse con el comando indicado arriba.
+6. En Variables → Actions, establecer `POSTGRES_PORT=5432`, `POSTGRES_SSLMODE=require` y `NEWS_INGESTION_ENABLED=true`. Ejecutar manualmente «Ingesta y limpieza de noticias» para comprobar la conexión. Para pausar, cambiar `NEWS_INGESTION_ENABLED` a `false`.
+7. El plan gratuito de Render no incluye Shell. Para crear la cuenta administradora, configurar temporalmente el `.env` local con las credenciales de Supabase y ejecutar `python manage.py createsuperuser`; después, restaurar la configuración local. Gestionar feeds desde `/admin/`.
 
 El workflow comprueba los secretos sin imprimir sus valores y exige migraciones aplicadas; no modifica automáticamente el esquema público. Si falla un feed, continúa con los demás y finalmente marca la ejecución como fallida. Los resultados están en Actions. GitHub puede retrasar horarios y desactiva la programación en repositorios públicos tras 60 días sin actividad. Revisar la cuota gratuita de Actions antes de activarlo. Referencias: [horarios](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) y [secretos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
 
 ## Despliegue web en Render
 
-`render.yaml` describe un servicio web gratuito, vinculado a la rama `main`, con Django, Gunicorn y WhiteNoise. Render genera `DJANGO_SECRET_KEY`; el resto de las credenciales de Supabase se solicitan al crear el Blueprint. Los cambios desplegados sirven archivos estáticos mediante WhiteNoise. Las migraciones se ejecutan durante el build, y las noticias continúan en PostgreSQL aunque el servicio se reinicie.
+`render.yaml` describe un servicio web gratuito, vinculado a la rama `main`, con Django, Gunicorn y WhiteNoise. Render genera `DJANGO_SECRET_KEY`; el resto de las credenciales de Supabase se solicitan al crear el Blueprint. Los cambios desplegados sirven archivos estáticos mediante WhiteNoise. Las migraciones se ejecutan durante el build, y las noticias continúan en PostgreSQL aunque el servicio se reinicie. `config.settings` es el perfil de producción: no lee `.env.local`, usa PostgreSQL por el puerto 5432 con SSL obligatorio y agrega automáticamente el hostname público de Render a `ALLOWED_HOSTS` y a los orígenes CSRF. Para un dominio propio, agregarlo en `DJANGO_ALLOWED_HOSTS` y su origen HTTPS en `DJANGO_CSRF_TRUSTED_ORIGINS`; `config.local_settings` y `dev.ps1` quedan reservados al desarrollo.
 
 El plan gratuito de Render duerme el servicio tras 15 minutos sin solicitudes y puede tardar cerca de un minuto en despertar. Tiene 750 horas de instancia por espacio de trabajo al mes y un sistema de archivos efímero; por eso no guardamos noticias en el disco de Render. Supabase Free ofrece 500 MB de base de datos y puede pausar proyectos con poca actividad durante siete días. La ingesta programada puede ayudar a mantener actividad, pero hay que revisar el estado y el uso desde ambos paneles. Render indica que Free es para pruebas y proyectos personales, no para aplicaciones con requisitos de disponibilidad; además, los excesos de cuota pueden generar cargos si se agrega un medio de pago. Para mantener este despliegue sin costo, no agregar recursos pagos ni un medio de pago y revisar las cuotas. Referencias: [límites gratuitos y condiciones de Render](https://render.com/docs/free), [preguntas frecuentes de facturación de Render](https://render.com/docs/faq), [despliegue Django en Render](https://render.com/docs/deploy-django), [conexiones PostgreSQL de Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres) y [pausa de proyectos Supabase](https://supabase.com/docs/guides/platform/free-project-pausing).
 
@@ -176,9 +189,9 @@ python manage.py check --settings=config.test_settings
 python manage.py makemigrations --check --dry-run --settings=config.test_settings
 ```
 
-`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker, credenciales reales ni `collectstatic`. Sólo en pruebas se desactiva la redirección HTTPS, se usa almacenamiento estático sin manifiesto y se excluye WhiteNoise; producción mantiene su configuración. La suite cubre filtros, protección de acceso, categorías, paginación, guardadas, conservación, orígenes, reclasificación, GUID y migración con datos existentes. En SQLite se omiten las doce pruebas específicas de PostgreSQL y el índice GIN no se crea; buscar muestra un aviso de indisponibilidad, sin simular stemming ni ranking.
+`config.test_settings` usa SQLite en memoria y una clave exclusiva para pruebas: permite verificar sin `.env`, Docker, credenciales reales ni `collectstatic`. Sólo en pruebas se desactiva la redirección HTTPS, se usa almacenamiento estático sin manifiesto y se excluye WhiteNoise; producción mantiene su configuración. La suite cubre filtros, protección de acceso, categorías, paginación, guardadas, conservación, orígenes, reclasificación, GUID y migración con datos existentes. En SQLite se omiten las trece pruebas específicas de PostgreSQL y el índice GIN no se crea; buscar muestra un aviso de indisponibilidad, sin simular stemming ni ranking.
 
-Para ejecutar la suite completa, configurar las variables `POSTGRES_*` existentes para una instancia PostgreSQL de desarrollo y una cuenta con permiso para crear bases, y ejecutar:
+Para ejecutar la suite completa, configurar las variables `POSTGRES_*` para una instancia PostgreSQL de desarrollo y una cuenta con permiso para crear bases, y ejecutar:
 
 ```powershell
 python manage.py test --settings=config.postgres_test_settings --noinput

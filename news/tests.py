@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
+from urllib.error import HTTPError
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -14,7 +15,7 @@ from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .ingestion import ingest_feed
+from .ingestion import ingest_feed, permitted_image
 from .llm_classification import ClassificationError, classify_batch
 from .models import Article, ArticleOrigin, Category, Feed, SavedArticle, Source, UserPreference
 from .search import search_articles
@@ -106,238 +107,173 @@ class NewsFeedTests(TestCase):
         article.categories.add(category or self.category)
         return article
 
-    def titles(self, response):
-        return [article.title for section in response.context["sections"] for article in section["articles"]]
+    @property
+    def url(self):
+        return reverse("category_news", args=[self.category.slug])
 
-    def test_requires_login(self):
+    def titles(self, response):
+        return [article.title for article in response.context["articles"]]
+
+    def test_requires_login_and_selected_category(self):
+        self.assertEqual(self.client.get(reverse("category_news", args=[self.other_category.slug])).status_code, 404)
         self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        self.assertEqual(self.client.get(reverse("news_feed")).status_code, 302)
+
+    def test_portal_has_stable_categories_counts_and_empty_state(self):
+        preference = UserPreference.objects.get(user=self.user)
+        preference.categories.add(self.other_category)
+        article = self.article("visible")
+        article.categories.add(self.other_category)
         response = self.client.get(reverse("news_feed"))
-        self.assertRedirects(response, reverse("login") + "?next=/noticias/", fetch_redirect_response=False)
+        self.assertEqual([x["category"] for x in response.context["sections"]], [self.other_category, self.category])
+        self.assertEqual([x["article_count"] for x in response.context["sections"]], [1, 1])
+        self.assertNotContains(response, article.title)
+        self.assertContains(response, self.url)
+        Article.objects.all().delete()
+        self.assertContains(self.client.get(reverse("news_feed")), "Todavía no hay noticias")
+        preference.categories.clear()
+        self.assertContains(self.client.get(reverse("news_feed")), "Elegí tus categorías")
 
     def test_classification_preference_switches_visible_articles(self):
-        by_rules = self.article("clasificada-por-reglas")
-        by_ai = Article.objects.create(
-            feed=self.feed, title="clasificada-por-ia",
-            original_url="https://example.com/clasificada-por-ia",
-            published_at=timezone.now(),
-        )
+        by_rules = self.article("por-reglas")
+        by_ai = self.article("por-ia")
+        by_ai.categories.clear()
         by_ai.llm_categories.add(self.category)
         preference = UserPreference.objects.get(user=self.user)
-
-        preference.classification_mode = UserPreference.CLASSIFICATION_BOTH
-        preference.save(update_fields=["classification_mode"])
-        self.assertCountEqual(
-            self.titles(self.client.get(reverse("news_feed"))), [by_rules.title, by_ai.title],
-        )
-        preference.classification_mode = UserPreference.CLASSIFICATION_RULES
-        preference.save(update_fields=["classification_mode"])
-        self.assertEqual(self.titles(self.client.get(reverse("news_feed"))), [by_rules.title])
-        preference.classification_mode = UserPreference.CLASSIFICATION_AI
-        preference.save(update_fields=["classification_mode"])
-        self.assertEqual(self.titles(self.client.get(reverse("news_feed"))), [by_ai.title])
+        for mode, expected in (("both", [by_rules.title, by_ai.title]), ("rules", [by_rules.title]), ("ai", [by_ai.title])):
+            preference.classification_mode = mode
+            preference.save()
+            self.assertCountEqual(self.titles(self.client.get(self.url)), expected)
 
     def test_classification_mode_is_saved_with_preferences(self):
-        response = self.client.post(reverse("preferences"), {
-            "categories": [self.category.pk], "classification_mode": "ai",
-        })
-        self.assertEqual(response.status_code, 302)
+        self.client.post(reverse("preferences"), {"categories": [self.category.pk], "classification_mode": "ai"})
         self.assertEqual(UserPreference.objects.get(user=self.user).classification_mode, "ai")
 
-    def test_combines_source_and_language(self):
-        self.article("correcta")
-        self.article("otro-idioma", language="en")
-        self.article("otra-fuente", feed=self.other_feed)
-        response = self.client.get(reverse("news_feed"), {"source": self.source.pk, "language": "es"})
-        self.assertEqual(self.titles(response), ["correcta"])
-        self.assertTrue(response.context["filters_active"])
-        self.assertContains(response, f'value="{self.source.pk}" selected')
-        self.assertContains(response, 'value="es" selected')
-        self.assertContains(response, 'method="get"')
-
-    def test_filters_source_independently(self):
-        self.article("espanol")
+    def test_filters_preferences_active_feeds_and_retention(self):
+        expected = self.article("visible")
         self.article("ingles", language="en")
-        self.article("otra", feed=self.other_feed)
-        response = self.client.get(reverse("news_feed"), {"source": self.source.pk})
-        self.assertCountEqual(self.titles(response), ["espanol", "ingles"])
-
-    def test_filters_language_independently(self):
-        self.article("espanol")
-        self.article("ingles-a", language="en")
-        self.article("ingles-b", feed=self.other_feed, language="en")
-        response = self.client.get(reverse("news_feed"), {"language": "en"})
-        self.assertCountEqual(self.titles(response), ["ingles-a", "ingles-b"])
-
-    def test_only_current_users_categories_active_feeds_and_recent_articles(self):
-        self.article("visible")
+        self.article("otra-fuente", feed=self.other_feed)
         self.article("otro-tema", category=self.other_category)
-        self.article("antigua", age=61)
-        self.other_feed.is_active = False
-        self.other_feed.save()
-        self.article("inactiva", feed=self.other_feed)
-        response = self.client.get(reverse("news_feed"))
-        self.assertEqual(self.titles(response), ["visible"])
-        self.assertQuerySetEqual(response.context["filter_form"].fields["source"].queryset, [self.source])
+        self.article("vieja", age=15)
+        inactive = Feed.objects.create(source=self.source, name="Inactivo", url="https://example.com/inactive")
+        self.article("inactiva", feed=inactive)
+        response = self.client.get(self.url, {"source": self.source.pk, "language": "es"})
+        self.assertEqual(response.context["articles"], [expected])
+        self.assertTrue(response.context["filters_active"])
+        self.assertContains(response, 'value="es" selected')
 
-    def test_invalid_filters_have_errors_and_no_unfiltered_results(self):
+    def test_invalid_and_empty_filters_do_not_expose_results(self):
         self.article("visible")
+        self.article("ingles", language="en", feed=self.other_feed)
         for query in ({"source": "abc"}, {"source": "999999"}, {"language": "zz"}):
-            with self.subTest(query=query):
-                response = self.client.get(reverse("news_feed"), query)
-                self.assertEqual(response.status_code, 200)
-                self.assertTrue(response.context["filter_form"].errors)
-                self.assertEqual(self.titles(response), [])
-                self.assertContains(response, "limpiar los filtros")
+            response = self.client.get(self.url, query)
+            self.assertTrue(response.context["filter_form"].errors)
+            self.assertEqual(response.context["articles"], [])
+        response = self.client.get(self.url, {"source": self.source.pk, "language": "en"})
+        self.assertEqual(response.context["articles"], [])
+        self.assertContains(response, "No hay noticias con estos filtros")
 
-    def test_empty_combination_and_reset(self):
-        self.article("espanol")
-        self.article("ingles", feed=self.other_feed, language="en")
-        response = self.client.get(reverse("news_feed"), {"source": self.source.pk, "language": "en"})
-        self.assertEqual(self.titles(response), [])
-        self.assertContains(response, "No hay noticias de esta categoría con los filtros elegidos")
-        response = self.client.get(reverse("news_feed"))
-        self.assertCountEqual(self.titles(response), ["espanol", "ingles"])
-
-    def test_filter_applies_before_ten_article_limit(self):
+    def test_filter_applies_before_batch_limit(self):
         older = self.article("ingles-antigua", language="en", age=10)
         for index in range(11):
             self.article(f"espanol-{index}")
-        response = self.client.get(reverse("news_feed"), {"language": "en"})
-        self.assertEqual(response.context["sections"][0]["articles"], [older])
-        response = self.client.get(reverse("news_feed"))
-        articles = response.context["sections"][0]["articles"]
-        self.assertEqual(len(articles), 10)
-        self.assertNotIn(older, articles)
-        self.assertEqual(articles[0].title, "espanol-10")
+        self.assertEqual(self.client.get(self.url, {"language": "en"}).context["articles"], [older])
+        self.assertEqual(len(self.client.get(self.url).context["articles"]), 10)
 
-    def test_multiple_categories_do_not_duplicate_articles_in_a_section(self):
-        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
-        article = self.article("compartida")
-        article.categories.add(self.other_category)
-        response = self.client.get(reverse("news_feed"))
-        self.assertEqual(len(response.context["sections"]), 2)
-        for section in response.context["sections"]:
-            self.assertEqual(section["articles"], [article])
+    def test_initial_batch_and_unique_editorial_opening(self):
+        for count in (0, 10, 11, 28):
+            Article.objects.all().delete()
+            for index in range(count):
+                self.article(f"noticia-{index}")
+            response = self.client.get(self.url)
+            self.assertEqual(len(response.context["articles"]), min(count, 10))
+            self.assertEqual(response.content.count(b" article-lead"), int(count > 0))
+            self.assertEqual(bool(response.context["next_url"]), count > 10)
+            if count > 10:
+                batch = self.client.get(response.context["next_url"], HTTP_ACCEPT="application/json")
+                self.assertEqual(batch.status_code, 200)
+                self.assertEqual(batch.json()["html"].count('data-article-id='), min(count - 10, 9))
+                self.assertNotIn("article-lead", batch.json()["html"])
 
-    def test_account_without_preferences_has_empty_state(self):
-        UserPreference.objects.get(user=self.user).delete()
-        response = self.client.get(reverse("news_feed"))
-        self.assertContains(response, "Elegí tus categorías")
-        self.assertEqual(response.context["sections"], [])
-
-    def test_pagination_boundaries_and_controls(self):
-        for count in (0, 10, 11, 23):
-            with self.subTest(count=count):
-                Article.objects.all().delete()
-                for index in range(count):
-                    self.article(f"noticia-{index}")
-                response = self.client.get(reverse("news_feed"))
-                section = response.context["sections"][0]
-                self.assertEqual(section["article_count"], count)
-                self.assertEqual(len(section["articles"]), min(count, 10))
-                self.assertEqual(section["page"].number, 1)
-                if count > 10:
-                    self.assertContains(response, 'aria-label="Páginas de Tema de prueba"')
-                    self.assertContains(response, '<span aria-disabled="true">Anterior</span>', html=True)
-                    self.assertIsNotNone(section["next_url"])
-                else:
-                    self.assertNotContains(response, 'class="category-pagination"')
-                    self.assertIsNone(section["next_url"])
-
-    def test_pages_cover_all_articles_in_stable_order_without_duplicates(self):
-        for index in range(23):
-            article = self.article(f"noticia-{index}")
-            article.categories.add(self.other_category)
-        # Fuerza el empate de fechas para comprobar el desempate por ID.
+    def test_cursor_ties_inserts_deletions_and_no_duplicates(self):
+        import re
+        for index in range(28):
+            self.article(f"noticia-{index}")
         Article.objects.all().update(published_at=timezone.now())
         expected = list(Article.objects.order_by("-id").values_list("id", flat=True))
-        actual = []
-        for number, count in ((1, 10), (2, 10), (3, 3)):
-            response = self.client.get(reverse("news_feed"), {"page_tema-prueba": number})
-            section = response.context["sections"][0]
-            self.assertEqual(len(section["articles"]), count)
-            self.assertEqual(section["article_count"], 23)
-            actual.extend(article.pk for article in section["articles"])
-            if number == 1:
-                self.assertContains(response, "Más reciente")
-            else:
-                self.assertNotContains(response, "Más reciente")
-            if number == 3:
-                self.assertIsNone(section["next_url"])
-                self.assertContains(response, '<span aria-disabled="true">Siguiente</span>', html=True)
-        self.assertEqual(actual, expected)
-        self.assertEqual(len(set(actual)), 23)
+        first = self.client.get(self.url)
+        seen = [article.pk for article in first.context["articles"]]
+        self.article("nueva-durante-lectura", age=0)
+        Article.objects.filter(pk=expected[15]).delete()
+        expected.remove(expected[15])
+        url = first.context["next_url"]
+        for _ in range(5):
+            if not url:
+                break
+            response = self.client.get(url, HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            seen.extend(map(int, re.findall(r'data-article-id="(\d+)"', data["html"])))
+            url = data["next_url"]
+        self.assertEqual(seen, expected)
+        self.assertEqual(len(seen), len(set(seen)))
 
-    def test_pages_are_independent_and_column_order_uses_total_count(self):
-        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
-        for index in range(23):
-            self.article(f"primera-{index}")
+    def test_cursor_rejects_tampering_changed_filters_and_expiry(self):
         for index in range(11):
-            self.article(f"segunda-{index}", category=self.other_category)
-        response = self.client.get(reverse("news_feed"), {
-            "page_tema-prueba": 3, "page_otro-tema": 2,
-        })
-        sections = response.context["sections"]
-        self.assertEqual([section["category"] for section in sections], [self.category, self.other_category])
-        self.assertEqual([len(section["articles"]) for section in sections], [3, 1])
-        self.assertEqual([section["page"].number for section in sections], [3, 2])
-        self.assertEqual([section["article_count"] for section in sections], [23, 11])
+            self.article(f"noticia-{index}")
+        url = self.client.get(self.url).context["next_url"]
+        self.assertEqual(self.client.get(url + "&language=es", HTTP_ACCEPT="application/json").status_code, 400)
+        from django.http import QueryDict
+        query = QueryDict(urlsplit(url).query, mutable=True)
+        query["cursor"] += "tampered"
+        self.assertEqual(self.client.get(self.url + "?" + query.urlencode(), HTTP_ACCEPT="application/json").status_code, 400)
+        with patch("django.core.signing.time.time", return_value=timezone.now().timestamp() + 15 * 86400):
+            self.assertEqual(self.client.get(url, HTTP_ACCEPT="application/json").status_code, 400)
+        self.assertEqual(self.client.get(self.url, {"visible": "9" * 5000}, HTTP_ACCEPT="application/json").status_code, 400)
 
-    def test_page_links_preserve_filters_other_pages_and_section_anchor(self):
-        UserPreference.objects.get(user=self.user).categories.add(self.other_category)
-        for index in range(23):
-            article = self.article(f"ingles-{index}", language="en")
-            article.categories.add(self.other_category)
-        self.article("excluida-por-fuente", language="en", feed=self.other_feed)
-        self.article("excluida-por-idioma")
-        response = self.client.get(reverse("news_feed"), {
-            "source": self.source.pk, "language": "en",
-            "page_tema-prueba": 2, "page_otro-tema": 3,
-        })
-        section = next(s for s in response.context["sections"] if s["category"] == self.category)
-        self.assertEqual(section["article_count"], 23)
-        for key, number in (("previous_url", "1"), ("next_url", "3")):
-            url = urlsplit(section[key])
-            self.assertEqual(url.path, reverse("news_feed"))
-            self.assertEqual(url.fragment, "category-tema-prueba")
-            self.assertEqual(parse_qs(url.query), {
-                "source": [str(self.source.pk)], "language": ["en"],
-                "page_tema-prueba": [number], "page_otro-tema": ["3"],
-            })
-        self.assertTrue(all(article.feed_id == self.feed.pk and article.language == "en"
-                            for article in section["articles"]))
-
-    def test_invalid_page_numbers_and_pages_removed_by_retention(self):
+    def test_regular_navigation_restores_loaded_prefix_and_filters(self):
         for index in range(23):
             self.article(f"noticia-{index}")
-        for value, expected in (("", 1), ("abc", 1), ("1.5", 1), ("0", 1), ("-2", 1),
-                                ("999999", 3), ("9" * 5000, 1)):
-            with self.subTest(value=value[:12]):
-                response = self.client.get(reverse("news_feed"), {"page_tema-prueba": value})
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.context["sections"][0]["page"].number, expected)
-        Article.objects.all().update(published_at=timezone.now() - timedelta(days=15))
-        response = self.client.get(reverse("news_feed"), {"page_tema-prueba": 3})
-        self.assertEqual(response.context["sections"][0]["page"].number, 1)
-        self.assertEqual(self.titles(response), [])
+        first = self.client.get(self.url, {"language": "es"})
+        url = first.context["next_url"]
+        query = parse_qs(urlsplit(url).query)
+        self.assertEqual(query["language"], ["es"])
+        restored = self.client.get(url)
+        self.assertEqual(len(restored.context["articles"]), 19)
+        self.assertEqual(restored.content.count(b" article-lead"), 1)
+        self.assertEqual(len(self.client.get(self.url, {"visible": 19}).context["articles"]), 19)
+        self.assertEqual(len(self.client.get(self.url).context["articles"]), 10)
 
-    def test_filter_submission_and_reset_restart_pages(self):
-        for index in range(23):
-            self.article(f"noticia-{index}")
-        response = self.client.get(reverse("news_feed"), {"page_tema-prueba": 2})
-        self.assertNotContains(response, 'name="page_tema-prueba"')
-        self.assertContains(response, f'<a class="filter-reset" href="{reverse("news_feed")}">Limpiar filtros</a>', html=True)
-        for query in ({"language": "es"}, {}):
-            response = self.client.get(reverse("news_feed"), query)
-            self.assertEqual(response.context["sections"][0]["page"].number, 1)
+    def test_original_links_and_revocable_image_permission(self):
+        article = self.article("con-foto")
+        article.image_url, article.image_credit = "https://example.com/photo.jpg", "Fotógrafa de prueba"
+        article.save()
+        self.assertNotContains(self.client.get(self.url), article.image_url)
+        self.feed.show_images = True
+        self.feed.save()
+        response = self.client.get(self.url)
+        self.assertContains(response, article.image_url)
+        self.assertContains(response, article.image_credit)
+        self.assertContains(response, 'target="_blank" rel="noopener"')
+        self.feed.show_images = False
+        self.feed.save()
+        response = self.client.get(self.url)
+        self.assertNotContains(response, article.image_url)
+        self.assertContains(response, "Imagen ilustrativa")
 
-    def test_invalid_filters_with_page_parameters_do_not_expose_articles(self):
-        for index in range(23):
-            self.article(f"noticia-{index}")
-        response = self.client.get(reverse("news_feed"), {"source": "abc", "page_tema-prueba": 2})
-        self.assertTrue(response.context["filter_form"].errors)
-        self.assertEqual(self.titles(response), [])
-        self.assertNotContains(response, 'class="category-pagination"')
+    def test_json_bookmarks_preserve_post_security_and_are_idempotent(self):
+        article = self.article("guardar-json")
+        save = reverse("save_article", args=[article.pk])
+        remove = reverse("remove_saved_article", args=[article.pk])
+        for _ in range(2):
+            self.assertEqual(self.client.post(save, HTTP_ACCEPT="application/json").json(), {"saved": True, "action": remove})
+        self.assertEqual(SavedArticle.objects.filter(user=self.user, article=article).count(), 1)
+        self.assertEqual(self.client.post(remove, HTTP_ACCEPT="application/json").json(), {"saved": False, "action": save})
+        self.assertFalse(SavedArticle.objects.exists())
+        csrf = Client(enforce_csrf_checks=True)
+        csrf.force_login(self.user)
+        self.assertEqual(csrf.post(save, HTTP_ACCEPT="application/json").status_code, 403)
 
 
 @skipUnless(connection.vendor == "postgresql", "La búsqueda de texto se verifica en PostgreSQL")
@@ -362,8 +298,8 @@ class ArticleSearchTests(TestCase):
         return article
 
     def results(self, text, **filters):
-        response = self.client.get(reverse("news_feed"), {"q": text, **filters})
-        articles = [article for section in response.context["sections"] for article in section["articles"]]
+        response = self.client.get(reverse("category_news", args=[self.category.slug]), {"q": text, **filters})
+        articles = response.context["articles"]
         return response, articles
 
     def test_stop_words_and_stemming_in_supported_languages(self):
@@ -415,7 +351,7 @@ class ArticleSearchTests(TestCase):
         newer = self.article("Otra noticia")
         response, results = self.results("   ")
         self.assertEqual([item.pk for item in results], [newer.pk, older.pk])
-        self.assertContains(response, "Más reciente")
+        self.assertContains(response, "La más reciente")
         self.assertNotContains(response, "Más relevante")
 
     def test_search_keeps_source_language_preferences_and_retention(self):
@@ -441,15 +377,15 @@ class ArticleSearchTests(TestCase):
         for index in range(11):
             article = self.article(f"Robots y mercados edición {index}")
             article.categories.add(self.other_category)
-        response, results = self.results("robots mercado", source=self.source.pk, language="es", **{"page_otro-buscable": 2})
-        section = response.context["sections"][0]
+        response, results = self.results("robots mercado", source=self.source.pk, language="es")
+        section = response.context
         query = parse_qs(urlsplit(section["next_url"]).query)
         self.assertEqual(query["q"], ["robots mercado"])
-        self.assertEqual(query["page_otro-buscable"], ["2"])
+        self.assertIn("cursor", query)
         self.assertEqual(query["source"], [str(self.source.pk)])
-        self.assertContains(response, "Más relevante")
+        self.assertNotContains(response, "article-lead")
         self.assertNotContains(response, "Más reciente")
-        next_url = reverse("news_feed") + "?q=robots+mercado&page_busqueda=2"
+        next_url = reverse("category_news", args=[self.category.slug]) + "?q=robots+mercado&visible=19"
         response = self.client.post(reverse("save_article", args=[results[0].pk]), {"next": next_url})
         self.assertRedirects(response, next_url, fetch_redirect_response=False)
 
@@ -459,6 +395,24 @@ class ArticleSearchTests(TestCase):
         Article.objects.filter(pk=article.pk).update(title="Researchers explore planets", language="en")
         self.assertFalse(search_articles(Article.objects.all(), "empresa").exists())
         self.assertTrue(search_articles(Article.objects.all(), "researcher").exists())
+
+    def test_cursor_keeps_relevance_and_date_order_across_batches(self):
+        import re
+        for index in range(31):
+            self.article("Robots y mercados" if index % 2 else "Robots estudian las oportunidades y los mercados", age=index % 4)
+        expected = list(search_articles(Article.objects.all(), "robots mercado").order_by("-relevance", "-published_at", "-id").values_list("id", flat=True))
+        first, rows = self.results("robots mercado")
+        actual = [row.pk for row in rows]
+        url = first.context["next_url"]
+        for _ in range(5):
+            if not url:
+                break
+            response = self.client.get(url, HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            actual.extend(map(int, re.findall(r'data-article-id="(\d+)"', data["html"])))
+            url = data["next_url"]
+        self.assertEqual(actual, expected)
 
     def test_query_length_limit_and_html_escaping(self):
         self.article("Robots investigan planetas")
@@ -488,16 +442,16 @@ class SearchFormTests(TestCase):
         preference = UserPreference.objects.create(user=user)
         preference.categories.add(category)
         self.client.force_login(user)
-        response = self.client.get(reverse("news_feed"))
+        response = self.client.get(reverse("category_news", args=[category.slug]))
         self.assertContains(response, 'type="search"')
         self.assertContains(response, "Buscar en títulos")
         if connection.vendor != "postgresql":
-            response = self.client.get(reverse("news_feed"), {"q": "empresa"})
+            response = self.client.get(reverse("category_news", args=[category.slug]), {"q": "empresa"})
             self.assertContains(response, "La búsqueda no está disponible en este entorno.")
-            self.assertFalse(response.context["has_articles"])
-        response = self.client.get(reverse("news_feed"), {"q": "x" * 201})
+            self.assertEqual(response.context["articles"], [])
+        response = self.client.get(reverse("category_news", args=[category.slug]), {"q": "x" * 201})
         self.assertTrue(response.context["filter_form"].errors)
-        self.assertFalse(response.context["has_articles"])
+        self.assertEqual(response.context["articles"], [])
 
 
 class SavedArticleTests(TestCase):
@@ -532,12 +486,12 @@ class SavedArticleTests(TestCase):
         self.assertFalse(SavedArticle.objects.exists())
 
     def test_save_is_idempotent_and_keeps_page_and_filters(self):
-        next_url = reverse("news_feed") + "?language=es&page_tema-guardado=2"
+        next_url = reverse("category_news", args=[self.category.slug]) + "?language=es&visible=19"
         for _ in range(2):
             response = self.client.post(self.save_url, {"next": next_url})
             self.assertRedirects(response, next_url, fetch_redirect_response=False)
         self.assertEqual(SavedArticle.objects.filter(user=self.user, article=self.article).count(), 1)
-        response = self.client.get(reverse("news_feed"))
+        response = self.client.get(reverse("category_news", args=[self.category.slug]))
         self.assertContains(response, "Quitar de guardadas")
         response = self.client.get(reverse("saved_articles"))
         self.assertContains(response, self.article.title)
@@ -609,13 +563,13 @@ class SavedArticleTests(TestCase):
             published_at=timezone.now(), language="en",
         )
         other_article.categories.add(self.category)
-        response = self.client.get(reverse("news_feed"), {"source": self.feed.source_id, "language": "en"})
+        response = self.client.get(reverse("category_news", args=[self.category.slug]), {"source": self.feed.source_id, "language": "en"})
         self.assertContains(response, "No hay noticias con estos filtros")
         self.assertContains(response, "Limpiar filtros")
-        response = self.client.get(reverse("news_feed"), {"source": "abc"})
+        response = self.client.get(reverse("category_news", args=[self.category.slug]), {"source": "abc"})
         self.assertContains(response, "Revisá los filtros")
         Article.objects.all().delete()
-        self.assertContains(self.client.get(reverse("news_feed")), "Todavía no hay noticias disponibles para tus categorías")
+        self.assertContains(self.client.get(reverse("category_news", args=[self.category.slug])), "Todavía no hay noticias recientes de esta categoría")
         UserPreference.objects.get(user=self.user).categories.clear()
         response = self.client.get(reverse("news_feed"))
         self.assertContains(response, "Elegí tus categorías")
@@ -717,6 +671,74 @@ class IngestionOriginTests(TestCase):
         call_command("purge_old_articles", stdout=StringIO())
         self.assertFalse(ArticleOrigin.objects.filter(pk__in=origin_ids).exists())
         self.assertFalse(ArticleOrigin.categories.through.objects.filter(articleorigin_id__in=origin_ids).exists())
+
+
+class ArticleImageTests(TestCase):
+    def setUp(self):
+        source = Source.objects.create(name="Medio con imágenes")
+        self.feed = Feed.objects.create(source=source, name="RSS", url="https://example.com/image-feed", show_images=True)
+        self.entry = {
+            "title": "Noticia de imagen", "link": "https://example.com/image-article", "id": "image-1",
+            "published_parsed": timezone.now().utctimetuple(),
+            "media_content": [{"url": "https://example.com/photo.jpg", "type": "image/jpeg"}],
+            "media_credit": [{"content": "<b>Fotógrafa</b>"}],
+        }
+
+    def test_media_thumbnail_and_enclosures_respect_permission(self):
+        for field in ("media_content", "media_thumbnail", "enclosures"):
+            entry = {field: [{"url": "https://example.com/photo.webp", "type": "image/webp"}]}
+            self.assertEqual(permitted_image(entry, self.feed), ("https://example.com/photo.webp", self.feed.source.name))
+        for entry in ({"media_thumbnail": [{"url": "https://example.com/image/123"}]},
+                      {"media_content": [{"url": "https://example.com/image/123", "medium": "image"}]}):
+            self.assertEqual(permitted_image(entry, self.feed)[0], "https://example.com/image/123")
+        self.feed.show_images = False
+        self.assertEqual(permitted_image(self.entry, self.feed), ("", ""))
+
+    def test_non_images_and_unsafe_urls_are_rejected(self):
+        for url, kind in (("javascript:alert(1)", "image/jpeg"), ("file:///image.jpg", "image/jpeg"),
+                          ("https://example.com/video.mp4", "video/mp4"), ("https://example.com/unknown", "")):
+            self.assertEqual(permitted_image({"media_content": [{"url": url, "type": kind}]}, self.feed), ("", ""))
+
+    def test_ingestion_adds_updates_and_revokes_existing_images(self):
+        with patch("news.ingestion.download_feed", return_value=([self.entry], "", "")):
+            ingest_feed(self.feed)
+            article = Article.objects.get(original_url=self.entry["link"])
+            self.assertEqual((article.image_url, article.image_credit), ("https://example.com/photo.jpg", "Fotógrafa"))
+            self.entry["media_content"][0]["url"] = "https://example.com/replacement.jpg"
+            ingest_feed(self.feed, force_download=True)
+            article.refresh_from_db()
+            self.assertEqual(article.image_url, "https://example.com/replacement.jpg")
+            self.feed.show_images = False
+            ingest_feed(self.feed, force_download=True)
+            article.refresh_from_db()
+            self.assertEqual((article.image_url, article.image_credit), ("", ""))
+
+    def test_secondary_origin_does_not_replace_primary_photo_or_credit(self):
+        with patch("news.ingestion.download_feed", return_value=([self.entry], "", "")):
+            ingest_feed(self.feed)
+            secondary = Feed.objects.create(source=self.feed.source, name="Otro RSS", url="https://example.com/secondary", show_images=True)
+            self.entry["media_content"][0]["url"] = "https://example.com/other.jpg"
+            ingest_feed(secondary)
+        article = Article.objects.get(original_url=self.entry["link"])
+        self.assertEqual(article.image_url, "https://example.com/photo.jpg")
+
+    def test_forced_download_bypasses_304_to_complete_existing_photo(self):
+        article = Article.objects.create(feed=self.feed, title=self.entry["title"],
+            original_url=self.entry["link"], published_at=timezone.now())
+        self.feed.etag, self.feed.last_modified = "old-tag", "old-date"
+        with patch("news.ingestion.urlopen", side_effect=HTTPError(self.feed.url, 304, "Not Modified", {}, None)):
+            self.assertTrue(ingest_feed(self.feed).unchanged)
+        article.refresh_from_db()
+        self.assertEqual(article.image_url, "")
+        with patch("news.ingestion.urlopen") as download, patch("news.ingestion.feedparser.parse") as parse:
+            download.return_value.__enter__.return_value.read.return_value = b"<rss/>"
+            download.return_value.__enter__.return_value.headers = {}
+            parse.return_value = SimpleNamespace(bozo=False, version="rss20", entries=[self.entry])
+            result = ingest_feed(self.feed, force_download=True)
+            self.assertFalse(any(key.lower().startswith("if-") for key in download.call_args.args[0].headers))
+        article.refresh_from_db()
+        self.assertEqual(result.duplicates, 1)
+        self.assertEqual(article.image_url, "https://example.com/photo.jpg")
 
 
 class RetentionTests(TestCase):
@@ -845,18 +867,53 @@ class ArticleSearchMigrationTests(TransactionTestCase):
                 feed=feed, title="Las empresas investigan mercados", language="es",
                 original_url="https://example.com/before-index-article", published_at=timezone.now(),
             )
-            before = Article.objects.filter(pk=article.pk).values().get()
-            MigrationExecutor(connection).migrate(new_target)
-            self.assertEqual(Article.objects.filter(pk=article.pk).values().get(), before)
-            self.assertEqual(search_articles(Article.objects.all(), "la empresa").get().pk, article.pk)
+            OldArticle = old_apps.get_model("news", "Article")
+            before = OldArticle.objects.filter(pk=article.pk).values().get()
+            executor = MigrationExecutor(connection)
+            executor.migrate(new_target)
+            NewArticle = executor.loader.project_state(new_target).apps.get_model("news", "Article")
+            self.assertEqual(NewArticle.objects.filter(pk=article.pk).values().get(), before)
+            self.assertEqual(search_articles(NewArticle.objects.all(), "la empresa").get().pk, article.pk)
             with connection.cursor() as cursor:
                 cursor.execute("SELECT indexdef FROM pg_indexes WHERE indexname = 'article_title_search_gin'")
                 self.assertIn("USING gin", cursor.fetchone()[0])
             MigrationExecutor(connection).migrate(old_target)
-            self.assertEqual(Article.objects.filter(pk=article.pk).values().get(), before)
+            self.assertEqual(OldArticle.objects.filter(pk=article.pk).values().get(), before)
             with connection.cursor() as cursor:
                 cursor.execute("SELECT indexname FROM pg_indexes WHERE indexname = 'article_title_search_gin'")
                 self.assertIsNone(cursor.fetchone())
+        finally:
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+class ArticleImageMigrationTests(TransactionTestCase):
+    def test_existing_metadata_and_default_permissions_survive_migration(self):
+        old_target = [("news", "0012_feed_allow_ai_briefing")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(old_target)
+        try:
+            apps = executor.loader.project_state(old_target).apps
+            source = apps.get_model("news", "Source").objects.create(name="Medio anterior a imágenes")
+            apps.get_model("news", "Feed").objects.get_or_create(
+                url="https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml",
+                defaults={"source": source, "name": "MIT RSS"},
+            )
+            feed = apps.get_model("news", "Feed").objects.create(source=source, name="RSS", url="https://example.com/old-images")
+            old_article = apps.get_model("news", "Article")
+            article = old_article.objects.create(feed=feed, title="Titular existente", original_url="https://example.com/old-image-article", published_at=timezone.now())
+            before = old_article.objects.filter(pk=article.pk).values().get()
+            executor = MigrationExecutor(connection)
+            target = [("news", "0014_enable_mit_images")]
+            executor.migrate(target)
+            current = executor.loader.project_state(target).apps
+            migrated = current.get_model("news", "Article").objects.get(pk=article.pk)
+            self.assertEqual((migrated.image_url, migrated.image_credit), ("", ""))
+            self.assertEqual(current.get_model("news", "Article").objects.filter(pk=article.pk).values(*before).get(), before)
+            self.assertFalse(current.get_model("news", "Feed").objects.get(pk=feed.pk).show_images)
+            self.assertEqual(list(current.get_model("news", "Feed").objects.filter(show_images=True).values_list("url", flat=True)), ["https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml"])
+            MigrationExecutor(connection).migrate(old_target)
+            self.assertEqual(old_article.objects.filter(pk=article.pk).values().get(), before)
         finally:
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())

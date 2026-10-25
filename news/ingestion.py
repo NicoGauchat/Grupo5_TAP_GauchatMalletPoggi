@@ -75,6 +75,27 @@ def permitted_summary(entry, feed):
     return summary if len(summary) <= MAX_SUMMARY_LENGTH else ""
 
 
+def permitted_image(entry, feed):
+    if not feed.show_images:
+        return "", ""
+    candidates = [(image, field == "media_thumbnail") for field in ("media_content", "media_thumbnail", "enclosures")
+                  for image in entry.get(field, [])]
+    for image, thumbnail in candidates:
+        url = image.get("url") or image.get("href") or ""
+        kind = (image.get("type") or "").lower()
+        if kind and not kind.startswith("image/"):
+            continue
+        if image.get("medium", "image") != "image" or not canonicalize_url(url) or len(url) > 2048:
+            continue
+        if (not kind and not thumbnail and image.get("medium") != "image"
+                and not urlsplit(url).path.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif"))):
+            continue
+        credits = [credit.get("content", "") for credit in entry.get("media_credit", [])]
+        credit = " / ".join(text for text in credits if text) or feed.source.name
+        return url, " ".join(unescape(strip_tags(credit)).split())[:500]
+    return "", ""
+
+
 def existing_article(feed, guid, original_url, canonical_url, fingerprint):
     if guid:
         origin = ArticleOrigin.objects.filter(feed=feed, guid=guid).select_related("article").first()
@@ -191,11 +212,15 @@ def ingest_feed(feed, force_download=False):
         if article:
             with transaction.atomic():
                 article = Article.objects.select_for_update().get(pk=article.pk)
+                if article.feed_id == feed.pk:
+                    article.image_url, article.image_credit = permitted_image(entry, feed)
+                    article.save(update_fields=["image_url", "image_credit"])
                 record_origin(article, feed, guid, category_ids)
             result.duplicates += 1
             continue
 
         with transaction.atomic():
+            image_url, image_credit = permitted_image(entry, feed)
             article = Article.objects.create(
                 feed=feed,
                 guid=guid,
@@ -204,6 +229,7 @@ def ingest_feed(feed, force_download=False):
                 fingerprint=fingerprint,
                 title=title,
                 summary=permitted_summary(entry, feed),
+                image_url=image_url, image_credit=image_credit,
                 language=(entry.get("language") or "")[:10] or feed.language,
                 published_at=published_at,
             )

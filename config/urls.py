@@ -23,6 +23,7 @@ from news import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('noticias/', views.news_feed, name='news_feed'),
+    path('noticias/categoria/<slug:slug>/', views.category_news, name='category_news'),
     path('guardadas/', views.saved_articles, name='saved_articles'),
     path('noticias/<int:article_id>/guardar/', views.save_article, name='save_article'),
     path('noticias/<int:article_id>/quitar/', views.remove_saved_article, name='remove_saved_article'),

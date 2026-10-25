@@ -1,127 +1,74 @@
 {% extends 'news/base.html' %}
+{% load static %}
 
 {% block title %}Mis noticias · Sitio Noticias{% endblock %}
 {% block main_class %} feed-wide{% endblock %}
 
 {% block content %}
-<header class="feed-intro">
-    <span class="edition-label">Tu edición personal</span>
-    <h1>{{ greeting }}, {{ user.username }}</h1>
-    <p>Estas son las noticias recientes de tus categorías. Cada titular te lleva al artículo original de su fuente.</p>
-    <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>
+<header class="feed-intro editorial-intro">
+    <div class="editorial-intro-copy">
+        <span class="edition-label">Tu edición personal</span>
+        <h1>{{ greeting }}, {{ user.username }}</h1>
+        <p>Elegí una categoría para explorar sus noticias recientes. Los artículos originales se abren en otra pestaña.</p>
+        <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>
+    </div>
+    {% include 'news/editorial_collage.html' %}
 </header>
 
 <section class="news-briefing" aria-labelledby="briefing-title">
     <div class="briefing-heading">
         <div>
-            <span class="briefing-eyebrow">Tu presentación</span>
-            <h2 id="briefing-title">Lo más importante de las últimas 24 horas</h2>
+            <h2 id="briefing-title">Resumen</h2>
+            <p class="briefing-description">Lo más importante de las últimas 24 horas</p>
         </div>
         {% if briefing %}
-            <p class="briefing-window">Actualizado {{ briefing.generated_at|date:'j/m H:i' }} · noticias desde {{ briefing.window_start|date:'j/m H:i' }}</p>
+            <p class="briefing-window">Actualizado <time datetime="{{ briefing.generated_at|date:'c' }}">{{ briefing.generated_at|date:'j/m H:i' }}</time></p>
         {% endif %}
     </div>
+    {% if briefing_state == 'error' %}
+        <p class="briefing-notice" role="status">No se pudo actualizar el resumen. {% if briefing %}Mostramos el último resultado disponible con su fecha.{% else %}Se volverá a intentar en la próxima actualización.{% endif %}</p>
+    {% endif %}
     {% if briefing and briefing.items.all %}
-        <p class="briefing-count">Sucesos seleccionados entre {{ briefing.article_count }} titulares recientes</p>
-        <ol class="briefing-items">
+        <ol class="briefing-items" role="list">
             {% for item in briefing.items.all %}
                 <li>
-                    <p>{{ item.text }}</p>
-                    <div class="briefing-sources" aria-label="Fuentes de este punto">
-                        {% for article in item.articles.all %}
-                            <a href="{{ article.original_url }}">{{ article.feed.source.name }}: {{ article.title }}</a>
-                        {% endfor %}
-                    </div>
+                    <p class="briefing-text">{{ item.text }}</p>
+                    <details class="briefing-sources">
+                        <summary>Ver {{ item.articles.count }} fuente{{ item.articles.count|pluralize }}<span class="briefing-chevron" aria-hidden="true"></span></summary>
+                        <ul>
+                            {% for article in item.articles.all %}
+                                <li><a href="{{ article.original_url }}" target="_blank" rel="noopener"><span class="briefing-source-name">{{ article.feed.source.name }}</span>{{ article.title }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </details>
                 </li>
             {% endfor %}
         </ol>
-    {% elif briefing and briefing.article_count %}
+        <p class="briefing-count">A partir de {{ briefing.article_count }} titulares recientes.</p>
+    {% elif briefing_state == 'no_feeds' %}
+        <p class="briefing-empty">Todavía no hay fuentes habilitadas para el resumen.</p>
+    {% elif briefing_state == 'missing_key' %}
+        <p class="briefing-empty">El resumen todavía no está configurado.</p>
+    {% elif briefing_state == 'no_highlights' or briefing and briefing.article_count %}
         <p class="briefing-empty">No surgieron sucesos que superen el nivel de importancia para destacar hoy.</p>
-    {% elif briefing %}
-        <p class="briefing-empty">No hay titulares de fuentes habilitadas para la presentación en las últimas 24 horas.</p>
-    {% else %}
-        <p class="briefing-empty">El resumen aparecerá después de la próxima ingesta de noticias.</p>
+    {% elif briefing_state == 'no_articles' %}
+        <p class="briefing-empty">No hay noticias recientes para resumir en las últimas 24 horas.</p>
+    {% elif briefing_state != 'error' %}
+        <p class="briefing-empty">El resumen está pendiente de generación.</p>
     {% endif %}
 </section>
 
 {% if sections %}
-    <form class="feed-filters" method="get" action="{% url 'news_feed' %}" aria-label="Filtrar noticias">
-        {% for field in filter_form %}
-            <div class="filter-field">
-                {{ field.label_tag }}
-                {{ field }}
-                {{ field.errors }}
-            </div>
-        {% endfor %}
-        <button class="button" type="submit">Aplicar filtros</button>
-        <a class="filter-reset" href="{% url 'news_feed' %}">Limpiar filtros</a>
-    </form>
-    {% if search_text and not filter_form.errors %}
-        <p>Resultados para «{{ search_text }}», ordenados por relevancia dentro de cada categoría.</p>
-    {% endif %}
-    {% if not has_articles %}
-        <section class="feed-empty">
-            {% if filter_form.errors %}
-                <h2>Revisá los filtros</h2>
-                <p>Corregí los campos indicados o limpiá los filtros para volver a ver noticias.</p>
-                <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
-            {% elif filters_active %}
-                <h2>No hay noticias con estos filtros</h2>
-                <p>Probá con otras palabras, otra fuente o idioma.</p>
-                <a class="button" href="{% url 'news_feed' %}">Limpiar filtros</a>
-            {% else %}
-                <h2>Todavía no hay noticias disponibles para tus categorías</h2>
-                <p>Volvé más tarde o elegí otros temas.</p>
-                <a class="button" href="{% url 'preferences' %}">Mis categorías</a>
-            {% endif %}
-        </section>
-    {% endif %}
-    <div class="category-grid">
+    <div class="topic-grid" aria-label="Tus categorías">
         {% for section in sections %}
-            <section class="category-column" aria-labelledby="category-{{ section.category.slug }}">
-                <header class="category-heading">
-                    <h2 id="category-{{ section.category.slug }}">{{ section.category.name }}</h2>
-                    <span>{{ section.article_count }} noticia{{ section.article_count|pluralize }}</span>
-                </header>
-                {% if section.articles %}
-                    {% for article in section.articles %}
-                        <article class="news-item{% if forloop.first %} news-item-leading{% endif %}">
-                            {% if forloop.first and section.page.number == 1 %}<p class="leading-label">{% if search_text %}Más relevante{% else %}Más reciente{% endif %}</p>{% endif %}
-                            <h3><a href="{{ article.original_url }}">{{ article.title }}</a></h3>
-                            {% if forloop.first and article.summary %}<p class="news-summary">{{ article.summary }}</p>{% endif %}
-                            <footer class="news-item-footer">
-                                <p class="news-meta">
-                                    <span>{{ article.feed.source.name }}</span>
-                                    <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m/Y H:i' }}</time>
-                                    {% if article.language %}<span>{{ article.language|upper }}</span>{% endif %}
-                                </p>
-                                {% include 'news/save_button.html' %}
-                            </footer>
-                        </article>
-                    {% endfor %}
-                    {% if section.page.has_other_pages %}
-                        <nav class="category-pagination" aria-label="Páginas de {{ section.category.name }}">
-                            {% if section.previous_url %}
-                                <a href="{{ section.previous_url }}">Anterior</a>
-                            {% else %}
-                                <span aria-disabled="true">Anterior</span>
-                            {% endif %}
-                            <span class="page-position">Página {{ section.page.number }} de {{ section.page.paginator.num_pages }}</span>
-                            {% if section.next_url %}
-                                <a href="{{ section.next_url }}">Siguiente</a>
-                            {% else %}
-                                <span aria-disabled="true">Siguiente</span>
-                            {% endif %}
-                        </nav>
-                    {% endif %}
-                {% else %}
-                    {% if filters_active or filter_form.errors %}
-                    <p class="category-empty">No hay noticias de esta categoría con los filtros elegidos. Podés <a href="{% url 'news_feed' %}">limpiar los filtros</a>.</p>
-                    {% else %}
-                    <p class="category-empty">Todavía no hay noticias recientes de esta categoría. Podés elegir otros temas en <a href="{% url 'preferences' %}">Mis categorías</a>.</p>
-                    {% endif %}
-                {% endif %}
-            </section>
+            <a class="topic-card topic-{{ section.category.slug }}" href="{% url 'category_news' section.category.slug %}">
+                <img src="{% static section.image %}" alt="" width="960" height="600" loading="lazy">
+                <div class="topic-card-copy">
+                    <h2>{{ section.category.name }}</h2>
+                    <p>{% if section.article_count %}{{ section.article_count }} noticia{{ section.article_count|pluralize }}{% else %}Todavía no hay noticias{% endif %}</p>
+                    <span class="topic-open">Explorar categoría <span aria-hidden="true">→</span></span>
+                </div>
+            </a>
         {% endfor %}
     </div>
 {% else %}
