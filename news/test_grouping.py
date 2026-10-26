@@ -20,6 +20,39 @@ from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPr
 
 
 class GroupingValidationTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
+    def test_schema_limits_proposal_and_audit_to_received_numeric_references(self):
+        source = SimpleNamespace(source=SimpleNamespace(name="Fuente ficticia"))
+        articles = [SimpleNamespace(pk=pk, title="Cobertura ficticia", language="es",
+                                    published_at=timezone.now(), feed=source) for pk in (101, 102)]
+        anchor = SimpleNamespace(pk=9, story_id=7, title="Hecho ficticio", language="es",
+                                 published_at=timezone.now(), feed=source)
+        groups = {"groups": [{"story_id": 7, "article_ids": [101, 102]}]}
+        audit = {"decisions": [{"article_id": pk, "same_event": True, "reason": "Mismo hecho ficticio."}
+                               for pk in (101, 102)]}
+        with patch("news.llm_grouping.genai.Client") as client:
+            generate = client.return_value.__enter__.return_value.models.generate_content
+            generate.side_effect = [SimpleNamespace(text=json.dumps(groups)), SimpleNamespace(text=json.dumps(audit))]
+            self.assertEqual(group_articles(articles, [anchor]), groups["groups"])
+            proposal_config = generate.call_args_list[0].kwargs["config"]
+            properties = proposal_config.response_json_schema["properties"]["groups"]["items"]["properties"]
+            self.assertEqual(properties["story_id"]["enum"], [0, 7])
+            self.assertEqual(properties["article_ids"]["items"], {"type": "integer", "enum": [101, 102]})
+            self.assertIsNone(proposal_config.response_schema)
+            audit_schema = generate.call_args_list[1].kwargs["config"].response_json_schema
+            self.assertEqual(audit_schema["properties"]["decisions"]["items"]["properties"]["article_id"]["enum"], [101, 102])
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
+    def test_schema_restriction_does_not_replace_local_validation(self):
+        article = SimpleNamespace(pk=1, title="Titular ficticio", language="es", published_at=timezone.now(),
+                                  feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")))
+        with patch("news.llm_grouping.genai.Client") as client:
+            generate = client.return_value.__enter__.return_value.models.generate_content
+            generate.return_value.text = json.dumps({"groups": [{"story_id": 0, "article_ids": [999]}]})
+            with self.assertRaisesRegex(GroupingError, "reason=unknown_article_id"):
+                group_articles([article], [])
+            self.assertEqual(generate.call_count, 3)
+
     def test_reference_diagnostics_explain_failure_without_echoing_ids(self):
         cases = [
             ([{"story_id": 9876543, "article_ids": [1]}], "unknown_story_id"),
