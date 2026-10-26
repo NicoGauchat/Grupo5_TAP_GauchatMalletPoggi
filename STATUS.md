@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+La restricción numérica de referencias se publicó en **164e183**. La ejecución controlada **40413359732** aprobó la comprobación sintética con el esquema nuevo y llegó al lote real, pero terminó tras tres intentos con **HTTP 503 provider_unavailable** y **cero noticias agrupadas**; importancia se omitió por el fallo de reparación. Se acredita aceptación del esquema por Gemini en la prueba pequeña, no recuperación completa del agrupamiento ni precisión sobre el lote real. El último mensaje no fue `unknown_article_id`; los avisos intermedios de reintento no registran sus causas individuales, así que no se afirma que todas esas respuestas hayan sido correctas. No se lanzaron más llamadas manuales después de este resultado ni se cambió de proveedor. Las tandas cada quince minutos, incluidas las nocturnas, y los diagnósticos quedan publicados; el avance real confirmado de la tanda previa sigue siendo cien noticias clasificadas y 43 acontecimientos evaluados. Esta unidad no requiere despliegue de Render ni cambia documentación de instalación, fuentes o variables adicionalmente.
+
 La primera tanda `process-ai` **40411929355** terminó con **100 noticias clasificadas** y **43 acontecimientos evaluados**; agrupamiento agotó tres intentos y no agrupó noticias. Se confirmó que limpieza, RSS y resumen se omiten en ese modo y que GitHub aceptó la cola compartida. La comprobación pequeña **40412337496**, modo `check-grouping`, aprobó los tres hechos ficticios, pares y traducción, omitiendo todas las etapas sobre noticias reales. Una comparación real posterior, **40412781482** en modo reparación y límite cien, aprobó nuevamente la prueba sintética pero rechazó el lote con **reason=unknown_article_id** tras tres intentos; importancia se omitió por el fallo de reparación. Esta evidencia confirma referencias ajenas al lote, no una causalidad demostrada del tamaño de la petición ni una indisponibilidad permanente de Gemini.
 
 Se corrigió el esquema de agrupamiento y de auditoría para restringir referencias mediante `enum` numéricos: sólo IDs de artículos recibidos y acontecimientos candidatos (o cero para uno nuevo), usando `response_json_schema` del SDK existente. Se conservan todas las comprobaciones locales y la auditoría semántica; una enumeración válida no demuestra por sí sola que sea el mismo hecho. No se cambian grupos anteriores, versión, modelo, claves, permisos ni campos enviados. Suite SQLite: **130 ejecutadas, 115 aprobadas y 15 omitidas**; incluye enumeraciones de propuesta/auditoría y rechazo local de una respuesta que incumpla el esquema. Django check, ausencia de migraciones y diff pasaron. README y PROJECT registran evidencia y corrección con la documentación oficial; SOURCES y `.env.example` no requieren cambios. Se prepara publicación y verificación real del esquema cerrado.
@@ -202,7 +204,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comparar solicitudes pequeñas y grandes con Gemini y detallar las condiciones de validación fallidas para distinguir problemas del proveedor de problemas del contrato de respuesta.
+Verificar el próximo lote real de agrupamiento con las referencias restringidas y registrar las causas seguras de cada intento si vuelve a fallar, antes de afirmar recuperación completa.
 
 ## Completado
 
