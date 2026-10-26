@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-25
-**Objetivo actual:** repartir las funciones Gemini entre dos credenciales configurables, conservando compatibilidad y asignación fija.
+**Objetivo actual:** completar la identidad LibreNews y el banner unificado, y recuperar la ingesta remota tras aplicar las migraciones pendientes.
 
 ## Último paso completado
+
+Se comparó la copia local con `origin/main` y se incorporaron sus tres commits posteriores antes de editar. Las ejecuciones programadas de Actions 62, 63, 64 y 65 (25/10/2026) fallaron en `python manage.py migrate --check`: el job no llegó a limpiar, ingerir ni generar el resumen. El paso de validación de secretos y la instalación de dependencias sí terminaron bien; la ejecución 61, anterior a las migraciones recientes, había pasado. El control indica migraciones pendientes en la base alcanzada por Actions; el log de `migrate --check` no enumera cuáles. La ejecución 59 fue un fallo distinto de clasificación Gemini después de la ingesta. Se agregó un paso de diagnóstico que mostrará el plan de migraciones cuando falle el control, sin modificar el esquema automáticamente. No se dispone aquí de las credenciales de Supabase/Render para aplicar o confirmar esas migraciones.
+
+La marca visible de las plantillas y el identificador del lector RSS pasó a LibreNews. Mis noticias presenta saludo, acceso a categorías y resumen en un único banner, sin el collage que antes estaba junto al saludo. Se conservan las imágenes de las tarjetas de categorías y el collage de la portada pública. Los nombres operativos de base, volúmenes Docker, servicio Render y repositorio GitHub siguen estables para proteger los datos y el despliegue. README y PROJECT actualizados; SOURCES no requiere cambios porque no se tocaron feeds ni permisos, y `.env.example` tampoco porque no cambiaron variables. No se aplicaron migraciones remotas, no se desplegó ni se llamó a Gemini en este bloque.
+
+Verificación local: Django check sin incidencias; suite SQLite **101 pruebas, 86 aprobadas y 15 omitidas** por requerir PostgreSQL; `git diff --check` limpio. Se inspeccionaron capturas sintéticas del banner en escritorio de 1440 px y composición móvil de 500 y 375 px, sin corte dentro del ancho móvil simulado; no se usaron datos reales. El detector Impeccable quedó degradado por faltar módulos HTML/CSS y señaló solamente la barra decorativa de lectura preexistente, sin evaluar contraste ni selectores.
 
 Se implementó la asignación de dos claves en `news/llm_keys.py`: `GEMINI_API_KEY` para clasificación y agrupamiento; `GEMINI_API_KEY_SECONDARY` para importancia y resumen. Las cuatro integraciones y el estado de configuración del resumen usan la misma selección. El reparto inicial aproxima las solicitudes a plena carga (14 frente a 11 con cien pendientes por etapa y un bloque de candidatos), sin prometer igualdad de tokens ni de costos; cuotas y facturación dependen de los proyectos autorizados.
 
@@ -126,7 +132,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Cargar `GEMINI_API_KEY_SECONDARY` del usuario y verificar el reparto real con ambas credenciales antes de publicar.
+Aplicar las migraciones pendientes en la base Supabase usada por Render y Actions; después ejecutar manualmente «Ingesta y limpieza de noticias» y verificar que llegue hasta el resumen.
 
 ## Completado
 

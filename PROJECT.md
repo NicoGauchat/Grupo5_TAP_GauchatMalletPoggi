@@ -4,6 +4,8 @@
 
 Construir una aplicación web universitaria que reúna noticias recientes de fuentes seleccionadas y diversas, las normalice y permita consultarlas por categorías, fuente e idioma. La aplicación atribuye cada contenido y dirige al usuario al artículo original.
 
+La marca visible es LibreNews. Los nombres técnicos ya asociados a la base, los volúmenes, el servicio y el repositorio se conservan para no separar datos ni crear otro despliegue.
+
 El código debe ser sencillo de comprender y defender en un coloquio. El equipo desarrollará con Python y Django, con apoyo académico disponible para Python.
 
 El proyecto debe poder desarrollarse y demostrarse sin servicios pagos. Antes de elegir un proveedor para publicar la aplicación, se comprobará que su plan gratuito permita conservar la base de datos y el uso previsto.
@@ -190,7 +192,7 @@ La generación analiza como máximo los 250 titulares más recientes de la venta
 
 El comando reutiliza resultados satisfactorios, incluidos vacíos, durante dos horas; `--force` omite esa caché. El arranque local genera automáticamente si hay clave, con `-RefreshBriefing` para forzar y `-RefreshFeeds` para actualizar RSS primero. La web arranca ante fallos de RSS o Gemini. Las visitas y la recarga automática de Django no generan solicitudes; el workflow existente utiliza el mismo comando. Las credenciales se mantienen en `.env.local` y producción conserva su configuración.
 
-La portada pública y el saludo de Mis noticias comparten una plantilla de collage con tres WebP existentes (Argentina, geopolítica, tecnología). CSS aplica blanco y negro, contraste moderado, degradado blanco y desenfoque sólo en la transición. La portada dedica una columna a las fotos; el saludo tiene versión compacta y en móvil se apila una franja de 160 px. Las categorías conservan sus fotos en color, títulos blancos en hover/foco y acción coral clara. Se reutilizan las fuentes, colores y recursos; no se genera una imagen compuesta ni se agregan animaciones.
+La portada pública conserva el collage con tres WebP existentes (Argentina, geopolítica, tecnología). Mis noticias reúne saludo, acceso a categorías y resumen LLM en un solo banner sin imágenes decorativas; el resumen conserva sus estados, enlaces y fecha. Las categorías conservan sus fotos en color, títulos blancos en hover/foco y acción coral clara. Se reutilizan las fuentes, colores y recursos; no se genera una imagen compuesta ni se agregan animaciones.
 
 El bloque de síntesis se presenta como «Resumen», sobre blanco y con acentos coral. Los sucesos se distribuyen en columnas adaptables; las referencias se ocultan inicialmente en elementos HTML `details/summary`, con cantidad de fuentes y enlaces completos al desplegar. Se evita una lista extensa de titulares duplicados en la lectura inicial, sin añadir JavaScript ni modificar la generación. La fecha usa `time` y el total analizado aparece al pie. Las imágenes RSS siguen siendo URLs remotas: el tamaño visual en CSS no reduce su transferencia; optimizar miniaturas requiere variantes del medio o una caché de imágenes, todavía no incorporada.
 

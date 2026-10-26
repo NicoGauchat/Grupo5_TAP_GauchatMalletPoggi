@@ -161,6 +161,15 @@ class BriefingTests(TestCase):
             self.client.get(reverse("home"))
         client.assert_not_called()
 
+    def test_greeting_categories_and_summary_share_one_banner(self):
+        self.generate()
+        response = self.client.get(reverse("news_feed"))
+        self.assertContains(response, 'class="feed-intro news-edition"', count=1)
+        self.assertContains(response, 'id="edition-title"')
+        self.assertContains(response, 'class="feed-edit-link" href="' + reverse("preferences") + '"', count=1)
+        self.assertContains(response, "Síntesis de prueba")
+        self.assertNotContains(response, 'class="editorial-collage"')
+
 
 class EducationalFeedMigrationTests(TransactionTestCase):
     def test_forward_reverse_permissions_and_new_feed_defaults(self):

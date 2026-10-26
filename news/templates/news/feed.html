@@ -1,61 +1,60 @@
 {% extends 'news/base.html' %}
 {% load static %}
 
-{% block title %}Mis noticias · Sitio Noticias{% endblock %}
+{% block title %}Mis noticias · LibreNews{% endblock %}
 {% block main_class %} feed-wide{% endblock %}
 
 {% block content %}
-<header class="feed-intro editorial-intro">
-    <div class="editorial-intro-copy">
-        <span class="edition-label">Tu edición personal</span>
-        <h1>{{ greeting }}, {{ user.username }}</h1>
-        <p>Elegí una categoría para explorar sus noticias recientes. Los artículos originales se abren en otra pestaña.</p>
+<section class="feed-intro news-edition" aria-labelledby="edition-title">
+    <div class="edition-heading">
+        <div>
+            <h1 id="edition-title">{{ greeting }}, {{ user.username }}</h1>
+            <p>Elegí una categoría para explorar sus noticias recientes. Los artículos originales se abren en otra pestaña.</p>
+        </div>
         <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>
     </div>
-    {% include 'news/editorial_collage.html' %}
-</header>
-
-<section class="news-briefing" aria-labelledby="briefing-title">
-    <div class="briefing-heading">
-        <div>
-            <h2 id="briefing-title">Resumen</h2>
-            <p class="briefing-description">Lo más importante de las últimas 24 horas</p>
+    <div class="news-briefing" aria-labelledby="briefing-title">
+        <div class="briefing-heading">
+            <div>
+                <h2 id="briefing-title">Resumen</h2>
+                <p class="briefing-description">Lo más importante de las últimas 24 horas</p>
+            </div>
+            {% if briefing %}
+                <p class="briefing-window">Actualizado <time datetime="{{ briefing.generated_at|date:'c' }}">{{ briefing.generated_at|date:'j/m H:i' }}</time></p>
+            {% endif %}
         </div>
-        {% if briefing %}
-            <p class="briefing-window">Actualizado <time datetime="{{ briefing.generated_at|date:'c' }}">{{ briefing.generated_at|date:'j/m H:i' }}</time></p>
+        {% if briefing_state == 'error' %}
+            <p class="briefing-notice" role="status">No se pudo actualizar el resumen. {% if briefing %}Mostramos el último resultado disponible con su fecha.{% else %}Se volverá a intentar en la próxima actualización.{% endif %}</p>
+        {% endif %}
+        {% if briefing and briefing.items.all %}
+            <ol class="briefing-items" role="list">
+                {% for item in briefing.items.all %}
+                    <li>
+                        <p class="briefing-text">{{ item.text }}</p>
+                        <details class="briefing-sources">
+                            <summary>Ver {{ item.articles.count }} fuente{{ item.articles.count|pluralize }}<span class="briefing-chevron" aria-hidden="true"></span></summary>
+                            <ul>
+                                {% for article in item.articles.all %}
+                                    <li><a href="{{ article.original_url }}" target="_blank" rel="noopener"><span class="briefing-source-name">{{ article.feed.source.name }}</span>{{ article.title }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                    </li>
+                {% endfor %}
+            </ol>
+            <p class="briefing-count">A partir de {{ briefing.article_count }} titular{{ briefing.article_count|pluralize:"es" }} reciente{{ briefing.article_count|pluralize }}.</p>
+        {% elif briefing_state == 'no_feeds' %}
+            <p class="briefing-empty">Todavía no hay fuentes habilitadas para el resumen.</p>
+        {% elif briefing_state == 'missing_key' %}
+            <p class="briefing-empty">El resumen todavía no está configurado.</p>
+        {% elif briefing_state == 'no_highlights' or briefing and briefing.article_count %}
+            <p class="briefing-empty">No surgieron sucesos que superen el nivel de importancia para destacar hoy.</p>
+        {% elif briefing_state == 'no_articles' %}
+            <p class="briefing-empty">No hay noticias recientes para resumir en las últimas 24 horas.</p>
+        {% elif briefing_state != 'error' %}
+            <p class="briefing-empty">El resumen está pendiente de generación.</p>
         {% endif %}
     </div>
-    {% if briefing_state == 'error' %}
-        <p class="briefing-notice" role="status">No se pudo actualizar el resumen. {% if briefing %}Mostramos el último resultado disponible con su fecha.{% else %}Se volverá a intentar en la próxima actualización.{% endif %}</p>
-    {% endif %}
-    {% if briefing and briefing.items.all %}
-        <ol class="briefing-items" role="list">
-            {% for item in briefing.items.all %}
-                <li>
-                    <p class="briefing-text">{{ item.text }}</p>
-                    <details class="briefing-sources">
-                        <summary>Ver {{ item.articles.count }} fuente{{ item.articles.count|pluralize }}<span class="briefing-chevron" aria-hidden="true"></span></summary>
-                        <ul>
-                            {% for article in item.articles.all %}
-                                <li><a href="{{ article.original_url }}" target="_blank" rel="noopener"><span class="briefing-source-name">{{ article.feed.source.name }}</span>{{ article.title }}</a></li>
-                            {% endfor %}
-                        </ul>
-                    </details>
-                </li>
-            {% endfor %}
-        </ol>
-        <p class="briefing-count">A partir de {{ briefing.article_count }} titulares recientes.</p>
-    {% elif briefing_state == 'no_feeds' %}
-        <p class="briefing-empty">Todavía no hay fuentes habilitadas para el resumen.</p>
-    {% elif briefing_state == 'missing_key' %}
-        <p class="briefing-empty">El resumen todavía no está configurado.</p>
-    {% elif briefing_state == 'no_highlights' or briefing and briefing.article_count %}
-        <p class="briefing-empty">No surgieron sucesos que superen el nivel de importancia para destacar hoy.</p>
-    {% elif briefing_state == 'no_articles' %}
-        <p class="briefing-empty">No hay noticias recientes para resumir en las últimas 24 horas.</p>
-    {% elif briefing_state != 'error' %}
-        <p class="briefing-empty">El resumen está pendiente de generación.</p>
-    {% endif %}
 </section>
 
 {% if sections %}

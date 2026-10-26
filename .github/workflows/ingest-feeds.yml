@@ -61,6 +61,11 @@ jobs:
       - name: Comprobar migraciones
         id: check_migrations
         run: python manage.py migrate --check
+      - name: Mostrar migraciones pendientes
+        if: ${{ failure() && steps.check_migrations.outcome == 'failure' }}
+        run: |
+          echo 'Falló el control de migraciones; revisá abajo las pendientes o un posible error de conexión.'
+          python manage.py showmigrations --plan
       - name: Limpiar noticias antiguas
         id: purge
         run: python manage.py purge_old_articles

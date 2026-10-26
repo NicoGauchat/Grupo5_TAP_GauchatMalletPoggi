@@ -1,6 +1,8 @@
-# Sitio Noticias
+# LibreNews
 
 Aplicación web universitaria para reunir noticias de fuentes seleccionadas, organizarlas por categoría y permitir que cada usuario configure sus temas de interés. Prioriza RSS, atribuye siempre al medio original y muestra varias fuentes.
+
+La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL, Docker Compose, Render y el repositorio GitHub conservan sus nombres técnicos anteriores para mantener los datos locales y el servicio desplegado.
 
 ## Ya implementado
 
@@ -105,7 +107,7 @@ Dentro de cada categoría se combinan búsqueda en títulos, fuente, idioma, fec
 
 La búsqueda admite hasta 200 caracteres y se limita a títulos. PostgreSQL aplica stop words y stemming en español, inglés y portugués, incluidos códigos regionales, y exige todas las palabras significativas. Otros idiomas usan `simple`. No busca fragmentos arbitrarios, no traduce ni agrega sinónimos. Una consulta compuesta sólo por stop words no devuelve resultados. El índice GIN existente se conserva.
 
-Las fotografías de categoría son ocho archivos WebP locales con licencia Pexels, documentados con sus autores y enlaces en SOURCES. El collage inicial reutiliza Argentina, geopolítica y tecnología en blanco y negro mediante HTML/CSS, con degradado hacia blanco, versión compacta en Mis noticias y franja móvil. Los títulos de categorías conservan el blanco al pasar el cursor o enfocar; la acción cambia a coral claro.
+Las fotografías de categoría son ocho archivos WebP locales con licencia Pexels, documentados con sus autores y enlaces en SOURCES. El collage de la portada pública reutiliza Argentina, geopolítica y tecnología en blanco y negro mediante HTML/CSS. En Mis noticias, un solo banner reúne el saludo, el acceso a Mis categorías y el resumen de las últimas 24 horas, sin ese collage. Los títulos de categorías conservan el blanco al pasar el cursor o enfocar; la acción cambia a coral claro.
 
 Las fotografías RSS requieren `Feed.show_images`; `0013` incorpora URL/crédito, `0014` habilitó MIT y `0015` habilita los once feeds actuales por decisión expresa del usuario para su presentación educativa. Esa decisión no acredita una licencia de los medios; SOURCES conserva las condiciones revisadas. Nuevas fuentes siguen deshabilitadas por defecto. Se mantienen créditos, atribución y respaldo temático rotulado «Imagen ilustrativa» si falta o falla una fotografía o se deshabilita el feed para imágenes. No se descargan ni almacenan fotografías RSS en el servidor.
 
@@ -212,7 +214,7 @@ El primer comando cuenta sin borrar; el segundo elimina de la base configurada. 
 
 Medianoche cierra la jornada: no hay consultas previstas entre 00:00 y 06:00. Los feeds cortos pueden perder entradas durante esa pausa o en ráfagas. Las consultas cada dos horas reducen el riesgo durante el día, sin garantizar captura exhaustiva ni puntualidad del job. La comprobación de actividad se documenta en `SOURCES.md`.
 
-**El workflow está preparado, pero todavía no se activó ni se verificó una ejecución remota.** GitHub Actions y Render usarán el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
+GitHub Actions y Render usan el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
 
 Para activarlo:
 
@@ -224,7 +226,7 @@ Para activarlo:
 6. En Variables → Actions, establecer `POSTGRES_PORT=5432`, `POSTGRES_SSLMODE=require` y `NEWS_INGESTION_ENABLED=true`. Ejecutar manualmente «Ingesta y limpieza de noticias» para comprobar la conexión. Para pausar, cambiar `NEWS_INGESTION_ENABLED` a `false`.
 7. El plan gratuito de Render no incluye Shell. Para crear la cuenta administradora, configurar temporalmente el `.env` local con las credenciales de Supabase y ejecutar `python manage.py createsuperuser`; después, restaurar la configuración local. Gestionar feeds desde `/admin/`.
 
-El workflow comprueba los secretos sin imprimir sus valores y exige migraciones aplicadas; no modifica automáticamente el esquema público. Si falla un feed, continúa con los demás y finalmente marca la ejecución como fallida. Los resultados están en Actions. GitHub puede retrasar horarios y desactiva la programación en repositorios públicos tras 60 días sin actividad. Revisar la cuota gratuita de Actions antes de activarlo. Referencias: [horarios](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) y [secretos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+El workflow comprueba los secretos sin imprimir sus valores y exige migraciones aplicadas; no modifica automáticamente el esquema público. Las ejecuciones 62 a 65 del 25/10/2026 se detuvieron en `migrate --check`, antes de la limpieza, la ingesta y el resumen. Las últimas migraciones se deben aplicar a la misma base que usa Actions, mediante el build de Render o `python manage.py migrate` desde un entorno autorizado; luego conviene ejecutar el workflow manualmente y comprobar cada etapa. Si el control vuelve a fallar, la etapa de diagnóstico muestra el plan de migraciones o un error de conexión. Si falla un feed, continúa con los demás y finalmente marca la ejecución como fallida. Los resultados están en Actions. GitHub puede retrasar horarios y desactiva la programación en repositorios públicos tras 60 días sin actividad. Revisar la cuota gratuita de Actions antes de activarlo. Referencias: [horarios](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) y [secretos](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
 
 ## Despliegue web en Render
 

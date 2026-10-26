@@ -19,7 +19,7 @@ from .retention import retention_cutoff
 
 MAX_FEED_BYTES = 2_000_000
 MAX_SUMMARY_LENGTH = 600
-USER_AGENT = "SitioNoticias/0.1 (proyecto universitario; lector RSS)"
+USER_AGENT = "LibreNews/0.1 (proyecto universitario; lector RSS)"
 TRACKING_PARAMETERS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 
 
