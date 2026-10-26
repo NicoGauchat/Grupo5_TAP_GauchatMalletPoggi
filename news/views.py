@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from .browsing import add_coverages, article_batch, articles_for, category_image, filter_articles, story_articles
 from .briefings import briefing_context
-from .forms import PreferenceForm
+from .forms import PreferenceForm, RegistrationForm
 from .models import Article, SavedArticle, UserPreference
 from .retention import retention_cutoff
 
@@ -29,7 +28,7 @@ def register(request):
     if request.user.is_authenticated:
         return redirect("preferences")
 
-    form = UserCreationForm(request.POST or None)
+    form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
         login(request, user)
@@ -68,8 +67,12 @@ def news_feed(request):
         greeting = "Buenas tardes"
     else:
         greeting = "Buenas noches"
+    first_name = request.user.first_name.strip()
+    display_name = first_name.split(maxsplit=1)[0] if first_name else request.user.username
     return render(request, "news/feed.html", {
-        "sections": sections, "greeting": greeting, **briefing_context(now),
+        "sections": sections, "greeting": greeting,
+        "display_name": display_name,
+        **briefing_context(now),
     })
 
 

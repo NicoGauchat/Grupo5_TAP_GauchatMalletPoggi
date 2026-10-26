@@ -78,6 +78,33 @@ class AIClassificationTests(TestCase):
         self.assertIsNone(article.llm_classified_at)
 
 
+class RegistrationTests(TestCase):
+    def test_name_is_required_and_first_given_name_is_used_in_welcome(self):
+        registration = {
+            "username": "lectora_nueva",
+            "password1": "ClaveSegura2026!",
+            "password2": "ClaveSegura2026!",
+        }
+        response = self.client.post(reverse("register"), registration)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("first_name", response.context["form"].errors)
+        self.assertFalse(get_user_model().objects.filter(username="lectora_nueva").exists())
+
+        response = self.client.post(reverse("register"), {**registration, "first_name": "  María   José  "})
+        self.assertRedirects(response, reverse("preferences"))
+        user = get_user_model().objects.get(username="lectora_nueva")
+        self.assertEqual(user.first_name, "María José")
+        response = self.client.get(reverse("news_feed"))
+        self.assertEqual(response.context["display_name"], "María")
+        self.assertContains(response, ", María")
+
+    def test_existing_account_without_name_keeps_username_as_welcome(self):
+        user = get_user_model().objects.create_user(username="cuenta_antigua")
+        self.client.force_login(user)
+        response = self.client.get(reverse("news_feed"))
+        self.assertEqual(response.context["display_name"], "cuenta_antigua")
+
+
 class NewsFeedTests(TestCase):
     @classmethod
     def setUpTestData(cls):

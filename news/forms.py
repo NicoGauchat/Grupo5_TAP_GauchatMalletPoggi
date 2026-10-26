@@ -1,6 +1,21 @@
 from django import forms
+from django.contrib.auth.forms import UserCreationForm
 
 from .models import Source, UserPreference
+
+
+class RegistrationForm(UserCreationForm):
+    first_name = forms.CharField(
+        label="Nombre real", max_length=150,
+        help_text="Usaremos solo tu primer nombre para saludarte.",
+        widget=forms.TextInput(attrs={"autocomplete": "given-name"}),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        fields = ("username", "first_name")
+
+    def clean_first_name(self):
+        return " ".join(self.cleaned_data["first_name"].split())
 
 
 class NewsFilterForm(forms.Form):

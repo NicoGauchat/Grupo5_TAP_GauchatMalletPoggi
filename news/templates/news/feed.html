@@ -8,7 +8,7 @@
 <section class="feed-intro news-edition" aria-labelledby="edition-title">
     <div class="edition-heading">
         <div>
-            <h1 id="edition-title">{{ greeting }}, {{ user.username }}</h1>
+            <h1 id="edition-title">{{ greeting }}, {{ display_name }}</h1>
             <p>Elegí una categoría para explorar sus noticias recientes. Los artículos originales se abren en otra pestaña.</p>
         </div>
         <a class="feed-edit-link" href="{% url 'preferences' %}">Editar mis categorías</a>

@@ -6,7 +6,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 
 ## Ya implementado
 
-- Registro e inicio de sesión con usuarios de Django.
+- Registro con nombre real e inicio de sesión con usuarios de Django. La bienvenida usa sólo el primer nombre; las cuentas anteriores sin nombre conservan el usuario como saludo.
 - Preferencias individuales para once categorías, incluidas Salud, Medioambiente y Deportes.
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
@@ -97,6 +97,8 @@ docker compose --env-file .env.local --project-name sitio-noticias-local down
 
 Mis noticias (`/noticias/`) presenta tarjetas fotográficas de las categorías elegidas, en orden alfabético estable. Incluye las categorías sin noticias y conserva el módulo de presentación LLM existente. Cada tarjeta lleva a `/noticias/categoria/<slug>/`; sólo se accede a categorías elegidas en Mis categorías.
 
+Al crear una cuenta se pide «Nombre real» además del usuario y la contraseña. Se guarda en el campo `first_name` del usuario integrado de Django, sin migración nueva. El saludo toma la primera palabra del nombre; el nombre de usuario sigue siendo el dato para ingresar. Las cuentas creadas antes de este cambio conservan el saludo con su usuario si no tienen nombre registrado.
+
 Dentro de cada categoría se combinan búsqueda en títulos, fuente, idioma, fecha y orden. Sin búsqueda, la primera tarjeta abre el listado como «La más reciente» o «La más importante», seguida de nueve tarjetas. La grilla tiene tres columnas en escritorio amplio, dos en tamaños intermedios y una en móvil; la apertura se apila en móvil. Al buscar, se muestran diez tarjetas uniformes y el selector permite relevancia, recientes o importancia. Los titulares completos permanecen visibles. Títulos y fotografías enlazan al medio original en una nueva pestaña, al igual que Mis guardadas y las fuentes del resumen.
 
 «Fecha» ofrece Hoy, Últimas 24 horas, Últimos 3 días, Última semana y Últimos 14 días (inicial). Hoy comienza a medianoche en Buenos Aires; los otros períodos son ventanas móviles y se excluyen fechas futuras. Se selecciona un acontecimiento si alguna cobertura de la categoría coincide con el período; el desplegable conserva las demás coberturas autorizadas de los últimos 14 días. Cambiar fecha u orden reinicia la lista; Ver más y Guardar conservan ambas selecciones. Un cursor de Hoy vence al cambiar el día local. No hay archivo histórico ni rangos fuera de los 14 días.
@@ -110,6 +112,8 @@ La búsqueda admite hasta 200 caracteres y se limita a títulos. PostgreSQL apli
 Las fotografías de categoría son ocho archivos WebP locales con licencia Pexels, documentados con sus autores y enlaces en SOURCES. El collage de la portada pública reutiliza Argentina, geopolítica y tecnología en blanco y negro mediante HTML/CSS. En Mis noticias, un solo banner reúne el saludo, el acceso a Mis categorías y el resumen de las últimas 24 horas, sin ese collage. Los títulos de categorías conservan el blanco al pasar el cursor o enfocar; la acción cambia a coral claro.
 
 Las fotografías RSS requieren `Feed.show_images`; `0013` incorpora URL/crédito, `0014` habilitó MIT y `0015` habilita los once feeds actuales por decisión expresa del usuario para su presentación educativa. Esa decisión no acredita una licencia de los medios; SOURCES conserva las condiciones revisadas. Nuevas fuentes siguen deshabilitadas por defecto. Se mantienen créditos, atribución y respaldo temático rotulado «Imagen ilustrativa» si falta o falla una fotografía o se deshabilita el feed para imágenes. No se descargan ni almacenan fotografías RSS en el servidor.
+
+Se investigó una posible imagen diaria por categoría ligada al acontecimiento más importante. Aún no se implementó: se puede elegir entre las noticias publicadas ese día en Buenos Aires que pertenezcan a la categoría, tengan importancia IA y una imagen RSS permitida, y enlazar la tarjeta a esa noticia; si no hay candidata, conservar la imagen ilustrativa. El resultado del día sería provisional mientras ingresan noticias y se calculan puntajes. Para fijarlo durante toda la jornada haría falta guardar la selección diaria; para afirmar el acontecimiento definitivo habría que esperar al cierre del día. No se propone usar una foto de stock como si documentara un hecho concreto. SOURCES registra la evaluación de permisos y rendimiento.
 
 La ingesta actualiza imágenes y créditos de noticias existentes de su feed original, sin sustituir la atribución por un origen secundario. Para completar imágenes autorizadas ya almacenadas, ejecutar `ingest_feeds --refresh`; sólo pueden recuperarse las entradas que todavía estén en el RSS. Los resúmenes RSS siguen deshabilitados en los once feeds. No se guardan cuerpos de artículos.
 

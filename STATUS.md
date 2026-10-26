@@ -1,9 +1,17 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-25
-**Objetivo actual:** completar la identidad LibreNews y el banner unificado, y recuperar la ingesta remota tras aplicar las migraciones pendientes.
+**Objetivo actual:** diagnosticar la demora de la ingesta remota y evaluar paralelismo seguro.
 
 ## Último paso completado
+
+Se revisó la ejecución remota 67 del 25/10/2026 (hora argentina). `migrate --check`, limpieza, ingesta, presentación, agrupamiento e importancia llegaron a ejecutarse: las migraciones ya no bloquean este flujo. La ejecución terminó con fallo de clasificación Gemini después de clasificar 70 noticias; el resumen sí se actualizó con dos puntos sobre 71 titulares. La ingesta tardó 7 min 19 s (00:59:08–01:06:27 UTC) de unos 10 min 30 s totales. Clasificación ocupó unos 45 s, resumen 6 s, agrupamiento 25 s e importancia 22 s. Hubo 247 noticias nuevas en los canales de Perfil y el agrupamiento informó 1965 pendientes; son señales de carga inicial, no una medición por feed.
+
+La ingesta actual procesa los 26 feeds en serie, con descarga HTTP de hasta 15 s por feed y consultas/transacciones por noticia sobre PostgreSQL remoto. Separar solamente las etapas IA en jobs paralelos tendría un ahorro limitado frente a los 7 min 19 s de RSS. Dividir feeds entre workflows sin cambiar la deduplicación puede provocar carreras por URLs compartidas entre canales y fallos de unicidad. GitHub Actions permite jobs paralelos y dependencias `needs` en un mismo workflow; la evaluación recomienda medir primero tiempo de descarga y persistencia por feed, y después aplicar concurrencia acotada manteniendo la escritura segura. No se modificaron código, workflows, feeds, políticas, requisitos ni variables en esta evaluación; PROJECT, SOURCES, README y `.env.example` no requieren cambios.
+
+El registro exige «Nombre real» y lo guarda en `auth_user.first_name`, ya disponible en Django. El saludo de Mis noticias muestra sólo la primera palabra; las cuentas anteriores sin nombre mantienen el usuario. No hay modelo, migración, dependencia ni variable nueva. La suite SQLite ejecutó **103 pruebas: 88 aprobadas y 15 omitidas** por requerir PostgreSQL; incluye nombre obligatorio, normalización, primer nombre y compatibilidad con cuentas previas. `manage.py check`, `makemigrations --check --dry-run` y `git diff --check` pasaron.
+
+Se investigó la imagen diaria por categoría sin implementarla: las noticias ya reciben URL/crédito RSS y muestran la foto cuando `Feed.show_images` lo permite; los quince feeds recientes siguen sin ese permiso. La opción recomendada es elegir el acontecimiento de mayor importancia del día de Buenos Aires dentro de cada categoría y una foto permitida de ese mismo hecho, con crédito y enlace; si falta una, mantener la imagen ilustrativa. La selección del día sería provisional mientras entran titulares; fijarla exige una regla de cierre y persistencia diaria. Media RSS y dos lectores activos comparables confirman viabilidad técnica, pero no autorizan uso de fotografías: cada fuente requiere revisar derechos, disponibilidad y peso. PROJECT, SOURCES y README registran la evaluación; no se cambiaron feeds, permisos, archivos de imagen ni política de almacenamiento. `.env.example` no requiere cambios. No se publicó ni se probaron imágenes reales nuevas.
 
 Se comparó la copia local con `origin/main` y se incorporaron sus tres commits posteriores antes de editar. Las ejecuciones programadas de Actions 62, 63, 64 y 65 (25/10/2026) fallaron en `python manage.py migrate --check`: el job no llegó a limpiar, ingerir ni generar el resumen. El paso de validación de secretos y la instalación de dependencias sí terminaron bien; la ejecución 61, anterior a las migraciones recientes, había pasado. El control indica migraciones pendientes en la base alcanzada por Actions; el log de `migrate --check` no enumera cuáles. La ejecución 59 fue un fallo distinto de clasificación Gemini después de la ingesta. Se agregó un paso de diagnóstico que mostrará el plan de migraciones cuando falle el control, sin modificar el esquema automáticamente. No se dispone aquí de las credenciales de Supabase/Render para aplicar o confirmar esas migraciones.
 
@@ -132,7 +140,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Aplicar las migraciones pendientes en la base Supabase usada por Render y Actions; después ejecutar manualmente «Ingesta y limpieza de noticias» y verificar que llegue hasta el resumen.
+Instrumentar la duración de descarga y persistencia de cada feed en la próxima ejecución remota para decidir dónde aplicar concurrencia acotada sin carreras de deduplicación.
 
 ## Completado
 
