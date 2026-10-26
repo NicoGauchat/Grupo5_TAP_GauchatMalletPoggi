@@ -12,7 +12,7 @@ from .llm_classification import ClassificationError, classify_batch
 from .llm_grouping import GroupingError, group_articles
 from .llm_importance import ImportanceError, score_stories
 from .llm_keys import TASK_API_KEYS, api_key_for, configured_tasks
-from .models import Article, Feed, Source
+from .models import Article, Category, Feed, Source
 
 
 PRIMARY = "primary-test-value"
@@ -45,7 +45,9 @@ class APIKeyRoutingTests(SimpleTestCase):
 
     def article(self):
         return SimpleNamespace(pk=7, title="Titular sintético", language="es", published_at=timezone.now(),
-                               feed=SimpleNamespace(source=SimpleNamespace(name="Fuente de ensayo")))
+                               feed=SimpleNamespace(source=SimpleNamespace(name="Fuente de ensayo")),
+                               categories=SimpleNamespace(all=lambda: [SimpleNamespace(slug="ciencia", name="Ciencia")]),
+                               llm_categories=SimpleNamespace(all=lambda: []))
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
     def test_all_clients_receive_the_assigned_key(self):
@@ -58,7 +60,7 @@ class APIKeyRoutingTests(SimpleTestCase):
             ("importance", "news.llm_importance.genai.Client", lambda: score_stories({9: [article]}),
              {"stories": [{"story_id": 9, "score": 3, "reason": "Alcance limitado."}]}, SECONDARY),
             ("briefing", "news.llm_briefing.genai.Client", lambda: summarize_articles([article]),
-             {"items": []}, SECONDARY),
+             {"items": [{"category_slug": "ciencia", "text": "Síntesis de prueba.", "importance_score": 3, "article_ids": [7]}]}, SECONDARY),
         ]
         for task, path, operation, response, expected in cases:
             with self.subTest(task=task), patch(path) as client:
@@ -104,6 +106,8 @@ class EditorialKeyStateTests(TestCase):
         feed = Feed.objects.create(source=Source.objects.create(name="Fuente de clave editorial"), name="RSS",
                                    url="https://example.com/editorial-key/rss", is_active=True, allow_ai_briefing=True)
         now = timezone.now()
-        Article.objects.create(feed=feed, title="Titular sintético", original_url="https://example.com/editorial-key/news",
-                               published_at=now)
-        self.assertEqual(briefing_context(now)["briefing_state"], "pending")
+        article = Article.objects.create(feed=feed, title="Titular sintético", original_url="https://example.com/editorial-key/news",
+                                         published_at=now)
+        category = Category.objects.get(slug="ciencia")
+        article.categories.add(category)
+        self.assertEqual(briefing_context(now, [category])["category_briefings"][0]["state"], "pending")

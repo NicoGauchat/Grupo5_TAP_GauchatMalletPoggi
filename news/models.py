@@ -175,6 +175,7 @@ class NewsBriefing(models.Model):
 
 class NewsBriefingItem(models.Model):
     briefing = models.ForeignKey(NewsBriefing, on_delete=models.CASCADE, related_name="items")
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name="briefing_items")
     position = models.PositiveSmallIntegerField()
     text = models.TextField()
     articles = models.ManyToManyField(Article, related_name="briefing_items")
@@ -183,6 +184,7 @@ class NewsBriefingItem(models.Model):
         ordering = ["position"]
         constraints = [
             models.UniqueConstraint(fields=["briefing", "position"], name="unique_briefing_item_position"),
+            models.UniqueConstraint(fields=["briefing", "category"], name="unique_briefing_item_category"),
         ]
 
 

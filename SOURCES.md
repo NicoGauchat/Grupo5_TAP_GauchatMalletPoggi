@@ -16,6 +16,12 @@ Campos:
 
 ## Feeds activos
 
+### Síntesis IA por categoría (26/10/2026)
+
+La nueva presentación redacta mediante Gemini una síntesis de la noticia más importante de cada categoría que tenga titulares habilitados, con un único artículo de referencia y enlace directo al medio. Se seleccionan candidatos de las últimas 24 horas con `allow_ai_briefing=True`; los quince feeds agregados en `0018` siguen deshabilitados para síntesis y no se amplía su permiso por tener categorías o permitir agrupamiento. Una categoría sin material autorizado muestra ese estado, sin reutilizar contenido de otro feed ni generar un resumen de relleno.
+
+Se transmiten exclusivamente ID, titular, medio, fecha, idioma y nombres/slugs de sus categorías públicas (unión de reglas y clasificación IA); no se envían cuerpos, resúmenes RSS, URLs, preferencias o datos personales. Cada síntesis usa una referencia de su propia categoría, conserva el titular original junto al enlace y muestra autoría/licencia cuando corresponden. El proveedor no puede inventar el destino del enlace. La caducidad o revocación de la referencia retira sólo esa síntesis. No se extraen contenidos de las páginas de noticias ni se modifican feeds, imágenes, licencias o permisos de uso.
+
 ### Ampliación vigente del 25/10/2026
 
 Por pedido del usuario, se prioriza cobertura argentina y se agregan fuentes de Estados Unidos y Europa. **Agência Brasil queda fuera**: no se incorpora su fuente, feeds ni equivalencias a la migración. `0018` agrega quince RSS a los once originales: **26 feeds activos precargados de ocho medios**. Los medios nuevos son Perfil (Argentina), NASA (Estados Unidos) y elDiario.es (España); además se amplían canales de Clarín, Los Andes y EL PAÍS. Las tres categorías nuevas son Salud, Medioambiente y Deportes.

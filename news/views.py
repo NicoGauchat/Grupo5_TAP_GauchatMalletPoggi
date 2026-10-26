@@ -53,10 +53,11 @@ def preferences(request):
 @login_required
 def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
+    categories = list(preference.categories.all())
     sections = [
         {"category": category, "image": category_image(category.slug),
          "article_count": story_articles(articles_for([category], preference.classification_mode)).count()}
-        for category in preference.categories.all()
+        for category in categories
     ]
 
     now = timezone.now()
@@ -72,7 +73,7 @@ def news_feed(request):
     return render(request, "news/feed.html", {
         "sections": sections, "greeting": greeting,
         "display_name": display_name,
-        **briefing_context(now),
+        **briefing_context(now, categories),
     })
 
 

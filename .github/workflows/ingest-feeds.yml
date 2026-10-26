@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Flujo completo o sólo reparación del agrupamiento e importancia
+        description: Flujo completo, reparación de grupos o generación del resumen IA
         type: choice
-        options: [maintenance, repair-grouping]
+        options: [maintenance, repair-grouping, generate-briefing]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -40,6 +40,7 @@ jobs:
       POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_API_KEY_SECONDARY: ${{ secrets.GEMINI_API_KEY_SECONDARY }}
+      MAINTENANCE_MODE: ${{ inputs.mode || 'maintenance' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -67,6 +68,10 @@ jobs:
           elif [ -n "$GEMINI_API_KEY_SECONDARY" ] && [ -z "$GEMINI_API_KEY" ]; then
             echo 'IA: sólo hay segunda clave; clasificación y agrupamiento quedan pendientes.'
           fi
+          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] && [ -z "$GEMINI_API_KEY_SECONDARY" ] && [ -z "$GEMINI_API_KEY" ]; then
+            echo 'Falta configurar una clave de Gemini en Actions para generar el resumen IA.'
+            exit 1
+          fi
       - name: Instalar dependencias
         run: python -m pip install -r requirements.txt
       - name: Comprobar migraciones
@@ -79,18 +84,23 @@ jobs:
           python manage.py showmigrations --plan
       - name: Limpiar noticias antiguas
         id: purge
-        if: inputs.mode != 'repair-grouping'
+        if: inputs.mode != 'repair-grouping' && inputs.mode != 'generate-briefing'
         run: python manage.py purge_old_articles
       - name: Ingerir feeds
         id: ingest
-        if: inputs.mode != 'repair-grouping'
+        if: inputs.mode != 'repair-grouping' && inputs.mode != 'generate-briefing'
         run: python manage.py ingest_feeds
       - name: Clasificar noticias con IA
-        if: inputs.mode != 'repair-grouping' && env.GEMINI_API_KEY != ''
+        if: inputs.mode != 'repair-grouping' && inputs.mode != 'generate-briefing' && env.GEMINI_API_KEY != ''
         run: python manage.py classify_news_ai
       - name: Generar presentación de las últimas 24 horas
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
-        run: python manage.py generate_news_briefing
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (inputs.mode == 'generate-briefing' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        run: |
+          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ]; then
+            python manage.py generate_news_briefing --force
+          else
+            python manage.py generate_news_briefing
+          fi
       - name: Comprobar identidad con titulares ficticios
         id: grouping_check
         if: inputs.mode == 'repair-grouping' && env.GEMINI_API_KEY != ''

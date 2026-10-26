@@ -1,9 +1,17 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** corregir y reprocesar los grupos que mezclan acontecimientos ajenos.
+**Objetivo actual:** publicar el resumen redactado por IA para cada categoría y preparar su activación tras el despliegue.
 
 ## Último paso completado
+
+El usuario pidió expresamente que la IA redacte los resúmenes, con al menos una noticia importante por categoría y enlace directo. Se retiró por completo la alternativa temporal sin IA (selección de titulares, funciones, estilos y pruebas), que no se publicó. `generate_news_briefing` ahora solicita a Gemini exactamente una síntesis por categoría con titulares autorizados de las últimas 24 horas, con una referencia de esa misma categoría. Se reserva capacidad por categoría dentro de 250 titulares; no se usan los grupos para mezclar coberturas. La validación exige cobertura completa, slugs conocidos, texto acotado, puntaje entero e ID único perteneciente a la categoría.
+
+Se comprobó la presencia de los nombres `GEMINI_API_KEY` y `GEMINI_API_KEY_SECONDARY` en los secretos de Actions, sin leer sus valores ni copiarlos. El generador reutiliza esa configuración; no se requiere cargar una clave en Render para leer las síntesis.
+
+`0020` asocia los puntos a categorías, conserva el historial y evita duplicados por generación. La web muestra las síntesis de las categorías elegidas con texto IA, medio, titular original, enlace directo y fecha. Cada una vence de manera independiente; una referencia caducada, reclasificada o sin permiso no oculta las demás. Sin síntesis válida se informa pendiente, fallo o falta de titulares autorizados, sin reemplazarla por un titular. Se corrigió el falso diagnóstico de configuración basado en claves de Render: sólo el proceso generador necesita Gemini, no la web. El modo manual `generate-briefing` de Actions fuerza únicamente este resumen después del despliegue y exige una clave configurada, sin ejecutar ingesta ni reparar grupos.
+
+Verificación: **119 pruebas aprobadas en PostgreSQL 17 temporal**; SQLite **104 aprobadas y 15 omitidas**. Incluye una síntesis por categoría, referencias cruzadas rechazadas, categorías incompletas/duplicadas, categorías poco frecuentes, permisos, caché incompleta, enlaces directos, visualización sin clave web, ausencia de reemplazo sin IA y vencimiento independiente. Migración `0020` verificada en ambos sentidos con síntesis anteriores y unicidad. Django check, ausencia de migraciones de modelo pendientes, actionlint y diff aprobados. Edge/Playwright a 1440 y 375 px con datos ficticios: composición revisada visualmente, sin corte horizontal en móvil; sólo el 404 previo del favicon. No se llamó a Gemini real ni se cambiaron bases remotas. PostgreSQL de QA detenido; capturas y scripts quedan fuera del repositorio. README, PROJECT y SOURCES actualizados; `.env.example` no cambia porque se reutilizan las claves existentes. La guía UI/UX se aplicó para reflujo, enlaces descriptivos y foco, conservando identidad y tipografías.
 
 La revisión se publicó en `86d7033`. La ejecución 40321618331 y su reintento se detuvieron antes de reparar porque sólo `0019` seguía pendiente en la base de Actions. Se intentó habilitar su aplicación manual en `b3c0518`, pero la ejecución 40322290075 falló al importar `config` desde el script temporal del runner, antes de conectarse a la base o aplicar cambios. El usuario aclaró que su compañero realiza el deployment de Render. Se retiró esa alternativa manual y se conserva la aplicación de migraciones durante el build de Render. **La corrección está en GitHub, pero la migración, la evaluación real de Gemini y la reparación remota siguen pendientes del despliegue del compañero.** No se modificaron datos remotos de agrupamiento ni sus puntajes en estos intentos.
 
@@ -156,7 +164,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Esperar que el responsable despliegue `main` en Render y aplique `0019` para poder ejecutar la reparación remota.
+Esperar que el responsable despliegue `main` en Render y aplique las migraciones hasta `0020` para ejecutar `generate-briefing` en Actions y comprobar los resúmenes IA publicados.
 
 ## Completado
 
