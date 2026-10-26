@@ -33,7 +33,7 @@ class NewsFilterForm(forms.Form):
         ("3d", "Últimos 3 días"), ("7d", "Última semana"),
     ])
     sort = forms.ChoiceField(label="Orden", required=False, choices=[
-        ("recent", "Más recientes"), ("important", "Más importantes"),
+        ("important", "Más importantes"), ("recent", "Más recientes"),
     ])
 
     def __init__(self, *args, articles, **kwargs):

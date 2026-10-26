@@ -66,7 +66,7 @@ class APIKeyRoutingTests(SimpleTestCase):
         ]
         for code in (400, 401, 403, 404, 429, 500, 503, 504):
             for path, operation, exception in cases:
-                with self.subTest(code=code, path=path), patch(path) as client:
+                with self.subTest(code=code, path=path), patch(path) as client, patch("news.llm_grouping.time.sleep"):
                     error = errors.APIError(code, {"error": {"message": SECONDARY + " private headline"}})
                     client.return_value.models.generate_content.side_effect = error
                     client.return_value.__enter__.return_value.models.generate_content.side_effect = error

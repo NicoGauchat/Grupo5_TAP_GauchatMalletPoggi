@@ -88,7 +88,7 @@ def category_news(request, slug):
     articles = story_articles(articles, text if not form.errors and sort != "recent" else "")
     filters = {key: request.GET.get(key, "").strip() for key in ("source", "language", "q", "period", "sort")}
     day = str(timezone.localdate()) if filters["period"] == "today" else ""
-    cursor_context = [category.pk, preference.classification_mode, filters, day]
+    cursor_context = [category.pk, preference.classification_mode, {**filters, "sort": sort}, day]
     response_status = 200
     try:
         rows, next_url = article_batch(request, articles, cursor_context, text if not form.errors else "", sort)

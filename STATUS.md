@@ -1,9 +1,17 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** diagnosticar y recuperar la generación IA de resúmenes, agrupamiento e importancia en producción.
+**Objetivo actual:** mejorar la lectura del resumen y sus fuentes, priorizar noticias importantes y reforzar los reintentos y las visitas automáticas.
 
 ## Último paso completado
+
+Se implementaron los cambios pedidos: «Resumen del día» en una grilla editorial de dos columnas (una en móvil), estados sin síntesis separados al pie y un desplegable «Ver fuentes» por resumen. Ofrece una opción por medio del mismo grupo verificado en las últimas 24 horas, sin sumar fuentes por afinidad temática; identifica el artículo usado como base de la síntesis y conserva enlaces, fechas y autoría/licencia. Las coberturas adicionales no se envían al generador ni amplían permisos de síntesis. Se reutiliza la consulta de coberturas con ventana opcional; las tarjetas conservan la ventana de 14 días. Categorías abre por defecto en «Más importantes», también al limpiar filtros; conserva recientes explícitos y relevancia al buscar. El cursor usa el orden efectivo para rechazar continuaciones incompatibles. No hay migraciones, dependencias ni variables nuevas.
+
+Agrupamiento permite ahora **tres intentos completos** por lote de comparación (inicial y dos reintentos) antes de persistir: repite respuestas/JSON inválidos inmediatamente y fallos HTTP 500/502/503/504 o transporte transitorio tras dos y cuatro segundos. El SDK hace un solo intento por solicitud para no superponer reintentos. Cuota y configuración no se reintentan; una auditoría negativa válida deja las noticias separadas. Al agotarse, el lote queda pendiente. Clasificación, importancia y resumen conservan sus dos intentos para fallos temporales. No se ejecutó agrupamiento real ni se alteraron grupos o puntajes remotos en esta unidad.
+
+El bot se cambió de diez a **cinco minutos**, en minutos 2, 7 y siguientes hasta 57, el mínimo de Actions. El historial remoto sólo tenía una visita manual y una programada, ambas exitosas; workflow activo y sin variable de pausa, pero sin regularidad acreditada. No se atribuye una causa interna a GitHub ni se promete continuidad: su documentación advierte demoras/omisiones. Se conserva HTTPS, verificación del título, tres intentos y separación de la ingesta. Se prepara prueba manual después del push; cambiar este workflow no necesita despliegue de Render.
+
+Verificación: suite SQLite **126 ejecutadas, 111 aprobadas y 15 omitidas** por PostgreSQL; incluye fuentes distintas/verificadas, exclusión de caducadas/futuras/inactivas/sin permiso, atribución, importancia inicial, recientes explícitos, paginación y rechazo de cursores incompatibles, tres intentos y conservación atómica del lote ante auditoría inválida. Django check, ausencia de migraciones de modelo, actionlint 1.7.12 en ambos workflows y diff pasaron. Edge/Playwright headless con HTML renderizado por Django y datos ficticios a 1440, 768 y 375 px: grilla, fuentes desplegables con teclado, selector inicial y ausencia de desbordamiento comprobados; capturas revisadas. Se corrigió una regla de párrafos del encabezado que alteraba el orden visual dentro del resumen. Los artefactos de QA y las herramientas quedan fuera del repositorio. Docker no está disponible; no se repitieron las pruebas PostgreSQL. README, PROJECT y SOURCES actualizados; `.env.example` no cambia. El amigo del usuario continúa a cargo del despliegue de la web; no se inició despliegue de Render.
 
 Por pedido del usuario se ejecutó nuevamente `generate-briefing` en Actions, ejecución **40408155860**, que terminó **correctamente** el 26/10/2026 a las **18:54 de Argentina**: «Presentación actualizada: 8 puntos sobre 106 titulares de las últimas 24 horas». Las síntesis quedaron persistidas para la lectura web; no se inspeccionó una sesión autenticada ni se acredita su presentación visual. Este intento confirma recuperación de la generación de resúmenes, sin determinar si fue por reintento o disponibilidad inicial del proveedor. No ejecutó ingesta, clasificación, agrupamiento ni evaluación de importancia, por lo que no acredita recuperación de esas etapas. No hubo despliegue de Render, cambios de código, claves, permisos, modelo o variables. Verificación proporcional: conclusión exitosa y mensaje final del comando en los logs. README, PROJECT, SOURCES y `.env.example` no requieren cambios: sólo se registra el resultado operativo.
 
@@ -178,7 +186,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar en la próxima actualización completa de Actions si clasificación, agrupamiento e importancia también se recuperan tras la generación exitosa de los resúmenes.
+Desplegar `main` en Render mediante el responsable para verificar en la web el resumen ordenado, el selector de fuentes y la importancia como orden inicial.
 
 ## Completado
 

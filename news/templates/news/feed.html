@@ -16,41 +16,47 @@
     <div class="news-briefing" aria-labelledby="briefing-title">
         <div class="briefing-heading">
             <div>
-                <h2 id="briefing-title">Resumen</h2>
-                <p class="briefing-description">La noticia más importante de cada categoría, resumida por IA · últimas 24 horas</p>
+                <p class="briefing-eyebrow">Tu selección de actualidad</p>
+                <h2 id="briefing-title">Resumen del día</h2>
+                <p class="briefing-description">La noticia más importante de cada categoría, resumida por IA.</p>
             </div>
+            <span class="briefing-window">Últimas 24 horas</span>
         </div>
         {% if category_briefings %}
-            <p class="briefing-paragraph">
+            {% if has_briefing_items %}<ul class="briefing-grid" aria-label="Resúmenes por categoría">
                 {% for entry in category_briefings %}
-                    <span class="briefing-segment"><strong>{{ entry.category.name }}:</strong>
-                    {% if entry.item %}{{ entry.item.text }}
-                        {% for article in entry.item.articles.all %}<a class="briefing-direct-link" href="{{ article.original_url }}" target="_blank" rel="noopener" aria-label="Leer {{ article.title }} en {{ article.feed.source.name }} (nueva pestaña)">Leer en {{ article.feed.source.name }}</a>{% endfor %}
-                    {% elif entry.state == 'pending' %}El resumen IA está pendiente de generación.
-                    {% elif entry.state == 'error' %}No se pudo generar el resumen IA. Se volverá a intentar en la próxima actualización.
-                    {% else %}Sin titulares habilitados para resumir en las últimas 24 horas.
-                    {% endif %}</span>
+                    {% if entry.item %}<li class="briefing-story">
+                        <h3>{{ entry.category.name }}</h3>
+                        <p class="briefing-text">{{ entry.item.text }}</p>
+                        <div class="briefing-story-footer">
+                            <details class="briefing-sources">
+                                <summary>Ver fuente{{ entry.source_count|pluralize:"s" }} <span class="briefing-source-count">{{ entry.source_count }}</span><span class="visually-hidden"> de {{ entry.category.name }}</span></summary>
+                                <ul>
+                                    {% for article in entry.sources %}<li>
+                                        <a href="{{ article.original_url }}" target="_blank" rel="noopener"><strong>{{ article.feed.source.name }} <span aria-hidden="true">↗</span></strong><span>{{ article.title }}</span><span class="visually-hidden"> (artículo original, nueva pestaña)</span></a>
+                                        <p class="briefing-meta">{% if article.pk == entry.reference_id %}Base de la síntesis{% else %}Otra cobertura del mismo hecho{% endif %} · <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|date:'j/m H:i' }}</time></p>
+                                        {% if article.byline or article.feed.source.license_url %}<p class="briefing-meta">{% if article.byline %}{{ article.byline }}{% endif %}{% if article.feed.source.license_url %}{% if article.byline %} · {% endif %}<a href="{{ article.feed.source.license_url }}" target="_blank" rel="noopener">Licencia de uso</a>{% endif %}</p>{% endif %}
+                                    </li>{% endfor %}
+                                </ul>
+                            </details>
+                            <p class="briefing-updated">Resumen generado <time datetime="{{ entry.item.briefing.generated_at|date:'c' }}">{{ entry.item.briefing.generated_at|date:'j/m H:i' }}</time></p>
+                        </div>
+                        {% if entry.update_failed %}<p class="briefing-notice" role="status">No se pudo actualizar el resumen de {{ entry.category.name }}. Se conserva la última síntesis IA vigente.</p>{% endif %}
+                    </li>{% endif %}
                 {% endfor %}
-            </p>
-            {% for entry in category_briefings %}
-                {% if entry.update_failed %}<p class="briefing-notice" role="status">No se pudo actualizar el resumen de {{ entry.category.name }}. Se conserva la última síntesis IA vigente.</p>{% endif %}
-            {% endfor %}
-            {% if has_briefing_items %}<details class="briefing-references">
-                <summary>Ver fuentes y fechas de los resúmenes</summary>
+            </ul>{% endif %}
+            {% if has_missing_briefings %}<div class="briefing-pending" aria-labelledby="briefing-pending-title">
+                <h3 id="briefing-pending-title">Aún sin resumen</h3>
                 <ul>
-                    {% for entry in category_briefings %}
-                        {% if entry.item %}
-                            <li><strong>{{ entry.category.name }}</strong>
-                                {% for article in entry.item.articles.all %}
-                                    <a href="{{ article.original_url }}" target="_blank" rel="noopener">{{ article.feed.source.name }} · {{ article.title }}<span class="visually-hidden"> (artículo original, nueva pestaña)</span></a>
-                                    {% if article.feed.source.license_url %}<span class="briefing-meta">{% if article.byline %}{{ article.byline }} · {% endif %}<a href="{{ article.feed.source.license_url }}" target="_blank" rel="noopener">Licencia de uso</a></span>{% endif %}
-                                {% endfor %}
-                                <span class="briefing-meta">Resumen generado <time datetime="{{ entry.item.briefing.generated_at|date:'c' }}">{{ entry.item.briefing.generated_at|date:'j/m H:i' }}</time></span>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
+                    {% for entry in category_briefings %}{% if not entry.item %}
+                    <li><strong>{{ entry.category.name }}</strong><span>
+                        {% if entry.state == 'pending' %}El resumen IA está pendiente de generación.
+                        {% elif entry.state == 'error' %}No se pudo generar el resumen IA. Se volverá a intentar en la próxima actualización.
+                        {% else %}Sin titulares habilitados para resumir en las últimas 24 horas.{% endif %}
+                    </span></li>
+                    {% endif %}{% endfor %}
                 </ul>
-            </details>{% endif %}
+            </div>{% endif %}
         {% else %}
             <p class="briefing-empty">Elegí tus categorías para ver sus resúmenes IA.</p>
         {% endif %}

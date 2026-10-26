@@ -1,9 +1,12 @@
 """Agrupamiento conservador de titulares con el cliente Gemini existente."""
 
 import json
+import logging
+import time
 
+import httpx
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
@@ -11,7 +14,10 @@ from .llm_diagnostics import safe_diagnostic
 
 
 class GroupingError(Exception):
-    pass
+    def __init__(self, message, *, retryable=True, delay=0):
+        super().__init__(message)
+        self.retryable = retryable
+        self.delay = delay
 
 
 def metadata(article):
@@ -52,17 +58,25 @@ def group_articles(articles, candidates):
             },
         }}},
     }
-    result = request_groups(prompt, schema, api_key)
-    groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
-    return confirm_groups(articles, candidates, groups, api_key)
+    for attempt in range(1, 4):
+        try:
+            result = request_groups(prompt, schema, api_key)
+            groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
+            return confirm_groups(articles, candidates, groups, api_key)
+        except GroupingError as error:
+            if not error.retryable or attempt == 3:
+                raise
+            logging.getLogger(__name__).warning(
+                "Agrupamiento: intento %s/3 fallido; se reintenta sin guardar el lote.", attempt,
+            )
+            if error.delay:
+                time.sleep(error.delay * attempt)
 
 
 def request_groups(prompt, schema, api_key):
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
-            timeout=60_000, retry_options=types.HttpRetryOptions(
-                attempts=2, initial_delay=2, max_delay=4, http_status_codes=[500, 502, 503, 504],
-            ),
+            timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1),
         )) as client:
             response = client.models.generate_content(
                 model=MODEL, contents=prompt,
@@ -72,7 +86,15 @@ def request_groups(prompt, schema, api_key):
             )
             result = json.loads(response.text or "")
     except Exception as error:
-        raise GroupingError(f"No se pudo agrupar con Gemini; las noticias quedan pendientes. {safe_diagnostic(error)}") from error
+        invalid_json = isinstance(error, json.JSONDecodeError)
+        transient = (
+            isinstance(error, (httpx.TransportError, TimeoutError))
+            or isinstance(error, errors.APIError) and error.code in {500, 502, 503, 504}
+        )
+        raise GroupingError(
+            f"No se pudo agrupar con Gemini; las noticias quedan pendientes. {safe_diagnostic(error)}",
+            retryable=invalid_json or transient, delay=2 if transient else 0,
+        ) from error
     return result
 
 

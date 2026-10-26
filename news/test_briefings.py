@@ -18,7 +18,7 @@ from google.genai import errors
 
 from .briefings import briefing_context
 from .llm_briefing import BriefingError, summarize_articles
-from .models import Article, Category, Feed, NewsBriefing, NewsBriefingItem, Source, UserPreference
+from .models import Article, Category, Feed, NewsBriefing, NewsBriefingItem, Source, Story, UserPreference
 
 
 class BriefingResponseTests(SimpleTestCase):
@@ -222,18 +222,59 @@ class BriefingTests(TestCase):
             response = self.client.get(reverse("news_feed"))
             model.assert_not_called()
         self.assertEqual(len(response.context["category_briefings"]), 2)
-        self.assertContains(response, 'class="briefing-paragraph"', count=1)
-        self.assertNotContains(response, 'class="briefing-items"')
         self.assertContains(response, rows[0]["text"])
         self.assertContains(response, rows[1]["text"])
         self.assertContains(response, f'href="{article.original_url}" target="_blank" rel="noopener"')
-        self.assertContains(response, "Ver fuentes y fechas de los resúmenes")
+        self.assertContains(response, "Base de la síntesis", count=2)
         self.assertNotContains(response, "no está configurado")
         self.assertEqual(set(NewsBriefingItem.objects.values_list("category_id", flat=True)), {self.category.pk, category.pk})
         self.user.news_preference.categories.remove(category)
         response = self.client.get(reverse("news_feed"))
         self.assertNotContains(response, rows[1]["text"])
         self.assertEqual(NewsBriefingItem.objects.filter(category=category).count(), 1)
+
+    def test_summary_sources_only_include_distinct_current_verified_coverages(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.save()
+        story = Story.objects.create()
+        self.article.story = story
+        self.article.save()
+        source = Source.objects.create(name="Otra fuente", license_url="https://example.com/license")
+        feed = Feed.objects.create(source=source, name="Coberturas", url="https://example.com/coverage/rss",
+                                   is_active=True, allow_ai_grouping=True, allow_ai_briefing=False)
+
+        def coverage(label, **kwargs):
+            return Article.objects.create(feed=feed, story=story, title=label,
+                original_url=f"https://example.com/coverage/{label}",
+                published_at=kwargs.pop("published_at", self.now - timedelta(minutes=1)), **kwargs)
+
+        other = coverage("otra", byline="Autor de ensayo")
+        coverage("duplicada", published_at=self.now - timedelta(hours=2))
+        old = coverage("antigua", published_at=self.now - timedelta(hours=25))
+        future = coverage("futura", published_at=self.now + timedelta(hours=2))
+        unrelated = coverage("otro-hecho")
+        unrelated.story = Story.objects.create()
+        unrelated.save()
+        self.generate()
+        response = self.client.get(reverse("news_feed"))
+        row = response.context["category_briefings"][0]
+        self.assertEqual(row["source_count"], 2)
+        self.assertEqual({a.pk for a in row["sources"]}, {self.article.pk, other.pk})
+        self.assertContains(response, other.original_url)
+        self.assertContains(response, "Otra cobertura del mismo hecho")
+        self.assertContains(response, "Autor de ensayo")
+        self.assertContains(response, source.license_url)
+        for excluded in (old, future, unrelated):
+            self.assertNotContains(response, excluded.original_url)
+        for field in ("is_active", "allow_ai_grouping"):
+            with self.subTest(field=field):
+                setattr(feed, field, False)
+                feed.save()
+                self.assertEqual(briefing_context(self.now, [self.category])["category_briefings"][0]["source_count"], 1)
+                setattr(feed, field, True)
+                feed.save()
+        Story.objects.filter(pk=story.pk).update(grouping_version=0)
+        self.assertEqual(briefing_context(self.now, [self.category])["category_briefings"][0]["source_count"], 1)
 
     def test_expired_category_does_not_hide_another_valid_ai_summary(self):
         category, article = self.add_science()

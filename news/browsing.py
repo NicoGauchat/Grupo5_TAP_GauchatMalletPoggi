@@ -35,7 +35,10 @@ def articles_for(categories, mode):
 
 
 def filter_articles(request, articles):
-    form = NewsFilterForm(request.GET, articles=articles)
+    data = request.GET.copy()
+    if not data.get("q", "").strip() and not data.get("sort", "").strip():
+        data["sort"] = "important"
+    form = NewsFilterForm(data, articles=articles)
     if not form.is_valid():
         return form, articles.none(), ""
     source, language, text = (form.cleaned_data[key] for key in ("source", "language", "q"))
@@ -70,12 +73,12 @@ def story_articles(articles, search_text=""):
     )
 
 
-def add_coverages(rows):
+def add_coverages(rows, *, cutoff=None, now=None):
     story_ids = {article.story_id for article in rows if article.has_verified_story}
     grouped = {}
     coverages = Article.objects.filter(
         story_id__in=story_ids, feed__is_active=True, feed__allow_ai_grouping=True,
-        published_at__gte=retention_cutoff(), published_at__lte=timezone.now(),
+        published_at__gte=cutoff or retention_cutoff(), published_at__lte=now or timezone.now(),
     ).select_related("feed__source").order_by("feed__source__name", "-published_at", "-pk")
     for coverage in coverages:
         grouped.setdefault(coverage.story_id, []).append(coverage)

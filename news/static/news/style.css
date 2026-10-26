@@ -132,22 +132,38 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
 
 .feed-intro { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 2rem; padding-block: 2rem; }
 .feed-intro h1 { flex: 1 1 60%; margin: 0; font-size: clamp(2rem, 2.6vw, 2.75rem); font-weight: 750; }
-.feed-intro p { flex: 1 1 100%; order: 2; margin: 0; color: var(--muted); font-size: 1.0625rem; }
+.feed-intro > p { flex: 1 1 100%; order: 2; margin: 0; color: var(--muted); font-size: 1.0625rem; }
 .news-briefing { min-width: 0; margin-top: 2rem; padding-top: 1.75rem; border-top: 1px solid var(--line); }
-.briefing-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 1.25rem; }
-.briefing-heading h2 { margin: 0; font-size: 2rem; line-height: 1.2; }
+.briefing-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 1.75rem; }
+.briefing-heading h2 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.5rem); line-height: 1.2; }
+.news-briefing .briefing-eyebrow { margin: 0 0 .5rem; color: var(--blue-hover); font-size: .75rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.briefing-window { flex-shrink: 0; padding: .4rem .8rem; border: 1px solid var(--line); border-radius: 2rem; background: var(--surface); color: var(--muted); font-size: .8125rem; font-weight: 650; }
 .briefing-description { margin: .375rem 0 0; color: var(--muted); }
-.news-briefing .briefing-paragraph { max-width: 75ch; margin: 0; color: var(--ink); font-size: 1.125rem; line-height: 1.75; text-wrap: pretty; }
-.briefing-segment + .briefing-segment { margin-left: .3em; }
-.briefing-segment strong { color: var(--blue-hover); }
+.briefing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.5rem; margin: 0; padding: 0; list-style: none; }
+.briefing-story { display: flex; flex-direction: column; min-width: 0; padding: 1.5rem 0; border-top: 1px solid var(--line); }
+.briefing-story h3 { display: flex; align-items: center; gap: .625rem; margin: 0 0 .75rem; color: var(--blue-hover); font: 700 1rem/1.35 var(--display-font); }
+.briefing-story h3::before { content: ""; width: .25rem; height: 1rem; background: var(--coral); flex: 0 0 auto; }
+.news-briefing .briefing-text { margin: 0; max-width: 60ch; color: var(--ink); font-size: 1.125rem; line-height: 1.65; text-wrap: pretty; }
+.briefing-story-footer { margin-top: auto; padding-top: .75rem; }
+.news-briefing .briefing-updated { margin: .25rem 0 0; color: var(--muted); font-size: .8125rem; }
+.briefing-sources { min-width: 0; }
+.briefing-sources summary { display: flex; align-items: center; gap: .5rem; width: fit-content; max-width: 100%; min-height: 44px; color: var(--blue-hover); font-weight: 650; cursor: pointer; }
+.briefing-sources summary::after { content: "+"; margin-left: .25rem; font-size: 1.125rem; }
+.briefing-sources[open] summary::after { content: "−"; }
+.briefing-source-count { display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem; padding-inline: .3rem; border-radius: 50%; background: var(--blue-soft); font-size: .75rem; }
+.briefing-sources ul { margin: .25rem 0 .75rem; padding: .25rem 1rem; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); list-style: none; }
+.briefing-sources li { padding: .75rem 0; }
+.briefing-sources li + li { border-top: 1px solid var(--line); }
+.briefing-sources li > a { display: block; min-height: 44px; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.briefing-sources li > a strong, .briefing-sources li > a > span { display: block; }
+.briefing-sources li > a strong { margin-bottom: .25rem; color: var(--blue-hover); font-size: .9375rem; }
+.briefing-sources li > a:hover { text-decoration: underline; }
+.briefing-pending { margin-top: .75rem; padding: 1.25rem; border-radius: var(--radius-control); background: #edf0f6; }
+.briefing-pending h3 { margin: 0 0 .75rem; color: var(--muted); font-size: .875rem; font-weight: 650; }
+.briefing-pending ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .875rem 1.5rem; margin: 0; padding: 0; list-style: none; }
+.briefing-pending li { min-width: 0; color: var(--muted); font-size: .875rem; }
+.briefing-pending strong { display: block; margin-bottom: .25rem; color: var(--ink); font-weight: 650; }
 .briefing-empty { margin: 1rem 0 0; color: var(--muted); }
-.briefing-direct-link { display: inline-flex; align-items: center; min-height: 44px; margin-left: .2em; color: var(--blue-hover); font-size: .9375rem; font-weight: 650; text-underline-offset: .2em; overflow-wrap: anywhere; }
-.briefing-references { margin-top: 1rem; }
-.briefing-references summary { display: inline-flex; align-items: center; min-height: 44px; color: var(--blue-hover); font-weight: 650; cursor: pointer; }
-.briefing-references ul { max-width: 75ch; margin: .5rem 0 0; padding: 0; list-style: none; }
-.briefing-references li { padding: .75rem 0; border-top: 1px solid var(--line); }
-.briefing-references li > a, .briefing-references .briefing-meta { display: block; }
-.briefing-references li > a { overflow-wrap: anywhere; }
 .news-briefing .briefing-meta { margin-top: .5rem; color: var(--muted); font-size: .8125rem; line-height: 1.5; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .feed-edit-link { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 1rem; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); font-weight: 650; text-decoration: none; box-shadow: 0 2px 4px rgb(24 32 51 / 3%); }
@@ -407,6 +423,9 @@ legend { margin-bottom: 1.25rem; padding: 0; font-size: 1.375rem; font-weight: 6
     .feed-intro { margin-top: 1.25rem; padding: 1.25rem; gap: .75rem; }
     .feed-intro h1 { font-size: 2rem; }
     .news-briefing { margin-top: 1.5rem; padding-top: 1.5rem; }
+    .briefing-grid, .briefing-pending ul { grid-template-columns: minmax(0, 1fr); }
+    .briefing-heading { align-items: flex-start; padding-bottom: 1.25rem; }
+    .briefing-story { padding-block: 1.25rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

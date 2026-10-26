@@ -59,7 +59,11 @@ class ImportanceAndDateTests(TestCase):
         important = self.article("Avance sustancial", hours=5, score=5)
         minor = self.article("Novedad menor", hours=2, score=2)
         pending = self.article("Por evaluar", hours=1)
-        self.assertEqual([a.pk for a in self.client.get(self.url).context["articles"]], [pending.pk, minor.pk, important.pk])
+        default = self.client.get(self.url)
+        self.assertEqual([a.pk for a in default.context["articles"]], [important.pk, minor.pk, pending.pk])
+        self.assertEqual(default.context["filter_form"]["sort"].value(), "important")
+        self.assertFalse(default.context["filters_active"])
+        self.assertEqual([a.pk for a in self.client.get(self.url, {"sort": "recent"}).context["articles"]], [pending.pk, minor.pk, important.pk])
         response = self.client.get(self.url, {"sort": "important"})
         self.assertEqual([a.pk for a in response.context["articles"]], [important.pk, minor.pk, pending.pk])
         self.assertContains(response, "La más importante")
@@ -71,6 +75,24 @@ class ImportanceAndDateTests(TestCase):
         response = self.client.get(self.url, {"sort": "important"})
         self.assertNotContains(response, "Importancia general 5/5")
         self.assertEqual([a.pk for a in response.context["articles"]], [pending.pk, minor.pk, important.pk])
+
+    def test_default_importance_continuation_and_reset_preserve_effective_order(self):
+        for index in range(23):
+            self.article(f"Titre {index}", hours=index + 1, score=index % 5 + 1)
+        expected = list(Article.objects.order_by("-story__importance_score", "-published_at", "-pk").values_list("pk", flat=True))
+        first = self.client.get(self.url)
+        seen = [article.pk for article in first.context["articles"]]
+        next_url = first.context["next_url"]
+        while next_url:
+            response = self.client.get(next_url, HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            seen.extend(map(int, re.findall(r'data-article-id="(\d+)"', data["html"])))
+            next_url = data["next_url"]
+        self.assertEqual(seen, expected)
+        self.assertEqual(self.client.get(self.url, {"sort": ""}).context["sort"], "important")
+        self.assertEqual(self.client.get(self.url, {"source": self.source.pk}).context["sort"], "important")
+        self.assertEqual(self.client.get(first.context["next_url"] + "&sort=recent", HTTP_ACCEPT="application/json").status_code, 400)
 
     def test_today_uses_buenos_aires_midnight_and_rolling_periods(self):
         now = datetime(2026, 10, 25, 5, 0, tzinfo=datetime_timezone.utc)
@@ -106,7 +128,7 @@ class ImportanceAndDateTests(TestCase):
             url = data["next_url"]
         self.assertEqual(seen, expected)
         self.assertEqual(self.client.get(old_url + "&period=7d", HTTP_ACCEPT="application/json").status_code, 400)
-        self.assertEqual(self.client.get(old_url + "&sort=", HTTP_ACCEPT="application/json").status_code, 400)
+        self.assertEqual(self.client.get(old_url + "&sort=recent", HTTP_ACCEPT="application/json").status_code, 400)
 
     def test_today_cursor_expires_on_local_day_change(self):
         noon = datetime(2026, 10, 25, 15, 0, tzinfo=datetime_timezone.utc)

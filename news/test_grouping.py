@@ -2,6 +2,7 @@ import json
 from importlib import import_module
 from datetime import timedelta
 from io import StringIO
+from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
 
@@ -19,6 +20,37 @@ from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPr
 
 
 class GroupingValidationTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
+    def test_retries_invalid_response_and_recovers_before_saving(self):
+        article = SimpleNamespace(pk=1, title="Titular de ensayo", language="es", published_at=timezone.now(),
+                                  feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")))
+        valid = {"groups": [{"story_id": 0, "article_ids": [1]}]}
+        with patch("news.llm_grouping.request_groups", side_effect=[{"groups": []}, {"groups": []}, valid]) as model:
+            self.assertEqual(group_articles([article], []), valid["groups"])
+            self.assertEqual(model.call_count, 3)
+        with patch("news.llm_grouping.request_groups", return_value={"groups": []}) as model:
+            with self.assertRaises(GroupingError):
+                group_articles([article], [])
+            self.assertEqual(model.call_count, 3)
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
+    def test_transient_failures_retry_three_times_but_quota_and_config_stop(self):
+        from google.genai import errors
+
+        article = SimpleNamespace(pk=1, title="Titular", language="es", published_at=timezone.now(),
+                                  feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")))
+        for status in (503, 504, 429, 403):
+            with self.subTest(status=status), patch("news.llm_grouping.genai.Client") as client, patch("news.llm_grouping.time.sleep") as sleep:
+                generate = client.return_value.__enter__.return_value.models.generate_content
+                generate.side_effect = errors.APIError(status, {"error": {"message": "private-provider-message"}})
+                with self.assertRaises(GroupingError) as caught:
+                    group_articles([article], [])
+                count = 3 if status in (503, 504) else 1
+                self.assertEqual(generate.call_count, count)
+                self.assertEqual(sleep.call_count, count - 1)
+                self.assertNotIn("private-provider-message", str(caught.exception))
+                self.assertEqual(client.call_args.kwargs["http_options"].retry_options.attempts, 1)
+
     def test_quality_command_checks_pairs_without_database_access(self):
         with patch("news.management.commands.check_news_grouping.group_articles") as model:
             model.return_value = [{"story_id": 0, "article_ids": [1, 2]},
@@ -260,9 +292,10 @@ class StoryTests(TestCase):
         other = self.article("Segundo acontecimiento", index=1, story=legacy)
         with patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"}), patch("news.llm_grouping.request_groups") as model:
             model.side_effect = [{"groups": [{"story_id": 0, "article_ids": [first.pk, other.pk]}]},
-                                 {"decisions": []}]
+                                 {"decisions": []}] * 3
             with self.assertRaises(CommandError):
                 call_command("group_news_ai", stdout=StringIO())
+            self.assertEqual(model.call_count, 6)
         first.refresh_from_db()
         other.refresh_from_db()
         self.assertEqual(first.story_id, legacy.pk)
