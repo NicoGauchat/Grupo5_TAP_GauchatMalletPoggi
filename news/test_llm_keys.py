@@ -13,7 +13,7 @@ from .llm_briefing import BriefingError, summarize_articles
 from .llm_classification import ClassificationError, classify_batch
 from .llm_grouping import GroupingError, group_articles
 from .llm_importance import ImportanceError, score_stories
-from .llm_keys import TASK_API_KEYS, api_key_for, configured_tasks
+from .llm_keys import TASK_API_KEYS, api_key_for, configured_tasks, configured_model
 from .llm_diagnostics import safe_diagnostic
 from .models import Article, Category, Feed, Source
 
@@ -23,6 +23,14 @@ SECONDARY = "secondary-test-value"
 
 
 class APIKeyRoutingTests(SimpleTestCase):
+    def test_model_selection_is_explicit_and_restricted(self):
+        for value, expected in (("", "gemini-3.1-flash-lite"), ("  gemini-3.5-flash-lite  ", "gemini-3.5-flash-lite")):
+            with self.subTest(value=value), patch.dict("os.environ", {"GEMINI_MODEL": value}):
+                self.assertEqual(configured_model(), expected)
+        with patch.dict("os.environ", {"GEMINI_MODEL": "not-an-approved-model"}):
+            with self.assertRaises(ValueError):
+                configured_model()
+
     @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
     def test_sdk_retries_unavailable_but_not_quota_with_mock_http(self):
         real_client = genai.Client

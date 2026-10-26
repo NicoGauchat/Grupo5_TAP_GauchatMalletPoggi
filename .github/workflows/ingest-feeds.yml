@@ -20,6 +20,11 @@ on:
         type: choice
         options: ['100', '500']
         default: '100'
+      gemini_model:
+        description: Modelo Gemini para esta ejecución (repository-default usa la configuración del repositorio)
+        type: choice
+        options: [repository-default, gemini-3.1-flash-lite, gemini-3.5-flash-lite]
+        default: repository-default
 
 permissions:
   contents: read
@@ -45,6 +50,7 @@ jobs:
       POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_API_KEY_SECONDARY: ${{ secrets.GEMINI_API_KEY_SECONDARY }}
+      GEMINI_MODEL: ${{ inputs.gemini_model != 'repository-default' && inputs.gemini_model || vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
       MAINTENANCE_MODE: ${{ inputs.mode || (github.event_name == 'schedule' && github.event.schedule != '0 0,6,8,10,12,14,16,18,20,22 * * *' && 'process-ai') || 'maintenance' }}
     steps:
       - uses: actions/checkout@v7

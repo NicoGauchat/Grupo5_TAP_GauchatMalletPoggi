@@ -5,11 +5,11 @@ import json
 from google import genai
 from google.genai import types
 
-from .llm_keys import api_key_for
+from .llm_keys import api_key_for, configured_model
 from .llm_diagnostics import safe_diagnostic
 
 
-MODEL = "gemini-3.1-flash-lite"
+MODEL = configured_model()
 BATCH_SIZE = 10
 CATEGORY_DESCRIPTIONS = {
     "tecnologia": "Tecnología digital, software, dispositivos e industria tecnológica.",

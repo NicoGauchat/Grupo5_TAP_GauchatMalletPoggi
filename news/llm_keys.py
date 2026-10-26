@@ -3,6 +3,16 @@
 import os
 
 
+GEMINI_MODELS = ("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")
+
+
+def configured_model():
+    model = os.getenv("GEMINI_MODEL", "").strip() or GEMINI_MODELS[0]
+    if model not in GEMINI_MODELS:
+        raise ValueError("GEMINI_MODEL debe ser un modelo gratuito habilitado en el proyecto.")
+    return model
+
+
 TASK_API_KEYS = {
     "classification": "GEMINI_API_KEY",
     "grouping": "GEMINI_API_KEY",

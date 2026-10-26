@@ -24,6 +24,8 @@ Se transmiten exclusivamente ID, titular, medio, fecha, idioma y nombres/slugs d
 
 El desplegable «Ver fuentes» de cada síntesis también permite abrir otras coberturas del mismo grupo verificado, de feeds activos con `allow_ai_grouping=True` y publicadas dentro de las últimas 24 horas. Se ofrece una opción por medio, manteniendo titular, enlace y autoría/licencia aplicables. Se distingue la referencia usada como «Base de la síntesis» de las alternativas: esas coberturas no se envían a Gemini ni se usan para reescribir el resumen. Por ello un feed con síntesis deshabilitada puede figurar como enlace de cobertura, sin extender su permiso `allow_ai_briefing`. Compartir categoría no habilita la asociación y los grupos pendientes no agregan fuentes. No se modifican políticas ni permisos de los feeds.
 
+La comparación controlada entre Gemini 3.1 Flash-Lite y Gemini 3.5 Flash-Lite mantiene el mismo proveedor y los mismos campos autorizados. No amplía permisos de síntesis, agrupamiento, imágenes o resúmenes RSS ni incorpora otro destino para los titulares. La selección del modelo es explícita; no hay conmutación para eludir cuotas.
+
 ### Ampliación vigente del 25/10/2026
 
 Por pedido del usuario, se prioriza cobertura argentina y se agregan fuentes de Estados Unidos y Europa. **Agência Brasil queda fuera**: no se incorpora su fuente, feeds ni equivalencias a la migración. `0018` agrega quince RSS a los once originales: **26 feeds activos precargados de ocho medios**. Los medios nuevos son Perfil (Argentina), NASA (Estados Unidos) y elDiario.es (España); además se amplían canales de Clarín, Los Andes y EL PAÍS. Las tres categorías nuevas son Salud, Medioambiente y Deportes.
