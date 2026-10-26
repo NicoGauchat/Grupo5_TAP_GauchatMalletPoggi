@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -95,7 +95,7 @@ class Command(BaseCommand):
             ).delete()
 
         if status == "error":
-            return
+            raise CommandError(f"Falló el resumen IA ({error_code}); se guardó el intento y se conserva la última síntesis vigente.")
         if not enabled:
             self.stdout.write("No hay fuentes habilitadas para la presentación.")
         elif not articles:

@@ -8,6 +8,7 @@ from google.genai import types
 
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
+from .llm_diagnostics import safe_diagnostic
 
 
 class ImportanceError(Exception):
@@ -56,7 +57,7 @@ def score_stories(stories):
             )
             result = json.loads(response.text or "")
     except Exception as error:
-        raise ImportanceError("No se pudo evaluar con Gemini; se conservan los puntajes anteriores.") from error
+        raise ImportanceError(f"No se pudo evaluar con Gemini; se conservan los puntajes anteriores. {safe_diagnostic(error)}") from error
     return validate_scores(result, set(stories))
 
 

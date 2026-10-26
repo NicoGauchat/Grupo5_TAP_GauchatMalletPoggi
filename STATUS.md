@@ -1,9 +1,13 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** integrar el resumen en párrafo sin perder las síntesis IA individuales por categoría y preparar su activación tras el despliegue.
+**Objetivo actual:** diagnosticar y recuperar la generación IA de resúmenes, agrupamiento e importancia en producción.
 
 ## Último paso completado
+
+Se agregó diagnóstico seguro compartido para las cuatro etapas Gemini: código HTTP numérico y causas fijas para API, timeout, transporte, JSON inválido y error de cliente, sin imprimir mensajes originales ni datos enviados. El generador de resúmenes ahora guarda el intento fallido y devuelve `CommandError`, preservando la última síntesis vigente y señalando el fallo en Actions. No cambia la selección de claves, los reintentos ni la validación de contenido. Pruebas SQLite: **121 ejecutadas, 106 aprobadas y 15 omitidas** por requerir PostgreSQL; incluyen errores HTTP simulados en las cuatro funciones, ausencia de claves/contenido privado en el diagnóstico y persistencia del intento fallido con conservación del resumen anterior. Django check, ausencia de migraciones pendientes de modelo y diff pasaron. Entorno de pruebas instalado fuera del repositorio. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios: no cambian feeds, permisos, campos enviados ni variables. Se prepara publicación para una ejecución real de diagnóstico en Actions, sin aplicar migraciones ni desplegar Render.
+
+Diagnóstico del reporte de resúmenes fallidos y de importancia pendiente: se inspeccionaron los logs de Actions de las ejecuciones 40352998339 y 40403228756 del 26/10/2026. En la última (iniciada a las 18:18 de Argentina), migraciones, limpieza e ingesta pasaron. Clasificación procesó cero noticias antes de un error genérico de Gemini; el resumen informó «Gemini no está disponible temporalmente»; agrupamiento procesó 30 noticias antes de rechazar referencias inválidas o repetidas; importancia puntuó diez acontecimientos antes de otro error genérico. La ejecución anterior también falló en las cuatro etapas IA. Las dos claves están presentes en el entorno enmascarado del runner; no se leyeron sus valores. El error de resumen corresponde a un APIError fuera de 400/401/403/404/429, pero el log no conserva el código HTTP exacto. No se acredita cuota agotada ni credencial inválida; clasificación e importancia ocultan la excepción original, por lo que falta diagnóstico seguro del proveedor. El paso de resumen figura exitoso porque el comando guarda el estado de error y retorna sin código de fallo. El rótulo real de importancia es «Pendiente de evaluación»: depende de grupos verificados y puntajes, no sólo de categorías. Deportes, Salud y Medioambiente muestran otro estado: no hay titulares autorizados para síntesis en su ventana, lo que no acredita ausencia de noticias. No se modificaron código, datos remotos, permisos, claves ni despliegue; no se reejecutó IA. La portada no pudo leerse con la herramienta web. Verificación proporcional: contraste de logs completos con comandos y selección de estados; `git diff --check`. PROJECT, SOURCES, README y `.env.example` no requieren cambios: diagnóstico operativo sin cambios de arquitectura, alcance, feeds, funciones ni variables.
 
 La rama de integración se creó desde `origin/main` para evitar mezclar el commit local anterior con las migraciones `0019` y `0020` ya presentes en remoto; el commit local quedó preservado en `codex/resumen-local-20261026`. Mis noticias muestra ahora en un solo párrafo las síntesis IA de las categorías elegidas, con enlace directo al artículo. Un desplegable conserva titular, medio, licencia aplicable y fecha; siguen visibles los estados pendiente, error y sin titulares. Se conservaron intactos el comando Gemini, `NewsBriefingItem` y la validez independiente por categoría para una futura ubicación en los banners de cada categoría; esa ubicación todavía no se implementó. No se agregó ni cambió ninguna migración, permiso o variable.
 
@@ -168,7 +172,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Esperar que el responsable despliegue `main` en Render y aplique las migraciones hasta `0020` para ejecutar `generate-briefing` en Actions y comprobar los resúmenes IA publicados.
+Ejecutar el diagnóstico publicado en Actions y resolver la causa concreta que informe Gemini para recuperar resúmenes e importancia publicados.
 
 ## Completado
 

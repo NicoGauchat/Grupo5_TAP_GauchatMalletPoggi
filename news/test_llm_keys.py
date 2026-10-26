@@ -12,6 +12,7 @@ from .llm_classification import ClassificationError, classify_batch
 from .llm_grouping import GroupingError, group_articles
 from .llm_importance import ImportanceError, score_stories
 from .llm_keys import TASK_API_KEYS, api_key_for, configured_tasks
+from .llm_diagnostics import safe_diagnostic
 from .models import Article, Category, Feed, Source
 
 
@@ -20,6 +21,40 @@ SECONDARY = "secondary-test-value"
 
 
 class APIKeyRoutingTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
+    def test_provider_failures_report_safe_http_diagnostics_in_all_tasks(self):
+        article = self.article()
+        cases = [
+            ("news.llm_classification.genai.Client", lambda: classify_batch([article], ["ciencia"]), ClassificationError),
+            ("news.llm_grouping.genai.Client", lambda: group_articles([article], []), GroupingError),
+            ("news.llm_importance.genai.Client", lambda: score_stories({9: [article]}), ImportanceError),
+            ("news.llm_briefing.genai.Client", lambda: summarize_articles([article]), BriefingError),
+        ]
+        for code in (400, 401, 403, 404, 429, 500, 503, 504):
+            for path, operation, exception in cases:
+                with self.subTest(code=code, path=path), patch(path) as client:
+                    error = errors.APIError(code, {"error": {"message": SECONDARY + " private headline"}})
+                    client.return_value.models.generate_content.side_effect = error
+                    client.return_value.__enter__.return_value.models.generate_content.side_effect = error
+                    with self.assertRaises(exception) as caught:
+                        operation()
+                    self.assertIn(f"Gemini HTTP={code}", str(caught.exception))
+                    self.assertNotIn(SECONDARY, str(caught.exception))
+                    self.assertNotIn("private headline", str(caught.exception))
+
+    def test_non_api_diagnostics_do_not_echo_exception_content(self):
+        import httpx
+
+        cases = [
+            (TimeoutError(SECONDARY), "timeout"),
+            (httpx.ConnectError(SECONDARY), "transport"),
+            (json.JSONDecodeError(SECONDARY, "private headline", 0), "invalid_json"),
+            (ValueError(SECONDARY), "client_error"),
+        ]
+        for error, reason in cases:
+            with self.subTest(reason=reason):
+                self.assertEqual(safe_diagnostic(error), f"Gemini reason={reason}")
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
     def test_two_credentials_have_fixed_task_assignments(self):
         self.assertEqual([api_key_for(task) for task in TASK_API_KEYS], [PRIMARY, PRIMARY, SECONDARY, SECONDARY])

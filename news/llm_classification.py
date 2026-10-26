@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 
 from .llm_keys import api_key_for
+from .llm_diagnostics import safe_diagnostic
 
 
 MODEL = "gemini-3.1-flash-lite"
@@ -86,7 +87,7 @@ def classify_batch(articles, available_slugs):
         )
         result = json.loads(response.text or "")
     except Exception as error:
-        raise ClassificationError("No se obtuvo una respuesta válida de Gemini") from error
+        raise ClassificationError(f"No se obtuvo una respuesta válida de Gemini. {safe_diagnostic(error)}") from error
     finally:
         if "client" in locals():
             client.close()

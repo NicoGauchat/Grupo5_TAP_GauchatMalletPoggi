@@ -8,6 +8,7 @@ from unittest.mock import patch
 import httpx
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -135,7 +136,7 @@ class BriefingTests(TestCase):
     def test_failure_preserves_previous_valid_result_and_logs_safe_code(self):
         self.generate()
         with patch("news.management.commands.generate_news_briefing.summarize_articles",
-                   side_effect=BriefingError("La cuota no está disponible.", "quota")):
+                   side_effect=BriefingError("La cuota no está disponible.", "quota")), self.assertRaises(CommandError):
             call_command("generate_news_briefing", force=True, stdout=StringIO())
         self.assertEqual((NewsBriefing.objects.first().status, NewsBriefing.objects.first().error_code), ("error", "quota"))
         response = self.client.get(reverse("news_feed"))
@@ -159,7 +160,8 @@ class BriefingTests(TestCase):
     def test_no_sources_no_articles_and_missing_key_have_distinct_states(self):
         self.assertEqual(briefing_context(self.now, [self.category])["category_briefings"][0]["state"], "pending")
         with patch.dict("os.environ", {"GEMINI_API_KEY": "", "GEMINI_API_KEY_SECONDARY": ""}):
-            call_command("generate_news_briefing", stdout=StringIO())
+            with self.assertRaises(CommandError):
+                call_command("generate_news_briefing", stdout=StringIO())
             self.assertEqual(NewsBriefing.objects.first().error_code, "missing_key")
             self.assertEqual(briefing_context(timezone.now(), [self.category])["category_briefings"][0]["state"], "error")
             self.assertNotContains(self.client.get(reverse("news_feed")), "todavía no está configurado")

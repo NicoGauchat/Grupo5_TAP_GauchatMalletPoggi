@@ -8,6 +8,7 @@ from google.genai import errors, types
 
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
+from .llm_diagnostics import safe_diagnostic
 
 
 class BriefingError(Exception):
@@ -108,13 +109,13 @@ def summarize_articles(articles):
         message = {"quota": "La cuota de Gemini no está disponible.",
                    "configuration": "Gemini rechazó la configuración de la solicitud.",
                    "connection": "Gemini no está disponible temporalmente."}[code]
-        raise BriefingError(message, code) from error
+        raise BriefingError(f"{message} {safe_diagnostic(error)}", code) from error
     except (httpx.TimeoutException, TimeoutError) as error:
-        raise BriefingError("Gemini superó el tiempo de espera.", "timeout") from error
+        raise BriefingError(f"Gemini superó el tiempo de espera. {safe_diagnostic(error)}", "timeout") from error
     except httpx.TransportError as error:
-        raise BriefingError("No se pudo conectar con Gemini.", "connection") from error
+        raise BriefingError(f"No se pudo conectar con Gemini. {safe_diagnostic(error)}", "connection") from error
     except Exception as error:
-        raise BriefingError("No se obtuvo una respuesta válida de Gemini") from error
+        raise BriefingError(f"No se obtuvo una respuesta válida de Gemini. {safe_diagnostic(error)}") from error
     finally:
         if client is not None:
             try:

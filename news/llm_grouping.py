@@ -7,6 +7,7 @@ from google.genai import types
 
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
+from .llm_diagnostics import safe_diagnostic
 
 
 class GroupingError(Exception):
@@ -69,7 +70,7 @@ def request_groups(prompt, schema, api_key):
             )
             result = json.loads(response.text or "")
     except Exception as error:
-        raise GroupingError("No se pudo agrupar con Gemini; las noticias quedan pendientes.") from error
+        raise GroupingError(f"No se pudo agrupar con Gemini; las noticias quedan pendientes. {safe_diagnostic(error)}") from error
     return result
 
 
