@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from .llm_grouping import GroupingError, group_articles, validate_confirmations, validate_groups
 from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPreference
+from .llm_transport import ModelList
 
 
 class GroupingValidationTests(SimpleTestCase):
@@ -262,6 +263,15 @@ class StoryTests(TestCase):
         self.assertEqual(len(sent), len(articles))
         self.assertEqual(set(sent), {article.pk for article in articles})
         self.assertEqual(Article.objects.filter(story__isnull=False).count(), 23)
+
+    def test_new_group_records_the_actual_backup_model(self):
+        article = self.article("Titular para respaldo")
+        with patch("news.management.commands.group_news_ai.group_articles", return_value=ModelList(
+            [{"story_id": 0, "article_ids": [article.pk]}], "groq:openai/gpt-oss-20b",
+        )):
+            call_command("group_news_ai", stdout=StringIO())
+        article.refresh_from_db()
+        self.assertEqual(article.story.llm_model, "groq:openai/gpt-oss-20b")
 
     def test_failure_limit_and_permission_keep_articles_visible_and_pending(self):
         pending = self.article("Pendiente")

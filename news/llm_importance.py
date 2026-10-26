@@ -9,6 +9,7 @@ from google.genai import types
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
+from .llm_transport import pace_request
 
 
 class ImportanceError(Exception):
@@ -47,6 +48,7 @@ def score_stories(stories):
             "reason": {"type": "STRING"},
         }},
     }}}
+    pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
             timeout=60_000, retry_options=types.HttpRetryOptions(

@@ -50,6 +50,8 @@ jobs:
       POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE || 'require' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_API_KEY_SECONDARY: ${{ secrets.GEMINI_API_KEY_SECONDARY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       GEMINI_MODEL: ${{ inputs.gemini_model != 'repository-default' && inputs.gemini_model || vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
       MAINTENANCE_MODE: ${{ inputs.mode || (github.event_name == 'schedule' && github.event.schedule != '0 0,6,8,10,12,14,16,18,20,22 * * *' && 'process-ai') || 'maintenance' }}
     steps:

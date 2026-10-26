@@ -1,6 +1,7 @@
 """Generación y validación de la presentación compartida de noticias recientes."""
 
 import json
+import logging
 
 import httpx
 from google import genai
@@ -9,6 +10,7 @@ from google.genai import errors, types
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
+from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, request_backup, pace_request
 
 
 class BriefingError(Exception):
@@ -89,6 +91,29 @@ def summarize_articles(articles):
         },
         "required": ["items"],
     }
+    valid_ids = {article.pk for article in articles}
+    try:
+        result = _gemini_summary(prompt, schema, api_key)
+        return ModelList(_validate_summary(result, categories, article_categories, valid_ids), MODEL)
+    except BriefingError as error:
+        if not backup_configured() or error.code not in {"quota", "timeout", "connection", "invalid_response"}:
+            raise
+        logging.getLogger(__name__).warning("Resumen: se usa respaldo tras fallo de Gemini; %s", error)
+        last_error = error
+        for provider in backup_providers():
+            try:
+                result = request_backup(prompt, schema, "briefing", provider)
+                return ModelList(_validate_summary(result, categories, article_categories, valid_ids), backup_model(provider))
+            except (BackupError, BriefingError) as backup_error:
+                logging.getLogger(__name__).warning("Resumen: respaldo %s rechazado; %s", provider, backup_error)
+                last_error = backup_error
+        if isinstance(last_error, BackupError):
+            raise BriefingError(str(last_error), last_error.code) from last_error
+        raise last_error
+
+
+def _gemini_summary(prompt, schema, api_key):
+    pace_request("gemini", api_key)
     client = None
     try:
         client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
@@ -125,8 +150,11 @@ def summarize_articles(articles):
             except Exception:
                 pass
 
+    return result
+
+
+def _validate_summary(result, categories, article_categories, valid_ids):
     rows = result.get("items") if isinstance(result, dict) else None
-    valid_ids = {article.pk for article in articles}
     if not isinstance(rows, list) or len(rows) != len(categories):
         raise BriefingError("La respuesta no contiene una selección válida de sucesos")
 

@@ -7,6 +7,7 @@ from google.genai import types
 
 from .llm_keys import api_key_for, configured_model
 from .llm_diagnostics import safe_diagnostic
+from .llm_transport import pace_request
 
 
 MODEL = configured_model()
@@ -74,6 +75,7 @@ def classify_batch(articles, available_slugs):
         },
         "required": ["articles"],
     }
+    pace_request("gemini", api_key)
     try:
         client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
             timeout=60_000, retry_options=types.HttpRetryOptions(

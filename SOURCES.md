@@ -26,6 +26,8 @@ El desplegable «Ver fuentes» de cada síntesis también permite abrir otras co
 
 La comparación controlada entre Gemini 3.1 Flash-Lite y Gemini 3.5 Flash-Lite mantiene el mismo proveedor y los mismos campos autorizados. No amplía permisos de síntesis, agrupamiento, imágenes o resúmenes RSS ni incorpora otro destino para los titulares. La selección del modelo es explícita; no hay conmutación para eludir cuotas.
 
+Por autorización expresa del usuario, resumen y agrupamiento pueden enviar los mismos titulares/metadatos permitidos a Groq y OpenRouter como respaldos de Gemini. La presencia de cada secreto habilita su destino; no se envían cuerpos, resúmenes RSS, usuarios ni preferencias, ni se amplían feeds o permisos. Se conservan referencia y licencia del medio independientemente de quién produzca la respuesta. Groq mantiene su política de datos publicada; OpenRouter exige proveedores sin recopilación mediante `data_collection=deny`, además de ruta gratuita y precio máximo cero. El router puede elegir entre distintos modelos/proveedores compatibles; si no existe uno, la operación falla sin relajar condiciones. Se validan IDs y hechos antes de guardar, sin sustituirlos por resultados ficticios.
+
 ### Ampliación vigente del 25/10/2026
 
 Por pedido del usuario, se prioriza cobertura argentina y se agregan fuentes de Estados Unidos y Europa. **Agência Brasil queda fuera**: no se incorpora su fuente, feeds ni equivalencias a la migración. `0018` agrega quince RSS a los once originales: **26 feeds activos precargados de ocho medios**. Los medios nuevos son Perfil (Argentina), NASA (Estados Unidos) y elDiario.es (España); además se amplían canales de Clarín, Los Andes y EL PAÍS. Las tres categorías nuevas son Salud, Medioambiente y Deportes.

@@ -104,4 +104,5 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"Presentación actualizada: {len(items)} puntos sobre "
                 f"{len(articles)} titulares de las últimas 24 horas."
+                f" Modelo: {getattr(items, 'model', 'no disponible')}."
             )

@@ -11,13 +11,15 @@ from google.genai import errors, types
 from .llm_classification import MODEL
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
+from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, request_backup, pace_request
 
 
 class GroupingError(Exception):
-    def __init__(self, message, *, retryable=True, delay=0):
+    def __init__(self, message, *, retryable=True, delay=0, fallback_allowed=None):
         super().__init__(message)
         self.retryable = retryable
         self.delay = delay
+        self.fallback_allowed = retryable if fallback_allowed is None else fallback_allowed
 
 
 def metadata(article):
@@ -63,9 +65,21 @@ def group_articles(articles, candidates):
         try:
             result = request_groups(prompt, schema, api_key)
             groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
-            return confirm_groups(articles, candidates, groups, api_key)
+            return ModelList(confirm_groups(articles, candidates, groups, api_key), MODEL)
         except GroupingError as error:
             if not error.retryable or attempt == 3:
+                if error.fallback_allowed and backup_configured():
+                    logging.getLogger(__name__).warning("Agrupamiento: se usa respaldo tras fallo de Gemini; %s", error)
+                    last_error = error
+                    for provider in backup_providers():
+                        try:
+                            result = request_groups(prompt, schema, api_key, provider=provider)
+                            groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
+                            return ModelList(confirm_groups(articles, candidates, groups, api_key, provider=provider), backup_model(provider))
+                        except GroupingError as backup_error:
+                            logging.getLogger(__name__).warning("Agrupamiento: respaldo %s rechazado; %s", provider, backup_error)
+                            last_error = backup_error
+                    raise last_error
                 raise
             logging.getLogger(__name__).warning(
                 "Agrupamiento: intento %s/3 fallido; %s Se reintenta sin guardar el lote.", attempt, error,
@@ -74,7 +88,13 @@ def group_articles(articles, candidates):
                 time.sleep(error.delay * attempt)
 
 
-def request_groups(prompt, schema, api_key):
+def request_groups(prompt, schema, api_key, *, provider="gemini"):
+    if provider != "gemini":
+        try:
+            return request_backup(prompt, schema, "grouping", provider)
+        except BackupError as error:
+            raise GroupingError(str(error), retryable=False) from error
+    pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
             timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1),
@@ -95,11 +115,12 @@ def request_groups(prompt, schema, api_key):
         raise GroupingError(
             f"No se pudo agrupar con Gemini; las noticias quedan pendientes. {safe_diagnostic(error)}",
             retryable=invalid_json or transient, delay=2 if transient else 0,
+            fallback_allowed=invalid_json or transient or isinstance(error, errors.APIError) and error.code == 429,
         ) from error
     return result
 
 
-def confirm_groups(articles, candidates, groups, api_key):
+def confirm_groups(articles, candidates, groups, api_key, *, provider="gemini"):
     by_id = {article.pk: article for article in articles}
     anchors = {article.story_id: article for article in candidates}
     checks = []
@@ -131,7 +152,7 @@ def confirm_groups(articles, candidates, groups, api_key):
                        "reason": {"type": "string"}}},
     }}}
     expected = {pair["candidate"]["article_id"] for pair in checks}
-    accepted = validate_confirmations(request_groups(prompt, schema, api_key), expected)
+    accepted = validate_confirmations(request_groups(prompt, schema, api_key, provider=provider), expected)
     confirmed = []
     for group in groups:
         anchor_id = None if group["story_id"] else min(group["article_ids"])

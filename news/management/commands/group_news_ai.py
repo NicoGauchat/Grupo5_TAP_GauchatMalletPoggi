@@ -43,6 +43,7 @@ class Command(BaseCommand):
                 remaining, groups, new_groups = batch, [], []
                 for offset in range(0, max(1, len(candidates)), MAX_CANDIDATES):
                     result = group_articles(remaining, candidates[offset:offset + MAX_CANDIDATES])
+                    result = [dict(row, _model=getattr(result, "model", MODEL)) for row in result]
                     groups.extend(row for row in result if row["story_id"])
                     new_groups = [row for row in result if not row["story_id"]]
                     unmatched = {pk for row in new_groups for pk in row["article_ids"]}
@@ -68,7 +69,7 @@ class Command(BaseCommand):
                     or snapshot(current_anchors) != snapshot(representatives.values())):
                     raise CommandError("Los datos cambiaron durante el agrupamiento; volvé a ejecutar el comando.")
                 for group in groups:
-                    story_id = group["story_id"] or Story.objects.create(llm_model=MODEL).pk
+                    story_id = group["story_id"] or Story.objects.create(llm_model=group["_model"]).pk
                     Article.objects.filter(pk__in=group["article_ids"]).update(story_id=story_id)
                     Story.objects.filter(pk=story_id).update(
                         importance_score=None, importance_reason="", importance_scored_at=None, importance_model="",
