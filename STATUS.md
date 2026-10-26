@@ -5,7 +5,7 @@
 
 ## Último paso completado
 
-La revisión se publicó en `86d7033`. La ejecución 40321618331 y su reintento se detuvieron antes de reparar porque sólo `0019` seguía pendiente en la base de Actions. Se agregó una opción manual apagada por defecto para aplicar exclusivamente esa migración hacia adelante dentro de `repair-grouping`; rechaza cualquier retroceso u otra migración y mantiene el control sin escrituras en la programación normal. La evaluación y la reparación se volverán a ejecutar después de aplicarla.
+La revisión se publicó en `86d7033`. La ejecución 40321618331 y su reintento se detuvieron antes de reparar porque sólo `0019` seguía pendiente en la base de Actions. Se intentó habilitar su aplicación manual en `b3c0518`, pero la ejecución 40322290075 falló al importar `config` desde el script temporal del runner, antes de conectarse a la base o aplicar cambios. El usuario aclaró que su compañero realiza el deployment de Render. Se retiró esa alternativa manual y se conserva la aplicación de migraciones durante el build de Render. **La corrección está en GitHub, pero la migración, la evaluación real de Gemini y la reparación remota siguen pendientes del despliegue del compañero.** No se modificaron datos remotos de agrupamiento ni sus puntajes en estos intentos.
 
 Se publicó el bot en `main` mediante `3d6b7b3`. Su primera ejecución manual (40320232836) terminó correctamente el 26/10/2026 a las 09:08 de Argentina, comprobando la portada de LibreNews. El workflow ya está habilitado para sus visitas cada diez minutos; la demora de Actions sigue siendo una limitación.
 
@@ -156,7 +156,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Publicar la revisión de agrupamiento y ejecutar la reparación remota, comprobando migración, evaluación sintética y grupos anteriores pendientes.
+Esperar que el responsable despliegue `main` en Render y aplique `0019` para poder ejecutar la reparación remota.
 
 ## Completado
 

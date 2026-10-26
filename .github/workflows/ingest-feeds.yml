@@ -16,10 +16,6 @@ on:
         type: choice
         options: ['100', '500']
         default: '100'
-      apply_grouping_migration:
-        description: Aplicar únicamente la migración 0019 hacia adelante antes de reparar
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -73,24 +69,6 @@ jobs:
           fi
       - name: Instalar dependencias
         run: python -m pip install -r requirements.txt
-      - name: Aplicar migración de revisión de agrupamiento
-        if: inputs.mode == 'repair-grouping' && inputs.apply_grouping_migration
-        shell: python
-        run: |
-          import os
-          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-          import django
-          django.setup()
-          from django.db import connection
-          from django.db.migrations.executor import MigrationExecutor
-          executor = MigrationExecutor(connection)
-          target = [("news", "0019_story_grouping_version")]
-          plan = executor.migration_plan(target)
-          if any(backwards or (migration.app_label, migration.name) != target[0]
-                 for migration, backwards in plan):
-              raise SystemExit("Se requiere otro plan de migraciones; revisalo desde el despliegue.")
-          executor.migrate(target)
-          print("La migración de revisión de agrupamiento está aplicada.")
       - name: Comprobar migraciones
         id: check_migrations
         run: python manage.py migrate --check
