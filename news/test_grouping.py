@@ -247,6 +247,22 @@ class StoryTests(TestCase):
                 self.assertNotIn(first.summary, generate.call_args.kwargs["contents"])
                 self.assertEqual(client.call_args.kwargs["http_options"].timeout, 60_000)
 
+    def test_command_processes_all_selected_articles_in_small_requests_without_duplicates(self):
+        articles = [self.article(f"Titular sintético {index}") for index in range(23)]
+        batches = []
+
+        def group(batch, candidates):
+            batches.append([article.pk for article in batch])
+            return [{"story_id": 0, "article_ids": [article.pk]} for article in batch]
+
+        with patch("news.management.commands.group_news_ai.group_articles", side_effect=group):
+            call_command("group_news_ai", stdout=StringIO())
+        self.assertTrue(all(len(batch) <= 10 for batch in batches))
+        sent = [pk for batch in batches for pk in batch]
+        self.assertEqual(len(sent), len(articles))
+        self.assertEqual(set(sent), {article.pk for article in articles})
+        self.assertEqual(Article.objects.filter(story__isnull=False).count(), 23)
+
     def test_failure_limit_and_permission_keep_articles_visible_and_pending(self):
         pending = self.article("Pendiente")
         forbidden = self.article("Sin permiso", index=1)

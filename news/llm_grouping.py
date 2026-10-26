@@ -68,7 +68,7 @@ def group_articles(articles, candidates):
             if not error.retryable or attempt == 3:
                 raise
             logging.getLogger(__name__).warning(
-                "Agrupamiento: intento %s/3 fallido; se reintenta sin guardar el lote.", attempt,
+                "Agrupamiento: intento %s/3 fallido; %s Se reintenta sin guardar el lote.", attempt, error,
             )
             if error.delay:
                 time.sleep(error.delay * attempt)

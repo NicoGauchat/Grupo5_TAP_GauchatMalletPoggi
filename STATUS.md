@@ -1,9 +1,11 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** procesar pendientes IA entre ingestas, también durante la noche, y diagnosticar la fiabilidad de Gemini sin cambiar de proveedor.
+**Objetivo actual:** comprobar una generación real de resúmenes y un lote real de agrupamiento exitosos con Gemini, sin detener el trabajo ante un resultado parcial.
 
 ## Último paso completado
+
+Por pedido expreso de continuar hasta acreditar resumen y agrupamiento reales, se inició otra generación forzada de resumen en **40414159206** y se redujo cada solicitud de agrupamiento de treinta a **diez noticias**, con bloques de **cien candidatos** en lugar de quinientos. El límite de la tanda sigue siendo cien; se recorren todos los bloques necesarios sin eliminar grupos del conjunto de candidatos. El cambio reduce complejidad por petición a costa de más llamadas posibles y mantiene las comprobaciones y la conservación de cada lote. Cada reintento registra ahora su causa segura, sin mensajes originales del proveedor ni contenido de noticias. Suite SQLite: **131 ejecutadas, 116 aprobadas y 15 omitidas**; la prueba nueva comprueba que 23 artículos se procesan sin omisiones ni duplicados en solicitudes de hasta diez. No se da por recuperada la función antes de la prueba real. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian campos enviados, permisos, feeds ni variables.
 
 La restricción numérica de referencias se publicó en **164e183**. La ejecución controlada **40413359732** aprobó la comprobación sintética con el esquema nuevo y llegó al lote real, pero terminó tras tres intentos con **HTTP 503 provider_unavailable** y **cero noticias agrupadas**; importancia se omitió por el fallo de reparación. Se acredita aceptación del esquema por Gemini en la prueba pequeña, no recuperación completa del agrupamiento ni precisión sobre el lote real. El último mensaje no fue `unknown_article_id`; los avisos intermedios de reintento no registran sus causas individuales, así que no se afirma que todas esas respuestas hayan sido correctas. No se lanzaron más llamadas manuales después de este resultado ni se cambió de proveedor. Las tandas cada quince minutos, incluidas las nocturnas, y los diagnósticos quedan publicados; el avance real confirmado de la tanda previa sigue siendo cien noticias clasificadas y 43 acontecimientos evaluados. Esta unidad no requiere despliegue de Render ni cambia documentación de instalación, fuentes o variables adicionalmente.
 

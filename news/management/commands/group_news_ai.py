@@ -11,8 +11,8 @@ from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
 
 
-BATCH_SIZE = 30
-MAX_CANDIDATES = 500
+BATCH_SIZE = 10
+MAX_CANDIDATES = 100
 
 
 class Command(BaseCommand):
