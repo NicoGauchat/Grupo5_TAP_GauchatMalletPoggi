@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+La revisión se publicó en `86d7033`. La ejecución 40321618331 y su reintento se detuvieron antes de reparar porque sólo `0019` seguía pendiente en la base de Actions. Se agregó una opción manual apagada por defecto para aplicar exclusivamente esa migración hacia adelante dentro de `repair-grouping`; rechaza cualquier retroceso u otra migración y mantiene el control sin escrituras en la programación normal. La evaluación y la reparación se volverán a ejecutar después de aplicarla.
+
 Se publicó el bot en `main` mediante `3d6b7b3`. Su primera ejecución manual (40320232836) terminó correctamente el 26/10/2026 a las 09:08 de Argentina, comprobando la portada de LibreNews. El workflow ya está habilitado para sus visitas cada diez minutos; la demora de Actions sigue siendo una limitación.
 
 Se implementó la revisión de agrupamiento con referencia estable y segunda comprobación por pares. `0019` conserva los grupos anteriores pero los marca pendientes; sus noticias se muestran individualmente y sin puntaje grupal hasta reprocesarlas, sin borrar titulares, categorías, imágenes o guardados. Se prioriza reparar esos miembros, después las noticias sin agrupar; las negativas quedan separadas y una respuesta inválida conserva el lote pendiente. Sólo grupos comprobados reciben importancia; agregar cobertura limpia el puntaje anterior hasta recalcularlo. El cursor cambia de versión para no mezclar contratos. Se añadió una evaluación con seis titulares ficticios y un modo manual de reparación en Actions que la exige antes de modificar agrupamiento. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, campos enviados ni variables de la aplicación.

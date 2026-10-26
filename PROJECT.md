@@ -258,6 +258,8 @@ No se agregan dependencias ni servicios. Se revisaron nuevamente la [salida estr
 
 `check_news_grouping` comprueba tres pares de titulares ficticios (incluido uno entre idiomas), sin leer ni escribir noticias. El modo manual `repair-grouping` del workflow existente exige que pase esa evaluación real antes de reparar, y permite 100/500 pendientes; omite RSS, clasificación y resumen, y puntúa después los grupos comprobados. Las ejecuciones periódicas mantienen las etapas habituales y el límite de cien. Aumenta hasta una solicitud adicional por bloque que proponga uniones; se conserva el proveedor, las claves fijas y los límites gratuitos, sin rotación ni facturación. SOURCES y `.env.example` no requieren cambios porque se transmiten los mismos campos autorizados y no cambian permisos ni variables de la aplicación.
 
+La primera reparación remota se detuvo dos veces en `migrate --check`, con sólo `0019` pendiente. Dentro de la corrección remota autorizada por el usuario se habilita la opción manual `apply_grouping_migration`, apagada por defecto y válida sólo en `repair-grouping`. Usa `MigrationExecutor` y rechaza el plan si contiene una migración distinta de `news.0019` o cualquier retroceso; no revierte migraciones futuras ni aplica otros cambios pendientes. Es una excepción explícita para esta reparación al control de esquema de Actions; la programación habitual conserva `migrate --check` y Render sigue ejecutando migraciones durante su build.
+
 ## Datos y conservación
 
 ### Asignación de dos credenciales Gemini (25/10/2026)
