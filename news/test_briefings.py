@@ -219,11 +219,18 @@ class BriefingTests(TestCase):
             response = self.client.get(reverse("news_feed"))
             model.assert_not_called()
         self.assertEqual(len(response.context["category_briefings"]), 2)
+        self.assertContains(response, 'class="briefing-paragraph"', count=1)
+        self.assertNotContains(response, 'class="briefing-items"')
         self.assertContains(response, rows[0]["text"])
         self.assertContains(response, rows[1]["text"])
         self.assertContains(response, f'href="{article.original_url}" target="_blank" rel="noopener"')
+        self.assertContains(response, "Ver fuentes y fechas de los resúmenes")
         self.assertNotContains(response, "no está configurado")
         self.assertEqual(set(NewsBriefingItem.objects.values_list("category_id", flat=True)), {self.category.pk, category.pk})
+        self.user.news_preference.categories.remove(category)
+        response = self.client.get(reverse("news_feed"))
+        self.assertNotContains(response, rows[1]["text"])
+        self.assertEqual(NewsBriefingItem.objects.filter(category=category).count(), 1)
 
     def test_expired_category_does_not_hide_another_valid_ai_summary(self):
         category, article = self.add_science()
@@ -239,6 +246,7 @@ class BriefingTests(TestCase):
             response = self.client.get(reverse("news_feed"))
             model.assert_not_called()
         self.assertContains(response, "El resumen IA está pendiente de generación.")
+        self.assertNotContains(response, "Ver fuentes y fechas de los resúmenes")
         self.assertNotContains(response, self.article.title)
         self.assertNotContains(response, "Más reciente · importancia pendiente")
 

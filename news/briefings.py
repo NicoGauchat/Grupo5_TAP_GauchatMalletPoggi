@@ -10,7 +10,7 @@ from .models import Article, Category, NewsBriefing, NewsBriefingItem
 def briefing_context(now, categories=()):
     categories = list(categories)
     if not categories:
-        return {"category_briefings": []}
+        return {"category_briefings": [], "has_briefing_items": False}
     cutoff = now - timedelta(hours=24)
     eligible = Article.objects.filter(
         feed__is_active=True, feed__allow_ai_briefing=True, published_at__gte=cutoff, published_at__lte=now,
@@ -41,7 +41,7 @@ def briefing_context(now, categories=()):
         )
         rows.append({"category": category, "item": item, "state": state,
                      "update_failed": bool(item and attempt and attempt.status == "error")})
-    return {"category_briefings": rows}
+    return {"category_briefings": rows, "has_briefing_items": any(row["item"] for row in rows)}
 
 
 def valid_briefings(now):

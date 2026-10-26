@@ -1,9 +1,13 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** publicar el resumen redactado por IA para cada categoría y preparar su activación tras el despliegue.
+**Objetivo actual:** integrar el resumen en párrafo sin perder las síntesis IA individuales por categoría y preparar su activación tras el despliegue.
 
 ## Último paso completado
+
+La rama de integración se creó desde `origin/main` para evitar mezclar el commit local anterior con las migraciones `0019` y `0020` ya presentes en remoto; el commit local quedó preservado en `codex/resumen-local-20261026`. Mis noticias muestra ahora en un solo párrafo las síntesis IA de las categorías elegidas, con enlace directo al artículo. Un desplegable conserva titular, medio, licencia aplicable y fecha; siguen visibles los estados pendiente, error y sin titulares. Se conservaron intactos el comando Gemini, `NewsBriefingItem` y la validez independiente por categoría para una futura ubicación en los banners de cada categoría; esa ubicación todavía no se implementó. No se agregó ni cambió ninguna migración, permiso o variable.
+
+Verificación de esta integración: suite SQLite completa **119 pruebas: 104 aprobadas y 15 omitidas** por requerir PostgreSQL; pruebas focalizadas de resumen 19 aprobadas; `manage.py check`, `makemigrations --check --dry-run` y `git diff --check` pasaron. El detector Impeccable quedó degradado por módulos HTML/CSS ausentes y sólo señaló la barra decorativa preexistente, sin comprobar contraste ni selectores. README y PROJECT actualizados por el cambio visible y el destino futuro de los datos. SOURCES y `.env.example` no requieren cambios: no varían feeds, atribución, política de uso, datos transmitidos a Gemini ni variables. No se llamó a Gemini real ni se aplicaron migraciones remotas.
 
 El usuario pidió expresamente que la IA redacte los resúmenes, con al menos una noticia importante por categoría y enlace directo. Se retiró por completo la alternativa temporal sin IA (selección de titulares, funciones, estilos y pruebas), que no se publicó. `generate_news_briefing` ahora solicita a Gemini exactamente una síntesis por categoría con titulares autorizados de las últimas 24 horas, con una referencia de esa misma categoría. Se reserva capacidad por categoría dentro de 250 titulares; no se usan los grupos para mezclar coberturas. La validación exige cobertura completa, slugs conocidos, texto acotado, puntaje entero e ID único perteneciente a la categoría.
 
