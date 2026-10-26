@@ -168,14 +168,19 @@ def validate_groups(result, expected_ids, story_ids):
         if not isinstance(row, dict):
             raise GroupingError("La respuesta contiene un grupo inválido.")
         story_id, ids = row.get("story_id"), row.get("article_ids")
-        if (
-            type(story_id) is not int or (story_id != 0 and story_id not in story_ids)
-            or (story_id != 0 and story_id in used_stories)
-            or not isinstance(ids, list) or not ids
-            or any(type(pk) is not int or pk not in expected_ids for pk in ids)
-            or len(ids) != len(set(ids)) or used_ids.intersection(ids)
-        ):
-            raise GroupingError("La respuesta contiene referencias inválidas o repetidas.")
+        reason = ""
+        if type(story_id) is not int or (story_id != 0 and story_id not in story_ids):
+            reason = "unknown_story_id"
+        elif story_id != 0 and story_id in used_stories:
+            reason = "repeated_story_id"
+        elif not isinstance(ids, list) or not ids:
+            reason = "empty_article_ids"
+        elif any(type(pk) is not int or pk not in expected_ids for pk in ids):
+            reason = "unknown_article_id"
+        elif len(ids) != len(set(ids)) or used_ids.intersection(ids):
+            reason = "repeated_article_id"
+        if reason:
+            raise GroupingError(f"La respuesta contiene referencias inválidas o repetidas. reason={reason}")
         used_ids.update(ids)
         used_stories.add(story_id)
     if used_ids != expected_ids:

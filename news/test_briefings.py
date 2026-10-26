@@ -30,6 +30,22 @@ class BriefingResponseTests(SimpleTestCase):
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")
+    def test_validation_diagnostics_explain_field_without_echoing_response(self, client):
+        row = {"category_slug": "tecnologia", "text": "private-summary", "importance_score": 4, "article_ids": [7]}
+        cases = [(dict(row, category_slug="unknown-private-category"), "category"),
+                 (dict(row, text="private-summary" * 50), "text"),
+                 (dict(row, importance_score=True), "importance_score"),
+                 (dict(row, article_ids=[9876543]), "article_id")]
+        for invalid, reason in cases:
+            client.return_value.models.generate_content.return_value.text = json.dumps({"items": [invalid]})
+            with self.subTest(reason=reason), self.assertRaises(BriefingError) as caught:
+                summarize_articles([self.article])
+            self.assertIn(f"reason={reason}", str(caught.exception))
+            self.assertNotIn("private-summary", str(caught.exception))
+            self.assertNotIn("unknown-private-category", str(caught.exception))
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
+    @patch("news.llm_briefing.genai.Client")
     def test_validates_references_scores_and_duplicate_coverage(self, client):
         row = {"category_slug": "tecnologia", "text": "Síntesis de prueba", "importance_score": 4, "article_ids": [7]}
         for rows, valid in (([row], True), ([], False), ([dict(row, importance_score=3)], True),

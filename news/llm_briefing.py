@@ -139,15 +139,20 @@ def summarize_articles(articles):
         category_slug = row.get("category_slug")
         importance_score = row.get("importance_score")
         article_ids = row.get("article_ids")
-        if (
-            not isinstance(category_slug, str) or category_slug not in categories or category_slug in used_categories
-            or not isinstance(text, str) or not text.strip() or len(text) > 450
-            or type(importance_score) is not int or not 1 <= importance_score <= 5
-            or not isinstance(article_ids, list) or len(article_ids) != 1
-            or any(type(article_id) is not int or article_id not in valid_ids for article_id in article_ids)
-            or any(category_slug not in article_categories[article_id] for article_id in article_ids)
-        ):
-            raise BriefingError("La respuesta contiene texto o referencias inválidas")
+        reason = ""
+        if not isinstance(category_slug, str) or category_slug not in categories or category_slug in used_categories:
+            reason = "category"
+        elif not isinstance(text, str) or not text.strip() or len(text) > 450:
+            reason = "text"
+        elif type(importance_score) is not int or not 1 <= importance_score <= 5:
+            reason = "importance_score"
+        elif (not isinstance(article_ids, list) or len(article_ids) != 1
+              or any(type(article_id) is not int or article_id not in valid_ids for article_id in article_ids)):
+            reason = "article_id"
+        elif any(category_slug not in article_categories[article_id] for article_id in article_ids):
+            reason = "article_category"
+        if reason:
+            raise BriefingError(f"La respuesta contiene texto o referencias inválidas. reason={reason}")
         used_categories.add(category_slug)
         validated.append({"category_slug": category_slug, "text": text.strip(),
                           "article_ids": article_ids, "importance_score": importance_score})

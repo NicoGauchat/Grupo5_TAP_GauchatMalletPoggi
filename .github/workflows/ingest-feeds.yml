@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Flujo completo, pendientes IA, reparación de grupos o resumen
+        description: Flujo completo, pendientes IA, comprobación sintética, reparación o resumen
         type: choice
-        options: [maintenance, process-ai, repair-grouping, generate-briefing]
+        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -77,6 +77,10 @@ jobs:
             echo 'Falta configurar una clave de Gemini en Actions para generar el resumen IA.'
             exit 1
           fi
+          if [ "$MAINTENANCE_MODE" = 'check-grouping' ] && [ -z "$GEMINI_API_KEY" ]; then
+            echo 'Falta configurar la clave principal para la comprobación sintética.'
+            exit 1
+          fi
       - name: Instalar dependencias
         run: python -m pip install -r requirements.txt
       - name: Comprobar migraciones
@@ -108,7 +112,7 @@ jobs:
           fi
       - name: Comprobar identidad con titulares ficticios
         id: grouping_check
-        if: env.MAINTENANCE_MODE == 'repair-grouping' && env.GEMINI_API_KEY != ''
+        if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && env.GEMINI_API_KEY != ''
         run: python manage.py check_news_grouping
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping

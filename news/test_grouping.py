@@ -20,6 +20,20 @@ from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPr
 
 
 class GroupingValidationTests(SimpleTestCase):
+    def test_reference_diagnostics_explain_failure_without_echoing_ids(self):
+        cases = [
+            ([{"story_id": 9876543, "article_ids": [1]}], "unknown_story_id"),
+            ([{"story_id": 7, "article_ids": [1]}, {"story_id": 7, "article_ids": [2]}], "repeated_story_id"),
+            ([{"story_id": 0, "article_ids": []}], "empty_article_ids"),
+            ([{"story_id": 0, "article_ids": [9876543]}], "unknown_article_id"),
+            ([{"story_id": 0, "article_ids": [1, 1]}], "repeated_article_id"),
+        ]
+        for rows, reason in cases:
+            with self.subTest(reason=reason), self.assertRaises(GroupingError) as caught:
+                validate_groups({"groups": rows}, {1, 2}, {7})
+            self.assertIn(f"reason={reason}", str(caught.exception))
+            self.assertNotIn("9876543", str(caught.exception))
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
     def test_retries_invalid_response_and_recovers_before_saving(self):
         article = SimpleNamespace(pk=1, title="Titular de ensayo", language="es", published_at=timezone.now(),
