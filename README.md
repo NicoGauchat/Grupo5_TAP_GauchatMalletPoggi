@@ -240,6 +240,16 @@ El plan gratuito de Render duerme el servicio tras 15 minutos sin solicitudes y 
 
 ## Verificación
 
+### Visitas automáticas para reducir la suspensión
+
+El workflow **Mantener LibreNews activo** (`.github/workflows/keep-alive.yml`) visita `https://sitio-noticias.onrender.com/` cada diez minutos, todos los días, en los minutos 7, 17, 27, 37, 47 y 57. Se activa al publicar el archivo en `main`, con Actions habilitado; también admite **Run workflow**. Hace una solicitud HTTPS a la portada, sin iniciar sesión, ejecutar IA ni descargar imágenes. Comprueba que responda LibreNews y reintenta hasta tres veces si el servicio está despertando; una página de espera de Render no cuenta como éxito.
+
+Para pausarlo, establecer la variable de repositorio `WEB_KEEP_ALIVE_ENABLED=false` o deshabilitar este workflow en Actions. Para cambiar el destino, establecer `WEB_KEEP_ALIVE_URL` con la URL HTTPS de la portada. No necesita secretos ni variables en `.env`. Corre por separado de la ingesta y no ocupa su grupo de concurrencia.
+
+Render Free suspende tras quince minutos sin tráfico entrante. Diez minutos dejan margen, pero GitHub puede retrasar u omitir ejecuciones y desactivar la programación en repositorios públicos tras sesenta días sin actividad: no garantiza disponibilidad continua. Mantener una única instancia encendida todo un mes de 31 días consume hasta 744 de las 750 horas gratuitas compartidas del workspace; otras instancias también consumen ese cupo. Referencias: [Render Free](https://render.com/docs/free) y [programación de Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+### Controles locales
+
 Con el entorno virtual activado:
 
 ```powershell

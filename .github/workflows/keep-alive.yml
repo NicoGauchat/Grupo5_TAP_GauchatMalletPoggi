@@ -1,0 +1,40 @@
+name: Mantener LibreNews activo
+
+on:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: librenews-keep-alive
+  cancel-in-progress: true
+
+jobs:
+  visit:
+    if: vars.WEB_KEEP_ALIVE_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: ${{ vars.WEB_KEEP_ALIVE_URL || 'https://sitio-noticias.onrender.com/' }}
+    steps:
+      - name: Visitar la portada pública
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if curl --fail --silent --show-error --location \
+              --proto '=https' --proto-redir '=https' \
+              --connect-timeout 10 --max-time 60 \
+              --user-agent 'LibreNewsKeepAlive/1.0' \
+              --output "$RUNNER_TEMP/librenews-home.html" "$SITE_URL" \
+              && grep -q '<title>LibreNews</title>' "$RUNNER_TEMP/librenews-home.html"; then
+              echo 'LibreNews respondió correctamente.'
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep 10
+            fi
+          done
+          echo '::error::LibreNews no respondió con su portada después de tres intentos.'
+          exit 1

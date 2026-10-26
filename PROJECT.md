@@ -84,6 +84,10 @@ Para una primera publicación se eligieron Render Free para Django y Supabase Fr
 
 GDELT seguirá el mismo modelo normalizado cuando se incorpore, pero no será la fuente principal. La aplicación debe continuar funcionando si GDELT no responde o limita consultas.
 
+Por pedido del usuario del 26/10/2026, `keep-alive.yml` reutiliza GitHub Actions para visitar la portada pública de LibreNews cada diez minutos, las 24 horas, independientemente de la ingesta. No incorpora servicios, dependencias, credenciales ni endpoints nuevos: la portada anónima existente no consulta noticias ni llama a Gemini. La respuesta debe contener el título de LibreNews; admite tres intentos acotados para no dar por válida la página de espera de Render. Las variables opcionales de repositorio `WEB_KEEP_ALIVE_ENABLED=false` y `WEB_KEEP_ALIVE_URL` permiten pausar o cambiar destino. La programación empieza cuando el workflow está en `main`; prepararlo localmente no lo activa.
+
+Se reutiliza la decisión documentada de Actions, sin una solución arquitectónica nueva. Se revisaron nuevamente [Render Free](https://render.com/docs/free) y [los horarios de Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule): Render suspende tras quince minutos sin tráfico entrante y comparte 750 horas gratuitas por workspace; una instancia continua necesita hasta 744 horas en un mes de 31 días. Actions puede retrasar u omitir ejecuciones y desactivar horarios públicos tras sesenta días sin actividad, por lo que el mecanismo reduce arranques en frío pero no garantiza disponibilidad. No se contrata monitoreo externo ni se habilita facturación.
+
 ## Tecnologías
 
 | Área | Decisión | Motivo |

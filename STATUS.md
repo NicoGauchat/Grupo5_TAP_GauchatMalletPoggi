@@ -1,9 +1,17 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-10-25
-**Objetivo actual:** diagnosticar la demora de la ingesta remota y evaluar paralelismo seguro.
+**Última actualización:** 2026-10-26
+**Objetivo actual:** revisar coberturas mezcladas y reducir la espera de arranque de LibreNews.
 
 ## Último paso completado
+
+Se aclaró el defecto reportado: la importancia debe pertenecer al acontecimiento completo; el problema son noticias ajenas asociadas como coberturas. `add_coverages` cuenta artículos distintos del grupo y medios distintos por separado, dentro de la retención de 14 días, sin aplicar categoría, búsqueda ni filtro temporal de la tarjeta. Por eso puede listar publicaciones anteriores al titular visible incluso usando Hoy; eso por sí solo no acredita un agrupamiento incorrecto. No se confirmó la composición de las 28 coberturas en la base remota. El agrupamiento sólo valida referencias, proporciona un representante cambiante por grupo y no reevalúa asociaciones existentes; la mezcla semántica requiere revisión y reparación, no cambiar la importancia a artículo individual.
+
+La ejecución remota 68 (26/10/2026) terminó correctamente: generó dos puntos sobre 78 titulares a las 02:55 de Argentina, agrupó cien noticias con 1909 pendientes y evaluó 67 acontecimientos. El resumen completo deja de ser válido cuando vence cualquiera de sus referencias de 24 horas; aún falta comprobar si ésa es la causa del caso reportado. Los quince feeds nuevos conservan imágenes deshabilitadas; las ausentes o fallidas también usan ilustración. La inspección de la sesión de Brave se detuvo porque la herramienta no pudo verificar la URL; no se inspeccionaron datos privados ni se alteraron grupos, puntajes o permisos remotos.
+
+Se preparó `keep-alive.yml`, independiente de la ingesta, para visitar la portada pública confirmada por el usuario cada diez minutos, con tres intentos acotados y comprobación del título LibreNews. Usa Actions y curl existentes; no requiere secretos, login, dependencias, nuevos endpoints ni llamadas IA. Admite pausa y destino mediante variables opcionales de repositorio. La revisión oficial confirma los quince minutos de inactividad de Render y las demoras posibles de Actions: reduce la espera, sin garantía de continuidad. README y PROJECT documentan operación, límites y cupo compartido; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, políticas ni variables de la aplicación. Preparado localmente; todavía no publicado ni activo en GitHub.
+
+Verificación de las visitas: `actionlint` 1.7.12, descargado de su release oficial a un directorio temporal externo, validó el workflow sin errores; `git diff --check` pasó. No se modificó código Django, por lo que no se repitió su suite. La solicitud HTTPS desde este entorno agotó 90 segundos sin recibir bytes (HTTP 000), y el lector web tampoco pudo abrir el destino: no se acredita respuesta del sitio ni funcionamiento remoto. Se requiere comprobar la primera ejecución en Actions después de publicar; el comprobador local y su ZIP quedan fuera del repositorio.
 
 Se revisó la ejecución remota 67 del 25/10/2026 (hora argentina). `migrate --check`, limpieza, ingesta, presentación, agrupamiento e importancia llegaron a ejecutarse: las migraciones ya no bloquean este flujo. La ejecución terminó con fallo de clasificación Gemini después de clasificar 70 noticias; el resumen sí se actualizó con dos puntos sobre 71 titulares. La ingesta tardó 7 min 19 s (00:59:08–01:06:27 UTC) de unos 10 min 30 s totales. Clasificación ocupó unos 45 s, resumen 6 s, agrupamiento 25 s e importancia 22 s. Hubo 247 noticias nuevas en los canales de Perfil y el agrupamiento informó 1965 pendientes; son señales de carga inicial, no una medición por feed.
 
@@ -140,7 +148,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Instrumentar la duración de descarga y persistencia de cada feed en la próxima ejecución remota para decidir dónde aplicar concurrencia acotada sin carreras de deduplicación.
+Publicar el workflow de visitas automáticas en `main` y comprobar su primera ejecución en Actions.
 
 ## Completado
 
