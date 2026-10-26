@@ -5,6 +5,9 @@ from django.db import models
 from .search import title_vector
 
 
+GROUPING_VERSION = 1
+
+
 class Category(models.Model):
     name = models.CharField(max_length=80, unique=True)
     slug = models.SlugField(max_length=80, unique=True)
@@ -62,6 +65,7 @@ class Feed(models.Model):
 class Story(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     llm_model = models.CharField(max_length=80, blank=True)
+    grouping_version = models.PositiveSmallIntegerField(default=GROUPING_VERSION, editable=False)
     importance_score = models.PositiveSmallIntegerField(null=True, blank=True)
     importance_reason = models.CharField(max_length=300, blank=True)
     importance_scored_at = models.DateTimeField(null=True, blank=True)
@@ -96,6 +100,11 @@ class Article(models.Model):
     language = models.CharField(max_length=10, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
     fetched_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def has_verified_story(self):
+        return bool(self.story_id and self.feed.allow_ai_grouping
+                    and self.story.grouping_version == GROUPING_VERSION)
 
     class Meta:
         indexes = [

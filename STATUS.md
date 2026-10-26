@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** revisar coberturas mezcladas y reducir la espera de arranque de LibreNews.
+**Objetivo actual:** corregir y reprocesar los grupos que mezclan acontecimientos ajenos.
 
 ## Último paso completado
+
+Se publicó el bot en `main` mediante `3d6b7b3`. Su primera ejecución manual (40320232836) terminó correctamente el 26/10/2026 a las 09:08 de Argentina, comprobando la portada de LibreNews. El workflow ya está habilitado para sus visitas cada diez minutos; la demora de Actions sigue siendo una limitación.
+
+Se implementó la revisión de agrupamiento con referencia estable y segunda comprobación por pares. `0019` conserva los grupos anteriores pero los marca pendientes; sus noticias se muestran individualmente y sin puntaje grupal hasta reprocesarlas, sin borrar titulares, categorías, imágenes o guardados. Se prioriza reparar esos miembros, después las noticias sin agrupar; las negativas quedan separadas y una respuesta inválida conserva el lote pendiente. Sólo grupos comprobados reciben importancia; agregar cobertura limpia el puntaje anterior hasta recalcularlo. El cursor cambia de versión para no mezclar contratos. Se añadió una evaluación con seis titulares ficticios y un modo manual de reparación en Actions que la exige antes de modificar agrupamiento. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, campos enviados ni variables de la aplicación.
+
+Verificación local: **112 pruebas aprobadas en PostgreSQL 17 temporal**; SQLite **97 aprobadas y 15 omitidas**. Incluye negativa semántica, mismo hecho entre idiomas, validación estricta de decisiones, migración reversible con noticias existentes, guardados, ocultamiento temporal de asociaciones anteriores, referencia estable, reasignación concurrente y exclusión de grupos anteriores de importancia. Django check, ausencia de cambios de modelo pendientes, actionlint en ambos workflows y `git diff --check` pasaron. PostgreSQL temporal detenido, sin datos del usuario ni claves locales. La evaluación real de Gemini y el reprocesamiento remoto todavía no se ejecutaron con esta revisión.
 
 Se aclaró el defecto reportado: la importancia debe pertenecer al acontecimiento completo; el problema son noticias ajenas asociadas como coberturas. `add_coverages` cuenta artículos distintos del grupo y medios distintos por separado, dentro de la retención de 14 días, sin aplicar categoría, búsqueda ni filtro temporal de la tarjeta. Por eso puede listar publicaciones anteriores al titular visible incluso usando Hoy; eso por sí solo no acredita un agrupamiento incorrecto. No se confirmó la composición de las 28 coberturas en la base remota. El agrupamiento sólo valida referencias, proporciona un representante cambiante por grupo y no reevalúa asociaciones existentes; la mezcla semántica requiere revisión y reparación, no cambiar la importancia a artículo individual.
 
@@ -148,7 +154,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Publicar el workflow de visitas automáticas en `main` y comprobar su primera ejecución en Actions.
+Publicar la revisión de agrupamiento y ejecutar la reparación remota, comprobando migración, evaluación sintética y grupos anteriores pendientes.
 
 ## Completado
 

@@ -14,11 +14,34 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .llm_grouping import GroupingError, group_articles, validate_groups
+from .llm_grouping import GroupingError, group_articles, validate_confirmations, validate_groups
 from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPreference
 
 
 class GroupingValidationTests(SimpleTestCase):
+    def test_quality_command_checks_pairs_without_database_access(self):
+        with patch("news.management.commands.check_news_grouping.group_articles") as model:
+            model.return_value = [{"story_id": 0, "article_ids": [1, 2]},
+                                  {"story_id": 0, "article_ids": [3, 4]},
+                                  {"story_id": 0, "article_ids": [5, 6]}]
+            call_command("check_news_grouping", stdout=StringIO())
+            self.assertEqual(len(model.call_args.args[0]), 6)
+            model.return_value = [{"story_id": 0, "article_ids": [1, 2, 3, 4, 5, 6]}]
+            with self.assertRaises(CommandError):
+                call_command("check_news_grouping", stdout=StringIO())
+
+    def test_confirmation_requires_explicit_boolean_and_complete_unique_ids(self):
+        valid = {"decisions": [{"article_id": 2, "same_event": True, "reason": "Mismo anuncio."},
+                               {"article_id": 3, "same_event": False, "reason": "Otro hecho."}]}
+        self.assertEqual(validate_confirmations(valid, {2, 3}), {2})
+        for decisions in ([], [valid["decisions"][0]] * 2,
+                          [{"article_id": 2, "same_event": 1, "reason": "Mismo hecho."}],
+                          [{"article_id": True, "same_event": True, "reason": "Mismo hecho."}],
+                          [{"article_id": 2, "same_event": True, "reason": ""}],
+                          [{"article_id": 9, "same_event": True, "reason": "Mismo hecho."}]):
+            with self.subTest(decisions=decisions), self.assertRaises(GroupingError):
+                validate_confirmations({"decisions": decisions}, {2, 3} if len(decisions) == 2 else {2})
+
     def test_accepts_complete_partition_and_rejects_invalid_references(self):
         valid = {"groups": [{"story_id": 7, "article_ids": [1, 2]}, {"story_id": 0, "article_ids": [3]}]}
         self.assertEqual(validate_groups(valid, {1, 2, 3}, {7}), valid["groups"])
@@ -165,9 +188,9 @@ class StoryTests(TestCase):
         self.assertIsNone(forbidden.story_id)
 
     def test_candidate_chunks_find_older_group_and_invalidate_importance(self):
+        self.article("Otro acontecimiento", story=Story.objects.create(), age=2)
         old_story = Story.objects.create(importance_score=4, importance_scored_at=timezone.now())
         self.article("Cobertura de ayer", story=old_story, age=4)
-        self.article("Otro acontecimiento", story=Story.objects.create(), age=2)
         pending = self.article("Nueva cobertura de ayer")
         def group(batch, candidates):
             matched = next((article.story_id for article in candidates if article.story_id == old_story.pk), 0)
@@ -181,7 +204,99 @@ class StoryTests(TestCase):
         old_story.refresh_from_db()
         self.assertEqual(pending.story_id, old_story.pk)
         self.assertIsNone(old_story.importance_scored_at)
-        self.assertEqual(old_story.importance_score, 4)
+        self.assertIsNone(old_story.importance_score)
+
+    def test_second_pass_separates_unrelated_headline_and_accepts_same_event_in_another_language(self):
+        first = self.article("Editorial Faro presenta un estudio sobre libros digitales", age=3)
+        other = self.article("Banco Delta anuncia su dividendo trimestral", index=1)
+        same = self.article("Faro publishes its study of digital books", index=2)
+        same.language = "en"
+        same.save()
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"}), patch("news.llm_grouping.genai.Client") as client:
+            generate = client.return_value.__enter__.return_value.models.generate_content
+            generate.side_effect = [
+                type("Response", (), {"text": json.dumps({"groups": [{
+                    "story_id": 0, "article_ids": [first.pk, other.pk, same.pk],
+                }]})})(),
+                type("Response", (), {"text": json.dumps({"decisions": [
+                    {"article_id": other.pk, "same_event": False, "reason": "Es un dividendo, no el estudio."},
+                    {"article_id": same.pk, "same_event": True, "reason": "Es la publicación del mismo estudio."},
+                ]})})(),
+            ]
+            groups = group_articles([first, other, same], [])
+            self.assertEqual(groups, [{"story_id": 0, "article_ids": [first.pk, same.pk]},
+                                      {"story_id": 0, "article_ids": [other.pk]}])
+            self.assertEqual(generate.call_count, 2)
+            payload = json.loads(generate.call_args.kwargs["contents"].split("\n", 1)[1])
+            self.assertEqual({pair["anchor"]["article_id"] for pair in payload["pairs"]}, {first.pk})
+            self.assertNotIn(first.summary, generate.call_args.kwargs["contents"])
+
+    def test_legacy_group_is_shown_individually_then_reprocessed_without_losing_bookmarks(self):
+        legacy = Story.objects.create(grouping_version=0, importance_score=4)
+        first = self.article("Estudio editorial", story=legacy, age=2)
+        other = self.article("Dividendo de un banco", index=1, story=legacy)
+        SavedArticle.objects.create(user=self.user, article=first)
+        response = self.client.get(self.url, {"sort": "important"})
+        self.assertEqual(response.context["article_count"], 2)
+        self.assertNotContains(response, "Ver 2 fuentes")
+        self.assertNotContains(response, "Importancia general 4/5")
+        for article in (first, other):
+            self.assertContains(response, f'id="news-{article.pk}"')
+        def split(batch, candidates):
+            self.assertEqual(candidates, [])
+            return [{"story_id": 0, "article_ids": [article.pk]} for article in batch]
+        with patch("news.management.commands.group_news_ai.group_articles", side_effect=split):
+            call_command("group_news_ai", stdout=StringIO())
+        first.refresh_from_db()
+        other.refresh_from_db()
+        self.assertNotEqual(first.story_id, other.story_id)
+        self.assertTrue(first.has_verified_story)
+        self.assertTrue(SavedArticle.objects.filter(user=self.user, article=first).exists())
+        self.assertTrue(first.categories.filter(pk=self.category.pk).exists())
+
+    def test_invalid_confirmation_keeps_legacy_links_unchanged_and_hidden(self):
+        legacy = Story.objects.create(grouping_version=0)
+        first = self.article("Primer acontecimiento", story=legacy)
+        other = self.article("Segundo acontecimiento", index=1, story=legacy)
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"}), patch("news.llm_grouping.request_groups") as model:
+            model.side_effect = [{"groups": [{"story_id": 0, "article_ids": [first.pk, other.pk]}]},
+                                 {"decisions": []}]
+            with self.assertRaises(CommandError):
+                call_command("group_news_ai", stdout=StringIO())
+        first.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual(first.story_id, legacy.pk)
+        self.assertEqual(other.story_id, legacy.pk)
+        self.assertEqual(self.client.get(self.url).context["article_count"], 2)
+
+    def test_reference_stays_the_first_article_when_a_newer_coverage_exists(self):
+        story = Story.objects.create()
+        anchor = self.article("Anuncio original", story=story, age=4)
+        self.article("Ampliación más reciente", story=story)
+        pending = self.article("Otra cobertura pendiente", index=1)
+        def group(batch, candidates):
+            self.assertEqual([article.pk for article in candidates], [anchor.pk])
+            return [{"story_id": story.pk, "article_ids": [pending.pk]}]
+        with patch("news.management.commands.group_news_ai.group_articles", side_effect=group):
+            call_command("group_news_ai", stdout=StringIO())
+
+    def test_concurrent_reassignment_aborts_instead_of_overwriting_it(self):
+        pending = self.article("Pendiente")
+        concurrent = Story.objects.create()
+        def group(batch, candidates):
+            Article.objects.filter(pk=pending.pk).update(story=concurrent)
+            return [{"story_id": 0, "article_ids": [pending.pk]}]
+        with patch("news.management.commands.group_news_ai.group_articles", side_effect=group):
+            with self.assertRaises(CommandError):
+                call_command("group_news_ai", stdout=StringIO())
+        pending.refresh_from_db()
+        self.assertEqual(pending.story_id, concurrent.pk)
+
+    def test_legacy_groups_are_not_scored_before_review(self):
+        self.article("Sin revisar", story=Story.objects.create(grouping_version=0))
+        with patch("news.management.commands.score_news_ai.score_stories") as model:
+            call_command("score_news_ai", stdout=StringIO())
+            model.assert_not_called()
 
     def test_cleanup_drops_empty_stories_without_extending_saved_articles(self):
         story = Story.objects.create()
@@ -204,6 +319,38 @@ class StoryTests(TestCase):
 
 
 class StoryMigrationTests(TransactionTestCase):
+    def test_review_version_preserves_old_groups_and_their_articles_in_both_directions(self):
+        previous = [("news", "0018_expand_categories_and_sources")]
+        target = [("news", "0019_story_grouping_version")]
+        executor = MigrationExecutor(connection)
+        try:
+            executor.migrate(previous)
+            old = executor.loader.project_state(previous).apps
+            source = old.get_model("news", "Source").objects.create(name="Medio sintético versión")
+            feed = old.get_model("news", "Feed").objects.create(
+                source_id=source.pk, name="RSS", url="https://example.com/migration-version/rss",
+            )
+            story = old.get_model("news", "Story").objects.create(importance_score=4)
+            article = old.get_model("news", "Article").objects.create(
+                feed_id=feed.pk, story_id=story.pk, title="Titular sintético previo",
+                original_url="https://example.com/migration-version/article",
+            )
+            executor = MigrationExecutor(connection)
+            executor.migrate(target)
+            current = executor.loader.project_state(target).apps
+            stored = current.get_model("news", "Story").objects.get(pk=story.pk)
+            self.assertEqual(stored.grouping_version, 0)
+            self.assertEqual(stored.importance_score, 4)
+            self.assertEqual(current.get_model("news", "Article").objects.get(pk=article.pk).story_id, story.pk)
+            self.assertEqual(current.get_model("news", "Story").objects.create().grouping_version, 1)
+            executor = MigrationExecutor(connection)
+            executor.migrate(previous)
+            restored = executor.loader.project_state(previous).apps
+            self.assertEqual(restored.get_model("news", "Article").objects.get(pk=article.pk).story_id, story.pk)
+        finally:
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
+
     def test_existing_articles_survive_forward_and_reverse(self):
         previous = [("news", "0015_educational_feeds_and_briefing_status")]
         target = [("news", "0016_story_feed_allow_ai_grouping_article_story")]

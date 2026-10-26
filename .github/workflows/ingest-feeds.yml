@@ -5,6 +5,17 @@ on:
     - cron: '0 0,6,8,10,12,14,16,18,20,22 * * *'
       timezone: America/Argentina/Buenos_Aires
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Flujo completo o sólo reparación del agrupamiento e importancia
+        type: choice
+        options: [maintenance, repair-grouping]
+        default: maintenance
+      grouping_limit:
+        description: Máximo de titulares a agrupar en esta ejecución
+        type: choice
+        options: ['100', '500']
+        default: '100'
 
 permissions:
   contents: read
@@ -68,20 +79,28 @@ jobs:
           python manage.py showmigrations --plan
       - name: Limpiar noticias antiguas
         id: purge
+        if: inputs.mode != 'repair-grouping'
         run: python manage.py purge_old_articles
       - name: Ingerir feeds
         id: ingest
+        if: inputs.mode != 'repair-grouping'
         run: python manage.py ingest_feeds
       - name: Clasificar noticias con IA
-        if: env.GEMINI_API_KEY != ''
+        if: inputs.mode != 'repair-grouping' && env.GEMINI_API_KEY != ''
         run: python manage.py classify_news_ai
       - name: Generar presentación de las últimas 24 horas
         if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: python manage.py generate_news_briefing
+      - name: Comprobar identidad con titulares ficticios
+        id: grouping_check
+        if: inputs.mode == 'repair-grouping' && env.GEMINI_API_KEY != ''
+        run: python manage.py check_news_grouping
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && env.GEMINI_API_KEY != '' }}
-        run: python manage.py group_news_ai
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (inputs.mode == 'repair-grouping' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
+        env:
+          GROUPING_LIMIT: ${{ inputs.grouping_limit || '100' }}
+        run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
       - name: Evaluar importancia general
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && steps.purge.outcome == 'success' && steps.ingest.outcome == 'success' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && ((inputs.mode == 'repair-grouping' && steps.grouping.outcome == 'success') || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: python manage.py score_news_ai

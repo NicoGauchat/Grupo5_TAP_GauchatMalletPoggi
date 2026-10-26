@@ -2,11 +2,12 @@
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Case, Q, Value, When
 from django.utils import timezone
 
 from news.llm_classification import MODEL
 from news.llm_grouping import GroupingError, group_articles
-from news.models import Article, Story
+from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
 
 
@@ -27,12 +28,15 @@ class Command(BaseCommand):
         eligible = Article.objects.filter(
             feed__is_active=True, feed__allow_ai_grouping=True, published_at__gte=retention_cutoff(), published_at__lte=timezone.now(),
         ).select_related("feed__source")
-        pending = list(eligible.filter(story__isnull=True).order_by("published_at", "pk")[:limit])
+        needs_review = Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION)
+        pending = list(eligible.filter(needs_review).annotate(
+            review_priority=Case(When(story__isnull=False, then=Value(0)), default=Value(1)),
+        ).order_by("review_priority", "-published_at", "-pk")[:limit])
         processed = 0
         for start in range(0, len(pending), BATCH_SIZE):
             batch = pending[start:start + BATCH_SIZE]
             representatives = {}
-            for article in eligible.filter(story__isnull=False).order_by("-published_at", "-pk").iterator():
+            for article in eligible.filter(story__grouping_version=GROUPING_VERSION).order_by("pk").iterator():
                 representatives.setdefault(article.story_id, article)
             try:
                 candidates = list(representatives.values())
@@ -51,14 +55,25 @@ class Command(BaseCommand):
             with transaction.atomic():
                 stories = list(Story.objects.select_for_update().filter(pk__in=representatives).order_by("pk"))
                 locked = list(eligible.select_for_update(of=("self",)).filter(
-                    pk__in=[article.pk for article in batch], story__isnull=True,
+                    pk__in=[article.pk for article in batch],
                 ))
-                if len(locked) != len(batch) or len(stories) != len(representatives):
+                def snapshot(rows):
+                    return {article.pk: (article.story_id, article.title, article.published_at,
+                                         article.feed_id, article.language) for article in rows}
+                current_anchors = list(eligible.select_for_update(of=("self",)).filter(
+                    pk__in=[article.pk for article in representatives.values()],
+                    story__grouping_version=GROUPING_VERSION,
+                ))
+                if (snapshot(locked) != snapshot(batch) or len(stories) != len(representatives)
+                    or snapshot(current_anchors) != snapshot(representatives.values())):
                     raise CommandError("Los datos cambiaron durante el agrupamiento; volvé a ejecutar el comando.")
                 for group in groups:
                     story_id = group["story_id"] or Story.objects.create(llm_model=MODEL).pk
                     Article.objects.filter(pk__in=group["article_ids"]).update(story_id=story_id)
-                    Story.objects.filter(pk=story_id).update(importance_scored_at=None)
+                    Story.objects.filter(pk=story_id).update(
+                        importance_score=None, importance_reason="", importance_scored_at=None, importance_model="",
+                    )
             processed += len(batch)
-        remaining = eligible.filter(story__isnull=True).count()
-        self.stdout.write(f"Se agruparon {processed} noticias; quedan {remaining} pendientes.")
+        remaining = eligible.filter(needs_review).count()
+        legacy = eligible.filter(needs_review, story__isnull=False).count()
+        self.stdout.write(f"Se agruparon {processed} noticias; quedan {remaining} pendientes ({legacy} de grupos anteriores).")

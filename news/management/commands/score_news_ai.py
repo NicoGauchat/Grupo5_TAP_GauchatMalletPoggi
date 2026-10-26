@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from news.llm_classification import MODEL
 from news.llm_importance import ImportanceError, score_stories
-from news.models import Article, Story
+from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
 
 
@@ -24,7 +24,9 @@ class Command(BaseCommand):
         now = timezone.now()
         allowed = Q(articles__feed__is_active=True, articles__feed__allow_ai_grouping=True,
                     articles__published_at__gte=retention_cutoff(), articles__published_at__lte=now)
-        stories = Story.objects.annotate(latest_coverage=Max("articles__fetched_at", filter=allowed)).filter(latest_coverage__isnull=False)
+        stories = Story.objects.filter(grouping_version=GROUPING_VERSION).annotate(
+            latest_coverage=Max("articles__fetched_at", filter=allowed),
+        ).filter(latest_coverage__isnull=False)
         if not options["force"]:
             stories = stories.filter(Q(importance_scored_at__isnull=True) | Q(importance_scored_at__lt=F("latest_coverage")))
         ids = list(stories.order_by("-latest_coverage", "-pk").values_list("pk", flat=True)[:options["limit"]])

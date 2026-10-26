@@ -1,6 +1,6 @@
 {% load static %}
 {% for article in articles %}
-<article id="{% if article.story_id and article.feed.allow_ai_grouping %}story-{{ article.story_id }}{% else %}news-{{ article.pk }}{% endif %}" class="article-card{% if leading and forloop.first %} article-lead{% endif %}" data-article-id="{{ article.pk }}">
+<article id="{% if article.has_verified_story %}story-{{ article.story_id }}{% else %}news-{{ article.pk }}{% endif %}" class="article-card{% if leading and forloop.first %} article-lead{% endif %}" data-article-id="{{ article.pk }}">
     <figure class="article-media">
         <a href="{{ article.original_url }}" target="_blank" rel="noopener" aria-label="Leer {{ article.title }} (nueva pestaña)">
             <img src="{% if article.image_url and article.feed.show_images %}{{ article.image_url }}{% else %}{% static category_image %}{% endif %}" data-fallback="{% static category_image %}" alt="" width="960" height="600" {% if leading and forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" referrerpolicy="no-referrer">
@@ -11,7 +11,7 @@
         {% if leading and forloop.first %}<p class="leading-label">{{ leading_label }}</p>{% endif %}
         {% if article.coverages|length > 1 %}<p class="news-meta">Titular de {{ article.feed.source.name }}</p>{% endif %}
         <h2><a href="{{ article.original_url }}" target="_blank" rel="noopener">{{ article.title }}</a></h2>
-        {% if article.feed.allow_ai_grouping and article.story.importance_score %}
+        {% if article.has_verified_story and article.story.importance_score %}
         <details class="importance-note">
             <summary>Importancia general {{ article.story.importance_score }}/5 · IA</summary>
             <p>{{ article.story.importance_reason }}</p>

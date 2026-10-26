@@ -50,10 +50,10 @@ class StoryArticleInline(admin.TabularInline):
 
 @admin.register(Story)
 class StoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "created_at", "llm_model", "importance_score", "importance_scored_at")
-    list_filter = ("importance_score",)
+    list_display = ("id", "created_at", "llm_model", "grouping_version", "importance_score", "importance_scored_at")
+    list_filter = ("grouping_version", "importance_score")
     search_fields = ("articles__title",)
-    readonly_fields = ("created_at", "llm_model", "importance_score", "importance_reason", "importance_scored_at", "importance_model")
+    readonly_fields = ("created_at", "llm_model", "grouping_version", "importance_score", "importance_reason", "importance_scored_at", "importance_model")
     inlines = (StoryArticleInline,)
 
 

@@ -7,14 +7,14 @@ from django.db.models.functions import Cast
 from django.utils import timezone
 
 from .forms import NewsFilterForm
-from .models import Article, UserPreference
+from .models import GROUPING_VERSION, Article, UserPreference
 from .retention import retention_cutoff
 from .search import search_articles
 
 
 CATEGORY_IMAGES = {"argentina", "politica-argentina", "geopolitica", "economia", "mercados-finanzas",
                    "tecnologia", "inteligencia-artificial", "ciencia"}
-CURSOR_SALT = "news.category.stories.v2"
+CURSOR_SALT = "news.category.stories.v3"
 
 
 def category_image(slug):
@@ -65,12 +65,13 @@ def story_articles(articles, search_text=""):
         story_id=OuterRef("story_id"), feed__allow_ai_grouping=True,
     ).order_by(*fields).values("pk")[:1]
     return articles.filter(
-        Q(story__isnull=True) | Q(feed__allow_ai_grouping=False) | Q(pk=Subquery(representative))
+        ~Q(story__grouping_version=GROUPING_VERSION) | Q(feed__allow_ai_grouping=False)
+        | Q(pk=Subquery(representative))
     )
 
 
 def add_coverages(rows):
-    story_ids = {article.story_id for article in rows if article.feed.allow_ai_grouping and article.story_id}
+    story_ids = {article.story_id for article in rows if article.has_verified_story}
     grouped = {}
     coverages = Article.objects.filter(
         story_id__in=story_ids, feed__is_active=True, feed__allow_ai_grouping=True,
@@ -79,7 +80,7 @@ def add_coverages(rows):
     for coverage in coverages:
         grouped.setdefault(coverage.story_id, []).append(coverage)
     for article in rows:
-        article.coverages = grouped.get(article.story_id, [article]) if article.feed.allow_ai_grouping else [article]
+        article.coverages = grouped.get(article.story_id, [article]) if article.has_verified_story else [article]
         article.coverage_sources = sorted({item.feed.source.name for item in article.coverages})
 
 
@@ -89,7 +90,8 @@ def article_batch(request, articles, context, search_text, sort=""):
         articles = articles.annotate(relevance=Cast("relevance", FloatField()))
     if sort == "important":
         articles = articles.annotate(importance=Case(
-            When(feed__allow_ai_grouping=True, story__importance_score__isnull=False, then="story__importance_score"),
+            When(feed__allow_ai_grouping=True, story__grouping_version=GROUPING_VERSION,
+                 story__importance_score__isnull=False, then="story__importance_score"),
             default=Value(0), output_field=IntegerField(),
         ))
     fields = (["importance"] if sort == "important" else []) + (["relevance"] if ranked else []) + ["published_at", "pk"]
