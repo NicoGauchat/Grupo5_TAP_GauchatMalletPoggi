@@ -45,7 +45,8 @@ class BriefingResponseTests(SimpleTestCase):
                         summarize_articles([self.article])
         options = client.call_args.kwargs["http_options"]
         self.assertEqual(options.timeout, 60_000)
-        self.assertEqual(options.retry_options.attempts, 1)
+        self.assertEqual(options.retry_options.attempts, 2)
+        self.assertEqual(options.retry_options.http_status_codes, [500, 502, 503, 504])
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")

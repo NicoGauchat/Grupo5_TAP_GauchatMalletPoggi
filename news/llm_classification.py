@@ -75,7 +75,11 @@ def classify_batch(articles, available_slugs):
         "required": ["articles"],
     }
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
+            timeout=60_000, retry_options=types.HttpRetryOptions(
+                attempts=2, initial_delay=2, max_delay=4, http_status_codes=[500, 502, 503, 504],
+            ),
+        ))
         response = client.models.generate_content(
             model=MODEL,
             contents=prompt,

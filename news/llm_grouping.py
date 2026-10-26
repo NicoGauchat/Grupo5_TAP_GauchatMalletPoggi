@@ -60,7 +60,9 @@ def group_articles(articles, candidates):
 def request_groups(prompt, schema, api_key):
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
-            timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1),
+            timeout=60_000, retry_options=types.HttpRetryOptions(
+                attempts=2, initial_delay=2, max_delay=4, http_status_codes=[500, 502, 503, 504],
+            ),
         )) as client:
             response = client.models.generate_content(
                 model=MODEL, contents=prompt,

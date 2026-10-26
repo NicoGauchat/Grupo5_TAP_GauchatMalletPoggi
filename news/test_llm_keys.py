@@ -1,10 +1,12 @@
 import json
+import httpx
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 from google.genai import errors
+from google import genai
 
 from .briefings import briefing_context
 from .llm_briefing import BriefingError, summarize_articles
@@ -21,6 +23,38 @@ SECONDARY = "secondary-test-value"
 
 
 class APIKeyRoutingTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
+    def test_sdk_retries_unavailable_but_not_quota_with_mock_http(self):
+        real_client = genai.Client
+        result = {"items": [{"category_slug": "ciencia", "text": "Síntesis de prueba.",
+                             "importance_score": 3, "article_ids": [7]}]}
+        for status in (503, 429):
+            calls = []
+
+            def respond(request):
+                calls.append(request)
+                if len(calls) == 1:
+                    return httpx.Response(status, json={"error": {"code": status, "message": "private response"}})
+                return httpx.Response(200, json={"candidates": [{"content": {
+                    "role": "model", "parts": [{"text": json.dumps(result)}]}, "finishReason": "STOP"}]})
+
+            def build_client(**kwargs):
+                kwargs["http_options"].client_args = {"transport": httpx.MockTransport(respond)}
+                kwargs["http_options"].retry_options.initial_delay = 0.001
+                kwargs["http_options"].retry_options.max_delay = 0.001
+                return real_client(**kwargs)
+
+            with self.subTest(status=status), patch("news.llm_briefing.genai.Client", side_effect=build_client):
+                if status == 503:
+                    self.assertEqual(summarize_articles([self.article()]), result["items"])
+                    self.assertEqual(len(calls), 2)
+                else:
+                    with self.assertRaises(BriefingError) as caught:
+                        summarize_articles([self.article()])
+                    self.assertEqual(len(calls), 1)
+                    self.assertEqual(caught.exception.code, "quota")
+                    self.assertNotIn("private response", str(caught.exception))
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
     def test_provider_failures_report_safe_http_diagnostics_in_all_tasks(self):
         article = self.article()
@@ -43,8 +77,6 @@ class APIKeyRoutingTests(SimpleTestCase):
                     self.assertNotIn("private headline", str(caught.exception))
 
     def test_non_api_diagnostics_do_not_echo_exception_content(self):
-        import httpx
-
         cases = [
             (TimeoutError(SECONDARY), "timeout"),
             (httpx.ConnectError(SECONDARY), "transport"),

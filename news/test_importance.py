@@ -128,9 +128,10 @@ class ImportanceAndDateTests(TestCase):
             self.assertEqual(article.story.importance_score, 4)
             call_command("score_news_ai", force=True, stdout=StringIO())
             self.assertEqual(model.call_count, 2)
-            Article.objects.create(feed=self.feed, story=article.story, title="Cobertura nueva",
-                                   original_url="https://example.com/new-coverage", published_at=timezone.now())
-            call_command("score_news_ai", stdout=StringIO())
+            with patch("django.utils.timezone.now", return_value=timezone.now() + timedelta(seconds=1)):
+                Article.objects.create(feed=self.feed, story=article.story, title="Cobertura nueva",
+                                       original_url="https://example.com/new-coverage", published_at=timezone.now())
+                call_command("score_news_ai", stdout=StringIO())
             self.assertEqual(model.call_count, 3)
         with patch("news.management.commands.score_news_ai.score_stories", side_effect=ImportanceError("Error")):
             with self.assertRaises(CommandError):
