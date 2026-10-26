@@ -25,6 +25,11 @@ on:
         type: choice
         options: [repository-default, gemini-3.1-flash-lite, gemini-3.5-flash-lite]
         default: repository-default
+      check_provider:
+        description: Proveedor a comprobar (sólo en modo check-grouping)
+        type: choice
+        options: [gemini, groq, openrouter]
+        default: gemini
 
 permissions:
   contents: read
@@ -121,7 +126,9 @@ jobs:
       - name: Comprobar identidad con titulares ficticios
         id: grouping_check
         if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && env.GEMINI_API_KEY != ''
-        run: python manage.py check_news_grouping
+        env:
+          CHECK_PROVIDER: ${{ inputs.mode == 'check-grouping' && inputs.check_provider || 'gemini' }}
+        run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER"
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}

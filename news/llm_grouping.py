@@ -30,7 +30,7 @@ def metadata(article):
     }
 
 
-def group_articles(articles, candidates):
+def group_articles(articles, candidates, *, provider="gemini"):
     api_key = api_key_for("grouping")
     if not api_key:
         raise GroupingError("Falta configurar GEMINI_API_KEY.")
@@ -61,6 +61,10 @@ def group_articles(articles, candidates):
             },
         }}},
     }
+    if provider != "gemini":
+        result = request_groups(prompt, schema, api_key, provider=provider)
+        groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
+        return ModelList(confirm_groups(articles, candidates, groups, api_key, provider=provider), backup_model(provider))
     for attempt in range(1, 4):
         try:
             result = request_groups(prompt, schema, api_key)
