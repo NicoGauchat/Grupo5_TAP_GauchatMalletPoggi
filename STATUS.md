@@ -1,9 +1,17 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** mejorar la lectura del resumen y sus fuentes, priorizar noticias importantes y reforzar los reintentos y las visitas automáticas.
+**Objetivo actual:** procesar pendientes IA entre ingestas, también durante la noche, y diagnosticar la fiabilidad de Gemini sin cambiar de proveedor.
 
 ## Último paso completado
+
+Se ejecutó la ingesta completa solicitada, Actions **40410417291**, con el código publicado y tres intentos de agrupamiento. Migraciones, limpieza y RSS pasaron; se incorporaron **11 noticias nuevas**. La ingesta duró 4 min 6 s. Clasificación procesó **30** noticias antes de HTTP 503; el resumen rechazó texto/referencias inválidos y conservó la última síntesis vigente; agrupamiento agotó sus tres intentos en 18 s y rechazó referencias inválidas/repetidas, con **cero** noticias agrupadas; importancia terminó con HTTP 504 y **cero** acontecimientos evaluados. La ejecución terminó fallida: se acredita ingesta y avance parcial de clasificación, no recuperación integral de IA. Los logs no distinguen todavía la condición concreta dentro de las referencias inválidas, ni permiten atribuir la causa interna de 503/504. No se desactivaron validaciones ni se cambiaron puntajes por resultados ficticios.
+
+El usuario eligió tandas de cien cada quince minutos sin repetir RSS y pidió aprovechar también la noche. Se agregó `process-ai` al workflow existente: clasificación, agrupamiento e importancia usan sus consultas de pendientes; etapas vacías no llaman a Gemini. Se conserva la descarga RSS a los diez horarios anteriores y se agregan 86 horarios sólo IA para completar los 96 cuartos de hora diarios. Limpieza y resúmenes no se ejecutan en esas tandas; el resumen conserva ejecución tras ingesta y modo manual. Agrupamiento queda fijado en cien en `process-ai`, incluso si se eligen 500 en el selector de reparación. Todos los modos comparten una ejecución activa, sin cancelarla, y cola de hasta cien pendientes mediante `queue: max`, para no reemplazar ingestas en espera con nuevas tandas. Sigue habiendo timeout de veinte minutos, posibles demoras/omisiones y límites del proveedor: mayor frecuencia no corrige automáticamente respuestas inválidas ni asegura vaciar todo el atraso.
+
+Verificación local de la planificación: los 1440 minutos del día tienen exactamente un disparo cada quince minutos, diez de RSS y 86 de IA; pruebas de las expresiones reales comprobaron los cuatro modos, exclusión nocturna de RSS, límite fijo de cien y bloqueo tras fallo de migraciones. Actionlint 1.7.12 validó ambos workflows excluyendo únicamente su diagnóstico de propiedad `queue` desconocida: es la última release disponible pero aún no contempla esa propiedad; se contrastó con documentación oficial y falta confirmar aceptación real de GitHub tras el push. `git diff --check` pasó. No se modificó código Django, por lo que no se repitió su suite. README y PROJECT actualizados con operación, límites e investigación oficial y de dos proyectos comparables; SOURCES y `.env.example` no requieren cambios: no cambian feeds, permisos, campos enviados, credenciales ni variables de aplicación. No se inició despliegue de Render.
+
+El usuario consultó alternativas gratuitas y luego aclaró que prefiere conservar Gemini. Se revisó documentación oficial de Groq, Mistral y Cerebras, sin integrar un proveedor ni crear claves o cuentas. Sólo se comprobaron nombres de secretos de Actions: no existe una clave de otro proveedor entre ellos. Para evaluar otra API sería necesaria una credencial autorizada y una comparación controlada; no se activó facturación ni rotación de claves.
 
 Los cambios se publicaron en `main` mediante **74608e9**, por pedido explícito del usuario. La visita manual del bot **40410033285** terminó correctamente y confirmó «LibreNews respondió correctamente». Esto comprueba el acceso HTTPS y la validación de portada con el workflow publicado; aún no acredita regularidad de las futuras visitas cada cinco minutos. Los tres intentos de agrupamiento están disponibles para las ejecuciones siguientes de Actions; no se lanzó una reparación remota adicional. La presentación y el orden inicial de categorías requieren el despliegue web del amigo del usuario, que no se inició desde esta tarea.
 
@@ -188,7 +196,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Desplegar `main` en Render mediante el responsable para verificar en la web el resumen ordenado, el selector de fuentes y la importancia como orden inicial.
+Comparar solicitudes pequeñas y grandes con Gemini y detallar las condiciones de validación fallidas para distinguir problemas del proveedor de problemas del contrato de respuesta.
 
 ## Completado
 
