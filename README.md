@@ -254,6 +254,8 @@ Además de esas diez ingestas, el mismo workflow programa pendientes IA en los c
 
 GitHub Actions y Render usan el mismo proyecto PostgreSQL de Supabase. GitHub no puede acceder al PostgreSQL local en `127.0.0.1`. No se crea una base temporal para la ingesta ni se expone el puerto local.
 
+Para contar pendientes de agrupamiento por antigüedad, ejecutar **Run workflow → mode: report-backlog**, o `python manage.py report_grouping_backlog` con acceso a la base correspondiente. Informa en JSON la hora de consulta, total, hasta 24 horas, más de 24 hasta 48 horas y más de 48 horas, además de referencias de grupos anteriores y las fechas extremas. Usa la fecha de publicación y los mismos permisos y ventana de 14 días del agrupador; no cuenta noticias fuera de esa cola. Exactamente 24 horas pertenece al primer intervalo y exactamente 48 al segundo. En PostgreSQL ejecuta la consulta en una transacción de sólo lectura. Este modo no ingiere, elimina, agrupa, puntúa ni llama a IA; comprueba migraciones sin aplicarlas y conserva la cola compartida.
+
 Para activarlo:
 
 1. Crear el proyecto de Supabase en **East US (North Virginia)** para usar una región cercana a Render Virginia.

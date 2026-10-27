@@ -1,9 +1,11 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-10-26
+**Última actualización:** 2026-10-27
 **Objetivo actual:** conservar la ingesta y las etapas IA verificadas, con asignaciones únicas por noticia y respaldo Groq 120B.
 
 ## Último paso completado
+
+Por autorización del usuario se agrega `report_grouping_backlog` y el modo manual `report-backlog` de Actions para medir pendientes por publicación: hasta 24 horas, más de 24 hasta 48 y más de 48 dentro de los 14 días vigentes. Reutiliza los filtros del agrupador (fuente activa, permiso y grupo ausente o anterior), una sola agregación y una hora fija; PostgreSQL exige transacción de sólo lectura. No modifica noticias, retención ni clasificación y no llama a proveedores. Dos pruebas SQLite aprobadas: límites exactos de 24/48 horas y 14 días, exclusión de fuentes sin permiso/inactivas, fechas futuras/nulas, grupos verificados, inclusión de grupos anteriores, cola vacía y conservación de los registros. Django check y diff aprobados; actionlint aprobado con la exclusión exacta de `queue` ya documentada. Consulta remota pendiente. README documenta el comando; PROJECT, SOURCES y `.env.example` no requieren cambios: no cambian arquitectura, políticas de fuentes, almacenamiento ni variables.
 
 La comprobación final **40433316880** terminó correctamente: **cien noticias agrupadas y 91 acontecimientos evaluados**, con **1883 pendientes** y cero de grupos anteriores. Agrupamiento duró 10 min 6 s; importancia, 1 min 24 s. No registró reintentos, rechazos ni uso de respaldo: se acredita el contrato por ID con Gemini principal sobre un lote real de cien. Antes, **40429116194** verificó cien clasificaciones y cien evaluaciones tras las correcciones, y **40426732862** incorporó 37 noticias nuevas y reutilizó el resumen vigente. La primera ingesta completa había fallado en dos etapas; las comprobaciones posteriores se hicieron sin repetir RSS. No se presenta esa primera ejecución como totalmente exitosa.
 
@@ -264,7 +266,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar la próxima ingesta automática completa con el margen de treinta minutos y los contratos corregidos.
+Ejecutar el diagnóstico remoto de antigüedad y comunicar los conteos antes de decidir un eventual corte de conservación.
 
 ## Completado
 
