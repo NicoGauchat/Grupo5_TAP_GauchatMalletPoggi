@@ -95,7 +95,7 @@ def request_backup(prompt, schema, task, provider):
                 json=body,
             )
             if response.status_code != 200:
-                code = "quota" if response.status_code == 429 else (
+                code = "request_too_large" if response.status_code == 413 else "quota" if response.status_code == 429 else (
                     "configuration" if response.status_code in {400, 401, 402, 403, 404} else "connection"
                 )
                 raise BackupError(code, provider, response.status_code)

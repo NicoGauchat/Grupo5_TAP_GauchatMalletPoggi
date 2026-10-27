@@ -39,7 +39,7 @@ class BackupTransportTests(SimpleTestCase):
 
     @patch.dict("os.environ", {"GROQ_API_KEY": "private-backup-key"}, clear=True)
     def test_backup_errors_never_expose_raw_messages_or_retry_another_key(self):
-        for status, expected in ((400, "configuration"), (401, "configuration"), (429, "quota"), (503, "connection")):
+        for status, expected in ((400, "configuration"), (401, "configuration"), (413, "request_too_large"), (429, "quota"), (503, "connection")):
             with self.subTest(status=status), patch("news.llm_transport.httpx.Client") as client:
                 post = client.return_value.__enter__.return_value.post
                 post.return_value.status_code = status

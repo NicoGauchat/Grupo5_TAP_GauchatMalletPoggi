@@ -15,11 +15,12 @@ from .llm_transport import BackupError, ModelList, backup_configured, backup_pro
 
 
 class GroupingError(Exception):
-    def __init__(self, message, *, retryable=True, delay=0, fallback_allowed=None):
+    def __init__(self, message, *, retryable=True, delay=0, fallback_allowed=None, reduce_candidates=False):
         super().__init__(message)
         self.retryable = retryable
         self.delay = delay
         self.fallback_allowed = retryable if fallback_allowed is None else fallback_allowed
+        self.reduce_candidates = reduce_candidates
 
 
 def metadata(article):
@@ -97,7 +98,8 @@ def request_groups(prompt, schema, api_key, *, provider="gemini"):
         try:
             return request_backup(prompt, schema, "grouping", provider)
         except BackupError as error:
-            raise GroupingError(str(error), retryable=False) from error
+            raise GroupingError(str(error), retryable=False,
+                                reduce_candidates=error.code == "request_too_large") from error
     pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(

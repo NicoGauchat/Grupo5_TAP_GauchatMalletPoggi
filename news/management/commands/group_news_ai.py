@@ -33,6 +33,7 @@ class Command(BaseCommand):
             review_priority=Case(When(story__isnull=False, then=Value(0)), default=Value(1)),
         ).order_by("review_priority", "-published_at", "-pk")[:limit])
         processed = 0
+        candidate_limit = MAX_CANDIDATES
         for start in range(0, len(pending), BATCH_SIZE):
             batch = pending[start:start + BATCH_SIZE]
             representatives = {}
@@ -40,17 +41,7 @@ class Command(BaseCommand):
                 representatives.setdefault(article.story_id, article)
             try:
                 candidates = list(representatives.values())
-                remaining, groups, new_groups = batch, [], []
-                for offset in range(0, max(1, len(candidates)), MAX_CANDIDATES):
-                    result = group_articles(remaining, candidates[offset:offset + MAX_CANDIDATES])
-                    result = [dict(row, _model=getattr(result, "model", MODEL)) for row in result]
-                    groups.extend(row for row in result if row["story_id"])
-                    new_groups = [row for row in result if not row["story_id"]]
-                    unmatched = {pk for row in new_groups for pk in row["article_ids"]}
-                    remaining = [article for article in remaining if article.pk in unmatched]
-                    if not remaining:
-                        break
-                groups.extend(new_groups)
+                groups, candidate_limit = self.propose_batch(batch, candidates, candidate_limit)
             except GroupingError as error:
                 raise CommandError(f"Se agruparon {processed} noticias. {error}") from error
             with transaction.atomic():
@@ -78,3 +69,25 @@ class Command(BaseCommand):
         remaining = eligible.filter(needs_review).count()
         legacy = eligible.filter(needs_review, story__isnull=False).count()
         self.stdout.write(f"Se agruparon {processed} noticias; quedan {remaining} pendientes ({legacy} de grupos anteriores).")
+
+    def propose_batch(self, batch, candidates, candidate_limit):
+        while True:
+            try:
+                remaining, groups, new_groups = batch, [], []
+                for offset in range(0, max(1, len(candidates)), candidate_limit):
+                    result = group_articles(remaining, candidates[offset:offset + candidate_limit])
+                    result = [dict(row, _model=getattr(result, "model", MODEL)) for row in result]
+                    groups.extend(row for row in result if row["story_id"])
+                    new_groups = [row for row in result if not row["story_id"]]
+                    unmatched = {pk for row in new_groups for pk in row["article_ids"]}
+                    remaining = [article for article in remaining if article.pk in unmatched]
+                    if not remaining:
+                        break
+                return groups + new_groups, candidate_limit
+            except GroupingError as error:
+                if not error.reduce_candidates or candidate_limit <= 1 or len(candidates) <= 1:
+                    raise
+                candidate_limit = max(1, min(candidate_limit, len(candidates)) // 2)
+                self.stderr.write(self.style.WARNING(
+                    f"Agrupamiento: petición demasiado grande; se repite el lote con bloques de {candidate_limit} candidatos."
+                ))

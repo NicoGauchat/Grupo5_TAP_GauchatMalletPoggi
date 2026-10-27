@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+La tanda sólo IA **40429116194**, con **72f334a**, completó **cien noticias clasificadas y cien acontecimientos evaluados**: se verificó el esquema corregido en ambas etapas. Agrupamiento guardó diez noticias y luego falló por `repeated_article_id` en los tres intentos de Gemini; Groq rechazó el respaldo con **HTTP 413**, anteriormente rotulado conexión. No se afirma que haya funcionado el respaldo real ni que toda la tanda haya sido exitosa.
+
+Se preparó manejo específico de `request_too_large`: el comando reinicia sólo el lote aún no guardado, reduce a la mitad el bloque de candidatos hasta uno y recorre todos sin omitirlos. Se descartan las propuestas parciales y se conserva el tamaño menor para el resto de la ejecución. Los demás errores no activan esa reducción y el caso mínimo fallido termina pendiente; no se recortan titulares ni relajan controles. Investigación oficial y dos SDK comparables registrada en PROJECT. Verificación: **37 pruebas, 36 aprobadas y una omitida** por PostgreSQL; cubren reinicio tras fallo en un bloque posterior, visita de todos los candidatos, descarte de propuestas parciales, límite mínimo y clasificación segura de 413. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque siguen iguales feeds, permisos, campos enviados y variables. Se prepara publicación y reparación real sólo de agrupamiento/importancia, sin repetir RSS.
+
 La ingesta completa solicitada **40426732862** terminó fallida tras unos 18 minutos: **37 noticias nuevas y 538 duplicadas**, 25 RSS procesados y uno sin cambios (304). Migraciones y limpieza pasaron; RSS duró 8 min 8 s. Clasificación guardó **diez** noticias antes de rechazar IDs/categorías inválidos; el resumen reutilizó la presentación vigente de dos horas. Agrupamiento completó **cien noticias**, con **2013 pendientes** y cero de grupos anteriores, tras recuperar un intento con `repeated_article_id`. Importancia guardó **cincuenta acontecimientos** y rechazó luego IDs/puntajes/explicaciones inválidos. Los mensajes previos no distinguen el campo exacto: no se afirma que fuera longitud o referencia ni que haya fallado la cuota.
 
 Se restringieron los esquemas de clasificación e importancia a los IDs numéricos del lote y su cantidad exacta de filas, usando la misma interfaz JSON Schema ya verificada en agrupamiento. Clasificación restringe hasta tres categorías. Se conservan todas las comprobaciones locales y se agregan motivos seguros por campo. Importancia pide 220–270 caracteres con máximo 300, dejando margen sin cortar textos ni bajar controles. La documentación oficial confirma que maxLength y uniqueItems no se aplican en generación, por lo que se mantienen controles locales en lugar de asumir su eficacia. Verificación: **27 pruebas focalizadas, 26 aprobadas y una omitida** por requerir PostgreSQL, incluidos contratos de IDs/lotes y diagnósticos sin datos privados; diff sin errores. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, datos enviados ni variables. Se prepara publicación y comprobación real sólo IA, sin repetir RSS ni desplegar Render.
@@ -240,7 +244,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar una tanda real sólo IA con los esquemas restringidos y registrar los motivos seguros si queda una etapa pendiente.
+Comprobar una reparación real de agrupamiento con reducción de bloques ante HTTP 413 y registrar su resultado.
 
 ## Completado
 

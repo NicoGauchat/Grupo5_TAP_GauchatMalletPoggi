@@ -15,12 +15,46 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .llm_grouping import GroupingError, group_articles, validate_confirmations, validate_groups
+from .llm_grouping import GroupingError, group_articles, request_groups, validate_confirmations, validate_groups
 from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPreference
-from .llm_transport import ModelList
+from .llm_transport import BackupError, ModelList
+from .management.commands.group_news_ai import Command as GroupNewsCommand
 
 
 class GroupingValidationTests(SimpleTestCase):
+    def test_oversized_backup_request_signals_smaller_candidate_blocks(self):
+        with patch("news.llm_grouping.request_backup", side_effect=BackupError("request_too_large")):
+            with self.assertRaises(GroupingError) as caught:
+                request_groups("synthetic", {}, "primary-test", provider="groq")
+        self.assertTrue(caught.exception.reduce_candidates)
+        self.assertFalse(caught.exception.retryable)
+
+    def test_oversized_later_block_restarts_whole_batch_without_losing_candidates(self):
+        batch = [SimpleNamespace(pk=1), SimpleNamespace(pk=2)]
+        candidates = [SimpleNamespace(story_id=pk) for pk in (11, 12, 13)]
+        replies = [
+            [{"story_id": 11, "article_ids": [1]}, {"story_id": 0, "article_ids": [2]}],
+            GroupingError("too large", retryable=False, reduce_candidates=True),
+            [{"story_id": 0, "article_ids": [1, 2]}],
+            [{"story_id": 12, "article_ids": [1]}, {"story_id": 0, "article_ids": [2]}],
+            [{"story_id": 0, "article_ids": [2]}],
+        ]
+        with patch("news.management.commands.group_news_ai.group_articles", side_effect=replies) as model:
+            groups, limit = GroupNewsCommand(stderr=StringIO()).propose_batch(batch, candidates, 2)
+        self.assertEqual(limit, 1)
+        self.assertEqual([(row["story_id"], row["article_ids"]) for row in groups], [(12, [1]), (0, [2])])
+        self.assertEqual([article.pk for article in model.call_args_list[2].args[0]], [1, 2])
+        self.assertEqual([call.args[1][0].story_id for call in model.call_args_list[2:]], [11, 12, 13])
+
+    def test_reduction_stops_at_one_candidate_and_does_not_retry_other_errors(self):
+        candidates = [SimpleNamespace(story_id=pk) for pk in (11, 12)]
+        for shrink, expected_calls in ((True, 2), (False, 1)):
+            with self.subTest(shrink=shrink), patch("news.management.commands.group_news_ai.group_articles",
+                side_effect=GroupingError("failed", retryable=False, reduce_candidates=shrink)) as model:
+                with self.assertRaises(GroupingError):
+                    GroupNewsCommand(stderr=StringIO()).propose_batch([SimpleNamespace(pk=1)], candidates, 2)
+                self.assertEqual(model.call_count, expected_calls)
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
     def test_schema_limits_proposal_and_audit_to_received_numeric_references(self):
         source = SimpleNamespace(source=SimpleNamespace(name="Fuente ficticia"))
