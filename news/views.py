@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .browsing import add_coverages, article_batch, article_illustration, articles_for, category_image, filter_articles, story_articles
+from .browsing import add_coverages, article_batch, article_illustration, articles_for, category_featured_images, category_image, filter_articles, story_articles
 from .briefings import briefing_context
 from .forms import PreferenceForm, RegistrationForm
 from .models import Article, SavedArticle, UserPreference
@@ -54,13 +54,17 @@ def preferences(request):
 def news_feed(request):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
     categories = list(preference.categories.all())
+    now = timezone.now()
+    briefings = briefing_context(now, categories)
+    featured_images = category_featured_images(categories, preference.classification_mode,
+                                                briefings["category_briefings"], now)
     sections = [
         {"category": category, "image": category_image(category.slug),
+         "photo_article": featured_images.get(category.pk),
          "article_count": story_articles(articles_for([category], preference.classification_mode)).count()}
         for category in categories
     ]
 
-    now = timezone.now()
     now_local = timezone.localtime(now)
     if now_local.hour < 12:
         greeting = "Buenos días"
@@ -73,7 +77,7 @@ def news_feed(request):
     return render(request, "news/feed.html", {
         "sections": sections, "greeting": greeting,
         "display_name": display_name,
-        **briefing_context(now, categories),
+        **briefings,
     })
 
 

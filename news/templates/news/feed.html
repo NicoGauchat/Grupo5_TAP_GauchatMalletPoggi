@@ -75,14 +75,19 @@
 {% if sections %}
     <div class="topic-grid" aria-label="Tus categorías">
         {% for section in sections %}
-            <a class="topic-card topic-{{ section.category.slug }}" href="{% url 'category_news' section.category.slug %}">
-                <img src="{% static section.image %}" alt="" width="960" height="600" loading="lazy">
-                <div class="topic-card-copy">
-                    <h2>{{ section.category.name }}</h2>
-                    <p>{% if section.article_count %}{{ section.article_count }} acontecimiento{{ section.article_count|pluralize }}{% else %}Todavía no hay noticias{% endif %}</p>
-                    <span class="topic-open">Explorar categoría <span aria-hidden="true">→</span></span>
-                </div>
-            </a>
+            <figure class="topic-card topic-{{ section.category.slug }}">
+                <img src="{% if section.photo_article %}{{ section.photo_article.image_url }}{% else %}{% static section.image %}{% endif %}" {% if section.photo_article %}data-fallback="{% static section.image %}"{% endif %} alt="" width="960" height="600" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                <a class="topic-card-link" href="{% url 'category_news' section.category.slug %}">
+                    <div class="topic-card-copy">
+                        <h2>{{ section.category.name }}</h2>
+                        <p>{% if section.article_count %}{{ section.article_count }} acontecimiento{{ section.article_count|pluralize }}{% else %}Todavía no hay noticias{% endif %}</p>
+                        <span class="topic-open">Explorar categoría <span aria-hidden="true">→</span></span>
+                    </div>
+                </a>
+                <figcaption class="topic-photo-credit">
+                    {% if section.photo_article %}<a href="{{ section.photo_article.original_url }}" target="_blank" rel="noopener" aria-label="Ver la fotografía en el artículo de {{ section.photo_article.feed.source.name }} (nueva pestaña)">{{ section.photo_article.feed.source.name }}{% if section.photo_article.image_credit and section.photo_article.image_credit != section.photo_article.feed.source.name %} · {{ section.photo_article.image_credit }}{% endif %}</a>{% if section.photo_article.feed.url == 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml' %} · <a href="https://news.mit.edu/terms-of-use" target="_blank" rel="noopener">CC BY-NC-ND</a>{% endif %}{% else %}Imagen ilustrativa{% endif %}
+                </figcaption>
+            </figure>
         {% endfor %}
     </div>
 {% else %}

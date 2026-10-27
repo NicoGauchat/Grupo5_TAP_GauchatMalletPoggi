@@ -1,9 +1,11 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-27
-**Objetivo actual:** publicar y comprobar en el sitio las imágenes del resumen IA y las ilustraciones generales ya implementadas.
+**Objetivo actual:** publicar y comprobar las imágenes del resumen IA y las nuevas fotos destacadas de las tarjetas de categoría.
 
 ## Último paso completado
+
+**Fotos destacadas en tarjetas de categoría (27/10/2026):** la página Mis noticias puede mostrar, en cada tarjeta, una fotografía RSS permitida del acontecimiento verificado y puntuado más importante de las últimas 24 horas con imagen disponible. Respeta el modo de clasificación del usuario y puede tomar la foto de otra cobertura del mismo grupo; desempata por fecha e ID. Excluye todos los acontecimientos usados por las síntesis visibles, sus URL de foto y las fotos/grupos ya asignados a otras tarjetas. La tarjeta continúa abriendo la categoría y el crédito separado enlaza al artículo de origen (más condiciones MIT cuando aplican). Sin candidato, permiso o carga válida conserva la imagen temática con «Imagen ilustrativa». La elección cambia al llegar nuevas noticias o puntajes; no es un cierre diario fijo. No se añadieron llamadas IA, permisos, migraciones, servicios ni dependencias. Verificación: suite SQLite completa **201 ejecutadas, 186 aprobadas y 15 omitidas por PostgreSQL**; Django check, ausencia de migraciones pendientes y `git diff --check` aprobados. Edge/Playwright con tres categorías sintéticas a 1440 y 375 px: dos fotos/creditos, una foto rota sustituida por respaldo, navegación y enlaces separados y ningún desbordamiento horizontal; capturas inspeccionadas, servidor QA detenido. Impeccable se ejecutó en modo degradado por módulos HTML/CSS ausentes y sólo marcó la barra de progreso preexistente. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios. Implementación local sin commit, push ni despliegue.
 
 **Imágenes en el resumen IA (27/10/2026):** cada síntesis muestra una imagen enlazada al artículo que la aportó. Se prefiere la fotografía RSS permitida de la noticia de referencia; en su ausencia se elige una cobertura reciente del mismo acontecimiento verificado con `show_images=True`, priorizando la más reciente. Se calcula en cada lectura para respetar feeds desactivados y permisos revocados; sin foto válida o si falla la URL remota, aparece una de las tres ilustraciones locales de la categoría con «Imagen ilustrativa». Se conservan crédito, enlace de licencia MIT cuando corresponde, tamaño reservado, carga diferida, foco visible y vista adaptable. No se generan imágenes, se descargan fotografías al servidor ni se agregan llamadas IA, dependencias, migraciones o permisos de fuentes. Se mantiene pendiente el despliegue remoto. Verificación: suite SQLite completa **198 ejecutadas, 183 aprobadas y 15 omitidas por PostgreSQL**; Django check y ausencia de migraciones pendientes aprobados; `git diff --check` aprobado. Edge/Playwright con datos sintéticos fuera del repositorio a 1440 y 375 px: tres estados de imagen cargados, URL rota sustituida y crédito corregido, sin desbordamiento; capturas inspeccionadas. Servidor QA detenido. El detector Impeccable se ejecutó en modo degradado por módulos HTML/CSS ausentes y señaló la barra de progreso de lectura preexistente, no un cambio de este bloque. README, PROJECT y SOURCES actualizados por la nueva función visible y regla de selección/atribución; `.env.example` no requiere cambios. Implementación local sin commit, push ni despliegue de este bloque.
 
@@ -324,7 +326,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Publicar esta versión y comprobar en el sitio desplegado la fotografía o ilustración de cada síntesis, sus créditos y el respaldo ante fallos de carga.
+Publicar esta versión y comprobar en el sitio desplegado que las síntesis y tarjetas de categoría muestran fotos distintas, créditos correctos y respaldo ante ausencia o fallo de imagen.
 
 ## Completado
 

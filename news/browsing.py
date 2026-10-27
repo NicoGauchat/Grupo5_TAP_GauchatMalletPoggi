@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.core import signing
 from django.db import connection
-from django.db.models import Case, FloatField, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Exists, FloatField, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Cast
 from django.utils import timezone
 
@@ -34,6 +34,52 @@ def article_illustration(article, slug):
         return category_image(slug)
     key = article.story_id if article.has_verified_story else article.pk
     return f"news/images/{choices[key % len(choices)]}"
+
+
+def category_featured_images(categories, mode, briefing_rows, now):
+    """Una foto por categoría, de un acontecimiento puntuado distinto del resumen."""
+    cutoff = now - timedelta(hours=24)
+    used_story_ids = set()
+    used_image_urls = set()
+    for row in briefing_rows:
+        if not row["item"]:
+            continue
+        reference = next((article for article in row["sources"] if article.pk == row["reference_id"]), None)
+        if reference and reference.has_verified_story:
+            used_story_ids.add(reference.story_id)
+        if row["image_article"]:
+            used_image_urls.add(row["image_article"].image_url)
+
+    photo_exists = Article.objects.filter(
+        story_id=OuterRef("story_id"), feed__is_active=True, feed__allow_ai_grouping=True,
+        feed__show_images=True, image_url__gt="", published_at__gte=cutoff, published_at__lte=now,
+    )
+    selected = {}
+    for category in categories:
+        ranked = story_articles(articles_for([category], mode).filter(
+            published_at__gte=cutoff, feed__allow_ai_grouping=True,
+            story__grouping_version=GROUPING_VERSION, story__importance_score__isnull=False,
+        )).filter(Exists(photo_exists)).exclude(story_id__in=used_story_ids).order_by(
+            "-story__importance_score", "-published_at", "-pk",
+        ).values_list("story_id", flat=True)
+        story_ids = list(ranked)
+        if not story_ids:
+            continue
+        photos = {}
+        for article in Article.objects.filter(
+            story_id__in=story_ids, feed__is_active=True, feed__allow_ai_grouping=True,
+            feed__show_images=True, image_url__gt="", published_at__gte=cutoff, published_at__lte=now,
+        ).select_related("feed__source").order_by("-published_at", "-pk"):
+            photos.setdefault(article.story_id, []).append(article)
+        for story_id in story_ids:
+            photo = next((article for article in photos.get(story_id, ())
+                          if article.image_url not in used_image_urls), None)
+            if photo:
+                selected[category.pk] = photo
+                used_story_ids.add(story_id)
+                used_image_urls.add(photo.image_url)
+                break
+    return selected
 
 
 def articles_for(categories, mode):

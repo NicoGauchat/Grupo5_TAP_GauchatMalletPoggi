@@ -466,6 +466,105 @@ class BriefingTests(TestCase):
         feed.save()
         self.assertIsNone(briefing_context(timezone.now(), [self.category])["category_briefings"][0]["image_article"])
 
+    def test_category_photo_uses_next_important_story_without_repeating_briefing(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.show_images = True
+        self.feed.save()
+        self.article.story = Story.objects.create(importance_score=5)
+        self.article.image_url = "https://example.com/summary.jpg"
+        self.article.save()
+
+        def featured(label, score, image_url):
+            article = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=score),
+                title=label, original_url=f"https://example.com/{label}",
+                published_at=self.now - timedelta(minutes=1), image_url=image_url,
+                image_credit=f"Crédito {label}")
+            article.categories.add(self.category)
+            return article
+
+        repeated_photo = featured("repetida", 4, self.article.image_url)
+        chosen = featured("alternativa", 3, "")
+        chosen_coverage = Article.objects.create(feed=self.feed, story=chosen.story,
+            title="Otra cobertura de la alternativa", original_url="https://example.com/alternative/photo",
+            published_at=self.now, image_url="https://example.com/alternative.jpg",
+            image_credit="Crédito alternativa")
+        self.generate()
+
+        response = self.client.get(reverse("news_feed"))
+        section = response.context["sections"][0]
+        self.assertEqual(section["photo_article"].pk, chosen_coverage.pk)
+        self.assertContains(response, f'src="{chosen_coverage.image_url}"')
+        self.assertContains(response, f'href="{chosen_coverage.original_url}" target="_blank" rel="noopener"')
+        self.assertContains(response, f'class="topic-card-link" href="{reverse("category_news", args=[self.category.slug])}"')
+        self.assertNotContains(response, repeated_photo.original_url)
+        self.assertContains(response, "Crédito alternativa")
+
+        self.feed.show_images = False
+        self.feed.save()
+        response = self.client.get(reverse("news_feed"))
+        self.assertIsNone(response.context["sections"][0]["photo_article"])
+        self.assertNotContains(response, chosen_coverage.image_url)
+        self.assertContains(response, "Imagen ilustrativa")
+
+    def test_category_photo_needs_current_scored_story_and_respects_classification_mode(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.show_images = True
+        self.feed.save()
+        self.generate()
+
+        def candidate(label, *, minutes=1, scored=True):
+            article = Article.objects.create(feed=self.feed,
+                story=Story.objects.create(importance_score=4 if scored else None), title=label,
+                original_url=f"https://example.com/{label}", published_at=self.now - timedelta(minutes=minutes),
+                image_url=f"https://example.com/{label}.jpg")
+            return article
+
+        ai_only = candidate("solo-ia")
+        ai_only.llm_categories.add(self.category)
+        old = candidate("vencida", minutes=25 * 60)
+        old.categories.add(self.category)
+        unscored = candidate("sin-puntaje", scored=False)
+        unscored.categories.add(self.category)
+
+        preference = self.user.news_preference
+        preference.classification_mode = UserPreference.CLASSIFICATION_RULES
+        preference.save()
+        self.assertIsNone(self.client.get(reverse("news_feed")).context["sections"][0]["photo_article"])
+
+        preference.classification_mode = UserPreference.CLASSIFICATION_AI
+        preference.save()
+        response = self.client.get(reverse("news_feed"))
+        self.assertEqual(response.context["sections"][0]["photo_article"].pk, ai_only.pk)
+        self.assertNotContains(response, old.image_url)
+        self.assertNotContains(response, unscored.image_url)
+
+        Story.objects.filter(pk=ai_only.story_id).update(grouping_version=0)
+        self.assertIsNone(self.client.get(reverse("news_feed")).context["sections"][0]["photo_article"])
+
+    def test_category_cards_do_not_repeat_a_photo_across_categories(self):
+        science, science_reference = self.add_science()
+        self.feed.allow_ai_grouping = True
+        self.feed.show_images = True
+        self.feed.save()
+        shared = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
+            title="Acontecimiento de dos categorías", original_url="https://example.com/shared",
+            published_at=self.now, image_url="https://example.com/shared.jpg")
+        shared.categories.add(self.category, science)
+        alternative = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=4),
+            title="Otro hecho tecnológico", original_url="https://example.com/technology/second",
+            published_at=self.now, image_url="https://example.com/second.jpg")
+        alternative.categories.add(self.category)
+        self.generate(rows=[
+            {"category_slug": self.category.slug, "text": "Síntesis tecnológica.", "article_ids": [self.article.pk]},
+            {"category_slug": science.slug, "text": "Síntesis científica.", "article_ids": [science_reference.pk]},
+        ])
+
+        sections = self.client.get(reverse("news_feed")).context["sections"]
+        photos = {section["category"].slug: section["photo_article"] for section in sections}
+        self.assertEqual(photos[science.slug].pk, shared.pk)
+        self.assertEqual(photos[self.category.slug].pk, alternative.pk)
+        self.assertEqual(len({photo.image_url for photo in photos.values()}), 2)
+
     def test_expired_category_does_not_hide_another_valid_ai_summary(self):
         category, article = self.add_science()
         self.generate(rows=[{"category_slug": self.category.slug, "text": "Síntesis que vencerá.", "article_ids": [self.article.pk]},
