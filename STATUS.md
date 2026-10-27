@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+El formato por ID fue aprobado por Gemini con 25 candidatos ficticios en **40432770583**. Groq 20B generó la propuesta pero falló en auditoría con **HTTP 400 reason=json_validate_failed** en **40432775101**; el motivo seguro ya distingue generación fallida de configuración. Se prepara comparación de respaldo **openai/gpt-oss-120b**, incluido en el plan gratuito y compatible con modo estricto según documentación oficial. Gemini conserva prioridad, clave y modelo; no se activan pagos ni se cambian campos/destinos. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian permisos, proveedor ni variables. Todavía no se acredita el resultado de 120B.
+
 La reparación **40431663822** terminó correctamente con el formato anterior: **diez noticias agrupadas y 34 acontecimientos evaluados**, con **1983 pendientes** y cero de grupos anteriores. Esa prueba confirma el lote acotado, no estabilidad de todas las tandas mayores ni resolución demostrada del HTTP 400 de Groq.
 
 Se preparó un contrato de salida que impide representar una noticia en dos filas: propuesta como objeto cerrado por ID con destino enumerado story:ID/new:ID y ancla consistente; auditoría como objeto cerrado por ID con booleano y razón. Ambos se convierten al mismo formato canónico y pasan las validaciones/negativas existentes. Se rechazan también claves JSON duplicadas. $defs/$ref reduce repetición del esquema y está documentado por ambos proveedores. No cambia la representación persistida, el criterio semántico, GROUPING_VERSION, permisos, proveedores ni claves; no hay migración. Investigación y decisión registradas en PROJECT; README actualizado; SOURCES y `.env.example` no requieren cambios porque no se amplía el material enviado ni la configuración.
@@ -256,7 +258,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar el formato por ID con Gemini y Groq y ejecutar una tanda real de cien sin repetir RSS.
+Comprobar Groq 120B con el contrato por ID y completar una tanda real de cien con Gemini principal.
 
 ## Completado
 

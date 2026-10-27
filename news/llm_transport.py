@@ -10,7 +10,7 @@ import httpx
 from django.conf import settings
 
 
-GROQ_MODEL = "openai/gpt-oss-20b"
+GROQ_MODEL = "openai/gpt-oss-120b"
 BACKUPS = {
     "groq": ("GROQ_API_KEY", GROQ_MODEL, "https://api.groq.com/openai/v1/chat/completions"),
 }
