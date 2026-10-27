@@ -12,7 +12,7 @@
         {% if article.coverages|length > 1 %}<p class="news-meta">Titular de {{ article.feed.source.name }}</p>{% endif %}
         <h2><a href="{{ article.original_url }}" target="_blank" rel="noopener">{{ article.title }}</a></h2>
         {% if article.has_verified_story and article.story.importance_score %}
-        <details class="importance-note">
+        <details class="importance-note" open>
             <summary>Importancia general {{ article.story.importance_score }}/5 · IA</summary>
             <p>{{ article.story.importance_reason }}</p>
         </details>

@@ -11,7 +11,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
 - Ingesta de 26 feeds RSS de ocho medios, clasificación por etiquetas aprobadas y deduplicación exacta con categorías conservadas por origen.
-- Filtros combinables por fuente, idioma y fecha; orden por recientes o importancia general estimada con IA.
+- Filtros combinables por fuente, idioma y fecha; orden por recientes o importancia general estimada con IA. La explicación de importancia se muestra desplegada por defecto en las tarjetas.
 - Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
 - Agrupamiento LLM persistente con una tarjeta por acontecimiento y todas sus coberturas originales desplegables.
 - Fotografías RSS de fuentes habilitadas y tres ilustraciones generales por categoría como respaldo, tanto en tarjetas de noticias como en el resumen diario, con identificación y crédito cuando corresponde.
