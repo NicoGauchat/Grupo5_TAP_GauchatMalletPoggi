@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+**Cierre verificado:** el contrato cerrado se publicó en `4433af1` y el briefing forzado **40490037990** terminó correctamente el **27/10/2026 a las 07:39 de Argentina**: **once síntesis sobre 147 titulares**, con Gemini 3.5 Flash-Lite, **diez referencias anteriores conservadas de diez vigentes** y **tres síntesis con bajada RSS disponible**. La cobertura completa y validada incluye Deportes. No hubo mensajes de respaldo/rechazo en esta generación. Los **29 feeds tienen síntesis y bajadas habilitadas**, incluidos los siete de EL PAÍS reactivados y los tres medios argentinos nuevos (**Cenital, La Capital y El Ciudadano**, con 109 noticias/bajadas incorporadas). Los campos aún vacíos en otras fuentes se poblarán en ingestas posteriores; habilitarlos no descarga RSS ni implica que todas las síntesis ya tengan descripción.
+
+La tanda automática anterior **40486901562** completó **cien clasificaciones, cien noticias agrupadas y 96 acontecimientos evaluados**, dejando 58 pendientes autorizados bajo la configuración anterior que todavía excluía EL PAÍS. Esa cifra no se presenta como conteo vigente después de reactivarlo. La configuración y generación finales no reingirieron los otros RSS ni repitieron agrupamiento/importancia. No se borraron nuevas noticias en este cierre ni se desplegó Render; se reutilizan datos/modelos existentes y la web puede leer las síntesis persistidas. README, PROJECT y SOURCES quedaron actualizados durante el bloque; `.env.example` no requiere cambios. La investigación anterior y los fallos parciales se conservan abajo como historial, reemplazados por esta evidencia de cierre donde corresponda.
+
 La habilitación final **40487697026** aplicó correctamente la configuración: **29 feeds**, siete de EL PAÍS reactivados, quince permisos de síntesis y 21 de descripción habilitados. La síntesis posterior falló con `reason=category` en Gemini y HTTP 413 en Groq; se conserva la última válida y no se afirma que el briefing nuevo ya esté generado. La tanda automática **40486901562** que precedió a esta ejecución terminó correctamente; su existencia confirma un disparo automático posterior a la consulta de horarios, sin demostrar frecuencia de quince minutos.
 
 Se prepara salida estructurada de síntesis como objeto cerrado por categoría, con IDs enumerados de esa categoría y decodificación que rechaza claves JSON repetidas. Reutiliza el patrón ya documentado de agrupamiento y `response_json_schema`, sin cambiar almacenamiento, candidatos, criterio editorial, proveedores ni permisos. Convierte al formato canónico y conserva las comprobaciones anteriores; no relaja controles ni inventa puntos. Cuarenta y nueve pruebas focalizadas de síntesis, rutas de claves y política aprobadas, incluidos claves faltantes/adicionales, campos en conflicto y restricciones por categoría. Django check y diff aprobados. PROJECT y README registran contrato/documentación oficial reconsultada; SOURCES y `.env.example` no requieren cambios en este ajuste porque no se alteran fuentes, material enviado ni variables. Se prepara publicación y generación forzada con los 29 feeds ya habilitados.
@@ -300,7 +304,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar la generación forzada con el contrato cerrado por categoría y los 29 feeds habilitados.
+Verificar la próxima ingesta de los 29 feeds para completar las bajadas recién habilitadas y comprobar la continuidad de las once síntesis.
 
 ## Completado
 
