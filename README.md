@@ -292,6 +292,8 @@ Ante errores parciales de RSS, `ingest_feeds` conserva lo importado y sale con c
 
 ## GitHub Actions con Ollama temporal en esta PC
 
+Para una ingesta manual desde GitHub: abrir **Actions → Ingesta y limpieza de noticias → Run workflow**, elegir rama `main`, modo `maintenance`, `grouping_limit=100`, `local_ai_limit=10` y dejar `refresh_feeds` desmarcado. Confirmar con **Run workflow** y abrir la ejecución para consultar sus etapas. `maintenance` descarga RSS y ejecuta limpieza, clasificación, briefing, agrupamiento e importancia; `process-ai` procesa sólo pendientes IA, sin descargar RSS ni generar briefing. Activar `refresh_feeds` únicamente para forzar la consulta de todos los feeds y un briefing nuevo, aunque haya caché. No requiere redeploy de Render. La PC sólo necesita estar encendida con el puente activo para ofrecer el respaldo Ollama; las API pueden trabajar sin ella.
+
 El flujo solicitado conserva GitHub Actions como coordinador y único proceso que accede a la base durante las tandas automáticas: **Actions → API de GitHub primero → Ollama de la PC como respaldo si falla la API o su validación**. Las claves Gemini/Groq y la conexión de base siguen en los secretos existentes de Actions. La PC sólo genera inferencias y no necesita esas credenciales. Render no requiere cambios para esta conexión.
 
 Con Ollama iniciado y `qwen3:4b-instruct`/`embeddinggemma:300m-qat-q4_0` descargados:

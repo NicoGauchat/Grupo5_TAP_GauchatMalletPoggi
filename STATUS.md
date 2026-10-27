@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+**Ingesta manual iniciada y pasos documentados (27/10/2026):** el usuario solicitó push, ejecutar una ingesta manual y explicar cómo repetirla. Código API primero publicado en `main` **0048599** y checkout sincronizado antes de lanzar. Se comprobó ausencia de ejecuciones activas y se disparó una única ejecución **40576880697**, modo `maintenance`, `grouping_limit=100`, `refresh_feeds=false`, `local_ai_limit=10`. `gh run view` confirma **in_progress** sobre `0048599cb41b2045e2a77e6c0e19508478ee08ab`; aún no hay conteos finales ni evidencia de cola vacía. README documenta pasos de la UI, diferencias entre ingesta normal/forzada y sólo pendientes, y que no hace falta redeploy de Render. No cambian PROJECT, SOURCES ni `.env.example` por esta operación. No se creó seguimiento automático adicional.
+
 **API primero y tandas de cien (27/10/2026):** por pedido del usuario, Actions mantiene `AI_PROCESS_LIMIT=100` aunque responda la PC y activa `AI_API_FIRST` para usar Ollama sólo tras el fallo de las rutas API existentes de cada función (Gemini y respaldo Groq donde ya existía). El agrupamiento periódico usa cien; el manual conserva `grouping_limit`. Se conserva `AI_LOCAL_FIRST` para pruebas directas, con prioridad para API primero si ambas variables están activas. No se crean proveedores, claves ni dependencias. Render no necesita redeploy para activar este cambio en ingesta.
 
 Clasificación/importancia usan lotes API de diez; con presupuesto local tres usan lotes de tres para que el respaldo quepa íntegro. Ollama divide internamente los lotes en sublotes de tres y reserva un máximo de diez noticias/acontecimientos por comando (`OLLAMA_FALLBACK_LIMIT`, elegido por `local_ai_limit` 3/10). Los intentos locales inválidos también consumen ese presupuesto; al agotarlo se informa `fallback_limit`, sin afirmar cola vacía. El briefing API vuelve a seleccionar entre hasta 250 candidatos; sólo el fallback local usa una referencia por categoría, manteniendo la selección anterior disponible y la auditoría de texto. El agrupamiento intenta primero todos los bloques API del lote y sólo después recupera candidatos locales desde el conjunto completo. Identidad, esquemas, permisos y atribución del modelo conservados.
@@ -395,7 +397,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar los conteos y proveedores efectivos de la próxima tanda de Actions con API primero, sin asumir que cien vacía la cola.
+Verificar el resultado de 40576880697 y registrar conteos, proveedores efectivos y pendientes informadas.
 
 ## Completado
 
