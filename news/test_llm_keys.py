@@ -131,7 +131,7 @@ class APIKeyRoutingTests(SimpleTestCase):
             ("classification", "news.llm_classification.genai.Client", lambda: classify_batch([article], ["ciencia"]),
              {"articles": [{"article_id": 7, "categories": ["ciencia"]}]}, PRIMARY),
             ("grouping", "news.llm_grouping.genai.Client", lambda: group_articles([article], []),
-             {"groups": [{"story_id": 0, "article_ids": [7]}]}, PRIMARY),
+             {"groups": {"7": "new:7"}}, PRIMARY),
             ("importance", "news.llm_importance.genai.Client", lambda: score_stories({9: [article]}),
              {"stories": [{"story_id": 9, "score": 3, "reason": "Alcance limitado."}]}, SECONDARY),
             ("briefing", "news.llm_briefing.genai.Client", lambda: summarize_articles([article]),

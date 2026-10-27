@@ -5,6 +5,12 @@
 
 ## Último paso completado
 
+La reparación **40431663822** terminó correctamente con el formato anterior: **diez noticias agrupadas y 34 acontecimientos evaluados**, con **1983 pendientes** y cero de grupos anteriores. Esa prueba confirma el lote acotado, no estabilidad de todas las tandas mayores ni resolución demostrada del HTTP 400 de Groq.
+
+Se preparó un contrato de salida que impide representar una noticia en dos filas: propuesta como objeto cerrado por ID con destino enumerado story:ID/new:ID y ancla consistente; auditoría como objeto cerrado por ID con booleano y razón. Ambos se convierten al mismo formato canónico y pasan las validaciones/negativas existentes. Se rechazan también claves JSON duplicadas. $defs/$ref reduce repetición del esquema y está documentado por ambos proveedores. No cambia la representación persistida, el criterio semántico, GROUPING_VERSION, permisos, proveedores ni claves; no hay migración. Investigación y decisión registradas en PROJECT; README actualizado; SOURCES y `.env.example` no requieren cambios porque no se amplía el material enviado ni la configuración.
+
+Verificación: **162 pruebas SQLite: 147 aprobadas y 15 omitidas** por PostgreSQL; cubren objeto cerrado, integridad, destinos/anclas inválidos, claves duplicadas, separación de hechos ajenos, traducción y transacciones previas. Django system check, ausencia de migraciones y diff aprobados. Se prepara publicación, dos comprobaciones pequeñas con 25 candidatos ficticios (Gemini/Groq) y la tanda real de cien; todavía no se acredita esa nueva representación contra proveedores reales.
+
 La comprobación **40431399616** con **Groq y 25 candidatos ficticios** aprobó pares, separación y traducción, sin leer/escribir noticias. Se habilita diez como opción del selector manual de reparación para comprobar sólo el lote real pendiente con el diagnóstico seguro; el inicial y las tandas process-ai siguen en cien. El primer dispatch con diez fue rechazado por la validación de opciones de GitHub y no produjo ejecución ni cambios de datos. Sólo cambia esa opción visible: README y PROJECT actualizados; SOURCES y `.env.example` sin cambios necesarios. Se prepara el nuevo dispatch tras publicar la opción.
 
 La reparación **40430422611** aprobó la comprobación pequeña, guardó diez noticias y activó correctamente la reducción por 413 de **cien a cincuenta candidatos**. Más adelante Gemini repitió story_id en sus tres intentos y Groq devolvió **HTTP 400**. Importancia se omitió por el fallo de reparación. No se considera recuperado completamente el agrupamiento ni se atribuye el 400 a credenciales sin evidencia adicional.
@@ -250,7 +256,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar el lote real de diez pendientes con el diagnóstico seguro de Groq y resolver el rechazo restante.
+Comprobar el formato por ID con Gemini y Groq y ejecutar una tanda real de cien sin repetir RSS.
 
 ## Completado
 

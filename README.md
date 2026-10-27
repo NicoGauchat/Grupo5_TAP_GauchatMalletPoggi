@@ -173,6 +173,8 @@ El modelo se elige explícitamente mediante `GEMINI_MODEL`: se admiten `gemini-3
 
 ### Respaldo gratuito de resumen y agrupamiento
 
+El agrupamiento solicita una asignación por ID de noticia en un objeto cerrado y la auditoría una decisión por ID; así no se puede colocar una noticia en dos filas ni repetir un acontecimiento en filas separadas. La conversión vuelve a validar referencias, integridad del lote y pertenencia de cada ancla al grupo; las uniones se auditan como antes. Una clave JSON repetida se rechaza sin conservar silenciosamente el último valor. El formato guardado y los grupos anteriores no cambian.
+
 Ante HTTP 413 del respaldo, el comando reinicia el lote aún no guardado con bloques de candidatos a la mitad (hasta uno), conserva ese tamaño para el resto de la ejecución y sigue recorriendo todos los candidatos. No recorta titulares ni elimina acontecimientos; se descartan las propuestas parciales del intento anterior. Si el pedido mínimo también falla, queda pendiente. Esta reducción puede aumentar la cantidad de llamadas y el tiempo; no cambia el límite de noticias elegido, cien por defecto, ni evita cuotas.
 
 Si se configura el secreto opcional `GROQ_API_KEY`, resumen y agrupamiento prueban Gemini primero y luego Groq (`openai/gpt-oss-20b`) ante fallos temporales, cuota agotada o una respuesta inválida. Gemini no cambia de clave ni se reintenta tras HTTP 429; se prueba el servicio independiente autorizado. Groq se intenta una sola vez por fase, con timeout de 60 segundos. Un error de credencial/configuración de Gemini se informa sin ocultarlo con respaldo. Clasificación e importancia conservan Gemini. OpenRouter quedó excluido por decisión del usuario; su secreto no se lee ni se exporta al workflow.

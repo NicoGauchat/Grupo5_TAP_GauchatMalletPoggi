@@ -30,6 +30,17 @@ class ModelList(list):
         self.model = model
 
 
+def decode_json(content):
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise json.JSONDecodeError("duplicate_key", "", 0)
+            result[key] = value
+        return result
+    return json.loads(content, object_pairs_hook=unique_object)
+
+
 def backup_configured():
     return bool(backup_providers())
 
@@ -111,7 +122,7 @@ def request_backup(prompt, schema, task, provider):
                         elif error.get("param") in ("response_format", "reasoning_effort", "max_completion_tokens"):
                             code = f"configuration_{error['param']}"
                 raise BackupError(code, provider, response.status_code)
-            result = json.loads(response.json()["choices"][0]["message"]["content"])
+            result = decode_json(response.json()["choices"][0]["message"]["content"])
     except BackupError:
         raise
     except (httpx.TimeoutException, TimeoutError) as error:

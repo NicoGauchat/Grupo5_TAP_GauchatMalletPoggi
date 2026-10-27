@@ -15,13 +15,37 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .llm_grouping import GroupingError, group_articles, request_groups, validate_confirmations, validate_groups
+from .llm_grouping import GroupingError, decode_assignments, group_articles, request_groups, validate_confirmations, validate_groups
 from .models import Article, Category, Feed, SavedArticle, Source, Story, UserPreference
 from .llm_transport import BackupError, ModelList
 from .management.commands.group_news_ai import Command as GroupNewsCommand
 
 
 class GroupingValidationTests(SimpleTestCase):
+    def test_closed_audit_map_preserves_negative_decisions_and_requires_all_fields(self):
+        schema = {"properties": {"decisions": {"type": "object", "required": ["2"]}}}
+        result = decode_assignments({"decisions": {"2": {"same_event": False, "reason": "Hechos distintos."}}}, schema)
+        self.assertEqual(validate_confirmations(result, {2}), set())
+        for result, reason in [({"decisions": {}}, "confirmation_keys"),
+                               ({"decisions": {"2": {"same_event": False}}}, "confirmation_fields")]:
+            with self.subTest(reason=reason), self.assertRaisesRegex(GroupingError, f"reason={reason}"):
+                decode_assignments(result, schema)
+
+    def test_assignment_object_coalesces_groups_and_rejects_missing_unknown_or_conflicting_anchors(self):
+        schema = {"properties": {"groups": {"type": "object", "required": ["1", "2", "3"]}},
+                  "$defs": {"target": {"enum": ["new:1", "new:2", "new:3", "story:7"]}}}
+        result = decode_assignments({"groups": {"1": "story:7", "2": "story:7", "3": "new:3"}}, schema)
+        self.assertEqual(validate_groups(result, {1, 2, 3}, {7}), [
+            {"story_id": 7, "article_ids": [1, 2]}, {"story_id": 0, "article_ids": [3]}])
+        cases = [({"1": "new:1"}, "assignment_keys"),
+                 ({"1": "new:1", "2": "new:2", "3": "new:3", "999": "new:1"}, "assignment_keys"),
+                 ({"1": "story:999", "2": "new:2", "3": "new:3"}, "assignment_target"),
+                 ({"1": "new:2", "2": "story:7", "3": "new:3"}, "assignment_anchor"),
+                 ({"1": "new:2", "2": "new:1", "3": "new:3"}, "assignment_anchor")]
+        for assignments, reason in cases:
+            with self.subTest(reason=reason), self.assertRaisesRegex(GroupingError, f"reason={reason}"):
+                decode_assignments({"groups": assignments}, schema)
+
     def test_oversized_backup_request_signals_smaller_candidate_blocks(self):
         with patch("news.llm_grouping.request_backup", side_effect=BackupError("request_too_large")):
             with self.assertRaises(GroupingError) as caught:
@@ -63,19 +87,25 @@ class GroupingValidationTests(SimpleTestCase):
         anchor = SimpleNamespace(pk=9, story_id=7, title="Hecho ficticio", language="es",
                                  published_at=timezone.now(), feed=source)
         groups = {"groups": [{"story_id": 7, "article_ids": [101, 102]}]}
-        audit = {"decisions": [{"article_id": pk, "same_event": True, "reason": "Mismo hecho ficticio."}
-                               for pk in (101, 102)]}
+        audit = {"decisions": {str(pk): {"same_event": True, "reason": "Mismo hecho ficticio."}
+                               for pk in (101, 102)}}
         with patch("news.llm_grouping.genai.Client") as client:
             generate = client.return_value.__enter__.return_value.models.generate_content
-            generate.side_effect = [SimpleNamespace(text=json.dumps(groups)), SimpleNamespace(text=json.dumps(audit))]
+            generate.side_effect = [SimpleNamespace(text=json.dumps({"groups": {"101": "story:7", "102": "story:7"}})),
+                                    SimpleNamespace(text=json.dumps(audit))]
             self.assertEqual(group_articles(articles, [anchor]), groups["groups"])
             proposal_config = generate.call_args_list[0].kwargs["config"]
-            properties = proposal_config.response_json_schema["properties"]["groups"]["items"]["properties"]
-            self.assertEqual(properties["story_id"]["enum"], [0, 7])
-            self.assertEqual(properties["article_ids"]["items"], {"type": "integer", "enum": [101, 102]})
+            proposal = proposal_config.response_json_schema
+            assignments = proposal["properties"]["groups"]
+            self.assertEqual(set(assignments["required"]), {"101", "102"})
+            self.assertFalse(assignments["additionalProperties"])
+            self.assertEqual(proposal["$defs"]["target"]["enum"], ["new:101", "new:102", "story:7"])
+            self.assertEqual(assignments["properties"]["101"]["$ref"], "#/$defs/target")
             self.assertIsNone(proposal_config.response_schema)
             audit_schema = generate.call_args_list[1].kwargs["config"].response_json_schema
-            self.assertEqual(audit_schema["properties"]["decisions"]["items"]["properties"]["article_id"]["enum"], [101, 102])
+            self.assertEqual(audit_schema["properties"]["decisions"]["required"], ["101", "102"])
+            self.assertFalse(audit_schema["properties"]["decisions"]["additionalProperties"])
+            self.assertEqual(audit_schema["$defs"]["decision"]["properties"]["same_event"], {"type": "boolean"})
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"})
     def test_schema_restriction_does_not_replace_local_validation(self):
@@ -83,8 +113,8 @@ class GroupingValidationTests(SimpleTestCase):
                                   feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")))
         with patch("news.llm_grouping.genai.Client") as client:
             generate = client.return_value.__enter__.return_value.models.generate_content
-            generate.return_value.text = json.dumps({"groups": [{"story_id": 0, "article_ids": [999]}]})
-            with self.assertRaisesRegex(GroupingError, "reason=unknown_article_id"):
+            generate.return_value.text = json.dumps({"groups": {"999": "new:999"}})
+            with self.assertRaisesRegex(GroupingError, "reason=assignment_keys"):
                 group_articles([article], [])
             self.assertEqual(generate.call_count, 3)
 
@@ -284,7 +314,7 @@ class StoryTests(TestCase):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"}):
             with patch("news.llm_grouping.genai.Client") as client:
                 generate = client.return_value.__enter__.return_value.models.generate_content
-                generate.return_value.text = json.dumps({"groups": [{"story_id": 0, "article_ids": [first.pk]}]})
+                generate.return_value.text = json.dumps({"groups": {str(first.pk): f"new:{first.pk}"}})
                 group_articles([first], [])
                 self.assertNotIn(first.summary, generate.call_args.kwargs["contents"])
                 self.assertEqual(client.call_args.kwargs["http_options"].timeout, 60_000)
@@ -361,13 +391,13 @@ class StoryTests(TestCase):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "prueba"}), patch("news.llm_grouping.genai.Client") as client:
             generate = client.return_value.__enter__.return_value.models.generate_content
             generate.side_effect = [
-                type("Response", (), {"text": json.dumps({"groups": [{
-                    "story_id": 0, "article_ids": [first.pk, other.pk, same.pk],
-                }]})})(),
-                type("Response", (), {"text": json.dumps({"decisions": [
-                    {"article_id": other.pk, "same_event": False, "reason": "Es un dividendo, no el estudio."},
-                    {"article_id": same.pk, "same_event": True, "reason": "Es la publicación del mismo estudio."},
-                ]})})(),
+                type("Response", (), {"text": json.dumps({"groups": {
+                    str(pk): f"new:{first.pk}" for pk in (first.pk, other.pk, same.pk)
+                }})})(),
+                type("Response", (), {"text": json.dumps({"decisions": {
+                    str(other.pk): {"same_event": False, "reason": "Es un dividendo, no el estudio."},
+                    str(same.pk): {"same_event": True, "reason": "Es la publicación del mismo estudio."},
+                }})})(),
             ]
             groups = group_articles([first, other, same], [])
             self.assertEqual(groups, [{"story_id": 0, "article_ids": [first.pk, same.pk]},

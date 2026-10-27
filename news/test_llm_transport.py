@@ -9,10 +9,15 @@ from google.genai import errors
 
 from .llm_briefing import BriefingError, summarize_articles
 from .llm_grouping import GroupingError, group_articles
-from .llm_transport import BackupError, GROQ_MODEL, backup_providers, groq_json, pace_request
+from .llm_transport import BackupError, GROQ_MODEL, backup_providers, decode_json, groq_json, pace_request
 
 
 class BackupTransportTests(SimpleTestCase):
+    def test_duplicate_json_keys_are_rejected_without_silent_overwrites(self):
+        with self.assertRaises(json.JSONDecodeError) as caught:
+            decode_json('{"groups":{"1":"new:1","1":"private-target"}}')
+        self.assertNotIn("private-target", str(caught.exception))
+
     @patch.dict("os.environ", {"GROQ_API_KEY": "private-backup-key"}, clear=True)
     def test_bad_request_diagnostics_only_expose_allowlisted_codes_or_parameters(self):
         cases = [({"code": "json_validate_failed", "message": "private-response"}, "json_validate_failed"),
