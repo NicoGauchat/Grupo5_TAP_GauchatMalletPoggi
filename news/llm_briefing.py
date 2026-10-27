@@ -12,7 +12,7 @@ from .llm_classification import MODEL
 from .ingestion import NASA_DESCRIPTION_FEED, permitted_summary
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
-from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, request_backup, pace_request
+from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, decode_json, request_backup, pace_request
 
 
 class BriefingError(Exception):
@@ -76,7 +76,8 @@ def summarize_articles(articles, *, previous_selection=None):
         "conservá la selección anterior. Ser más reciente o llegar en esta ingesta no justifica "
         "reemplazarla. Otra cobertura del mismo hecho tampoco justifica cambiar la referencia. "
         "Si una categoría no tiene selección anterior, elegí su mejor candidato. "
-        "Cada punto debe tener category_slug, importance_score y article_ids con UN ÚNICO ID de "
+        "Devolvé items como un OBJETO con una clave por category_slug recibido, exactamente una vez. "
+        "Cada valor contiene text, importance_score y article_ids con UN ÚNICO ID de "
         "un titular perteneciente a esa categoría. Redactá text con dos o tres frases claras, "
         "procurando entre 300 y 450 caracteres (máximo 450), que expliquen qué pasó y sus detalles "
         "relevantes usando sólo el titular y su rss_description cuando esté disponible. "
@@ -93,32 +94,23 @@ def summarize_articles(articles, *, previous_selection=None):
         + json.dumps({"categories": categories, "articles": items,
                       "previous_selection": previous_selection}, ensure_ascii=False)
     )
-    schema = {
-        "type": "OBJECT",
-        "properties": {
-            "items": {
-                "type": "ARRAY",
-                "minItems": len(categories),
-                "maxItems": len(categories),
-                "items": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "text": {"type": "STRING"},
-                        "category_slug": {"type": "STRING", "enum": sorted(categories)},
-                        "importance_score": {"type": "INTEGER", "minimum": 1, "maximum": 5},
-                        "article_ids": {
-                            "type": "ARRAY",
-                            "minItems": 1,
-                            "maxItems": 1,
-                            "items": {"type": "INTEGER"},
-                        },
-                    },
-                    "required": ["category_slug", "text", "importance_score", "article_ids"],
-                },
+    category_schemas = {}
+    for slug in sorted(categories):
+        category_schemas[slug] = {
+            "type": "object", "additionalProperties": False,
+            "required": ["text", "importance_score", "article_ids"],
+            "properties": {
+                "text": {"type": "string"},
+                "importance_score": {"type": "integer", "minimum": 1, "maximum": 5},
+                "article_ids": {"type": "array", "minItems": 1, "maxItems": 1,
+                                "items": {"type": "integer", "enum": sorted(
+                                    pk for pk, assigned in article_categories.items() if slug in assigned
+                                )}},
             },
-        },
-        "required": ["items"],
-    }
+        }
+    schema = {"type": "object", "additionalProperties": False, "required": ["items"],
+              "properties": {"items": {"type": "object", "additionalProperties": False,
+                                       "required": sorted(categories), "properties": category_schemas}}}
     valid_ids = {article.pk for article in articles}
     article_titles = {article.pk: article.title for article in articles}
     description_ids = {item["article_id"] for item in items if "rss_description" in item}
@@ -178,11 +170,11 @@ def _gemini_summary(prompt, schema, api_key):
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=schema,
+                response_json_schema=schema,
                 temperature=0.2,
             ),
         )
-        result = json.loads(response.text or "")
+        result = decode_json(response.text or "")
     except errors.APIError as error:
         code = "quota" if error.code == 429 else "configuration" if error.code in {400, 401, 403, 404} else "connection"
         message = {"quota": "La cuota de Gemini no está disponible.",
@@ -207,6 +199,16 @@ def _gemini_summary(prompt, schema, api_key):
 
 def _validate_summary(result, categories, article_categories, valid_ids, article_titles):
     rows = result.get("items") if isinstance(result, dict) else None
+    if isinstance(rows, dict):
+        if set(rows) != set(categories):
+            raise BriefingError("La selección no contiene exactamente las categorías recibidas. reason=category_keys")
+        canonical = []
+        for slug in sorted(rows):
+            value = rows[slug]
+            if not isinstance(value, dict) or set(value) != {"text", "importance_score", "article_ids"}:
+                raise BriefingError("La selección contiene un punto inválido. reason=category_fields")
+            canonical.append(dict(value, category_slug=slug))
+        rows = canonical
     if not isinstance(rows, list) or len(rows) != len(categories):
         received = len(rows) if isinstance(rows, list) else -1
         raise BriefingError("La respuesta no contiene una selección válida de sucesos. "

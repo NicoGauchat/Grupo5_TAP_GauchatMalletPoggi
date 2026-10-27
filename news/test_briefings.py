@@ -28,7 +28,7 @@ class BriefingResponseTests(SimpleTestCase):
             language="es", feed=SimpleNamespace(source=SimpleNamespace(name="Medio")),
             categories=categories, llm_categories=SimpleNamespace(all=lambda: []))
 
-    def test_schema_requires_one_item_per_category_and_reports_missing_count(self):
+    def test_schema_requires_one_key_per_category_and_reports_missing_count(self):
         self.article.categories = SimpleNamespace(all=lambda: [
             SimpleNamespace(slug="tecnologia", name="Tecnología"),
             SimpleNamespace(slug="deportes", name="Deportes"),
@@ -40,9 +40,29 @@ class BriefingResponseTests(SimpleTestCase):
         ) as provider, patch("news.llm_briefing.backup_configured", return_value=False):
             self.assertEqual(len(summarize_articles([self.article])), 2)
             schema = provider.call_args.args[1]["properties"]["items"]
-            self.assertEqual((schema["minItems"], schema["maxItems"]), (2, 2))
+            self.assertEqual(schema["type"], "object")
+            self.assertEqual(set(schema["required"]), {"tecnologia", "deportes"})
+            self.assertFalse(schema["additionalProperties"])
+            for row in schema["properties"].values():
+                self.assertEqual(row["properties"]["article_ids"]["items"]["enum"], [7])
             with self.assertRaisesRegex(BriefingError, "reason=selection_count expected=2 received=1"):
                 summarize_articles([self.article])
+
+    def test_category_object_is_canonicalized_and_rejects_extra_missing_or_conflicting_fields(self):
+        point = {"text": "Síntesis ficticia del acontecimiento.", "importance_score": 3, "article_ids": [7]}
+        cases = [( {"tecnologia": point}, True), ({}, False),
+                 ({"tecnologia": point, "deportes": point}, False),
+                 ({"tecnologia": dict(point, category_slug="otra")}, False)]
+        for items, valid in cases:
+            with self.subTest(keys=list(items)), patch("news.llm_briefing.api_key_for", return_value="ficticia"), patch(
+                "news.llm_briefing._gemini_summary", return_value={"items": items},
+            ), patch("news.llm_briefing.backup_configured", return_value=False):
+                if valid:
+                    result = summarize_articles([self.article])
+                    self.assertEqual(result[0]["category_slug"], "tecnologia")
+                else:
+                    with self.assertRaises(BriefingError):
+                        summarize_articles([self.article])
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")

@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+La habilitación final **40487697026** aplicó correctamente la configuración: **29 feeds**, siete de EL PAÍS reactivados, quince permisos de síntesis y 21 de descripción habilitados. La síntesis posterior falló con `reason=category` en Gemini y HTTP 413 en Groq; se conserva la última válida y no se afirma que el briefing nuevo ya esté generado. La tanda automática **40486901562** que precedió a esta ejecución terminó correctamente; su existencia confirma un disparo automático posterior a la consulta de horarios, sin demostrar frecuencia de quince minutos.
+
+Se prepara salida estructurada de síntesis como objeto cerrado por categoría, con IDs enumerados de esa categoría y decodificación que rechaza claves JSON repetidas. Reutiliza el patrón ya documentado de agrupamiento y `response_json_schema`, sin cambiar almacenamiento, candidatos, criterio editorial, proveedores ni permisos. Convierte al formato canónico y conserva las comprobaciones anteriores; no relaja controles ni inventa puntos. Cuarenta y nueve pruebas focalizadas de síntesis, rutas de claves y política aprobadas, incluidos claves faltantes/adicionales, campos en conflicto y restricciones por categoría. Django check y diff aprobados. PROJECT y README registran contrato/documentación oficial reconsultada; SOURCES y `.env.example` no requieren cambios en este ajuste porque no se alteran fuentes, material enviado ni variables. Se prepara publicación y generación forzada con los 29 feeds ya habilitados.
+
 El usuario cambió expresamente la decisión después del diagnóstico deportivo: pidió **habilitar síntesis en todos los feeds para el TP** y confirmó incluir también **EL PAÍS**. Se prepara `enable_news_briefing` y el modo `enable-briefing`: reactiva únicamente EL PAÍS además de los feeds activos, restaura su agrupamiento y habilita síntesis/bajadas de todos los activos; otras pausas se conservan. La exclusión global queda vacía y `configure_argentine_sources` ya no desactiva otros medios. El mismo modo fuerza un briefing; no repite RSS. Los límites de bajadas y controles de cuerpos largos/terceros permanecen. README, PROJECT y SOURCES registran que esta instrucción final reemplaza las restricciones operativas anteriores, preservando el historial de la revisión. Quince pruebas focalizadas aprobadas tras este cambio; suite completa y publicación pendientes.
 
 El diagnóstico deportivo **40486656773** terminó correctamente: 53 noticias de Deportes en 24 horas, repartidas entre Clarín Deportes (17), EL PAÍS Deportes (13), Perfil Deportes (22) y Perfil Política (1), **todas con síntesis deshabilitada**; cero puntos deportivos generados en 24 horas. Esa era la causa de la categoría sin resumen, independientemente del puntaje del acontecimiento. La cola autorizada de agrupamiento estaba en 49, todas mayores de 48 horas, después de la exclusión operativa anterior de EL PAÍS; no se borraron nuevamente.
@@ -296,7 +300,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Completar la incorporación de los tres medios y aplicar la habilitación final de toda la síntesis, incluido EL PAÍS, verificando el briefing resultante.
+Verificar la generación forzada con el contrato cerrado por categoría y los 29 feeds habilitados.
 
 ## Completado
 
