@@ -15,12 +15,25 @@ from .search import search_articles
 CATEGORY_IMAGES = {"argentina", "politica-argentina", "geopolitica", "economia", "mercados-finanzas",
                    "tecnologia", "inteligencia-artificial", "ciencia"}
 CURSOR_SALT = "news.category.stories.v3"
+ILLUSTRATION_POOLS = {
+    slug: tuple(f"illustrations/{slug}-{index}.svg" for index in range(1, 4))
+    for slug in CATEGORY_IMAGES | {"salud", "medioambiente", "deportes"}
+}
 
 
 def category_image(slug):
     if slug in {"salud", "medioambiente", "deportes"}:
         return f"news/images/{slug}.svg"
     return f"news/images/{slug if slug in CATEGORY_IMAGES else 'geopolitica'}.webp"
+
+
+def article_illustration(article, slug):
+    """Respaldo estable, incluso si cambia la cobertura que representa al grupo."""
+    choices = ILLUSTRATION_POOLS.get(slug)
+    if not choices:
+        return category_image(slug)
+    key = article.story_id if article.has_verified_story else article.pk
+    return f"news/images/{choices[key % len(choices)]}"
 
 
 def articles_for(categories, mode):

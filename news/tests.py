@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 from urllib.error import HTTPError
 
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -16,9 +17,32 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .ingestion import ingest_feed, permitted_image
+from .browsing import ILLUSTRATION_POOLS, article_illustration
 from .llm_classification import ClassificationError, classify_batch
 from .models import Article, ArticleOrigin, Category, Feed, SavedArticle, Source, UserPreference
 from .search import search_articles
+
+
+class IllustrationTests(SimpleTestCase):
+    def test_each_category_has_variety_and_existing_local_assets(self):
+        for slug, choices in ILLUSTRATION_POOLS.items():
+            with self.subTest(category=slug):
+                paths = {
+                    article_illustration(SimpleNamespace(pk=key, has_verified_story=False), slug)
+                    for key in range(1, len(choices) + 1)
+                }
+                self.assertEqual(len(paths), len(choices))
+                self.assertGreaterEqual(len(paths), 2)
+                for path in paths:
+                    self.assertIsNotNone(finders.find(path))
+
+    def test_verified_story_keeps_image_when_representative_changes(self):
+        first = SimpleNamespace(pk=11, story_id=8, has_verified_story=True)
+        second = SimpleNamespace(pk=12, story_id=8, has_verified_story=True)
+        self.assertEqual(article_illustration(first, "deportes"), article_illustration(second, "deportes"))
+        second.has_verified_story = False
+        self.assertNotEqual(article_illustration(first, "deportes"), article_illustration(second, "deportes"))
+        self.assertEqual(article_illustration(first, "unknown"), "news/images/geopolitica.webp")
 
 
 class AIResponseTests(SimpleTestCase):
@@ -309,6 +333,24 @@ class NewsFeedTests(TestCase):
         response = self.client.get(self.url)
         self.assertNotContains(response, article.image_url)
         self.assertContains(response, "Imagen ilustrativa")
+
+    def test_illustrations_are_stable_across_html_json_and_pagination(self):
+        self.category = Category.objects.get(slug="deportes")
+        UserPreference.objects.get(user=self.user).categories.add(self.category)
+        for index in range(12):
+            self.article(f"deporte-{index}")
+        response = self.client.get(self.url)
+        first_rows = response.context["articles"]
+        self.assertEqual(len({row.fallback_image for row in first_rows}), 3)
+        json_html = self.client.get(self.url, HTTP_ACCEPT="application/json").json()["html"]
+        for row in first_rows:
+            expected = article_illustration(row, "deportes")
+            self.assertContains(response, f'data-fallback="/static/{expected}"')
+            self.assertIn(f'data-fallback="/static/{expected}"', json_html)
+        next_url = response.context["next_url"]
+        next_page = self.client.get(next_url, HTTP_ACCEPT="application/json").json()["html"]
+        self.assertIn('data-fallback="/static/news/images/illustrations/deportes-', next_page)
+        self.assertEqual(next_page.count('class="article-card"'), 2)
 
     def test_json_bookmarks_preserve_post_security_and_are_idempotent(self):
         article = self.article("guardar-json")

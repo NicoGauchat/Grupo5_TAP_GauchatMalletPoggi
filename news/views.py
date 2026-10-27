@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .browsing import add_coverages, article_batch, articles_for, category_image, filter_articles, story_articles
+from .browsing import add_coverages, article_batch, article_illustration, articles_for, category_image, filter_articles, story_articles
 from .briefings import briefing_context
 from .forms import PreferenceForm, RegistrationForm
 from .models import Article, SavedArticle, UserPreference
@@ -99,6 +99,8 @@ def category_news(request, slug):
         rows, next_url, response_status = [], None, 400
     is_json = "application/json" in request.headers.get("Accept", "")
     add_coverages(rows)
+    for article in rows:
+        article.fallback_image = article_illustration(article, slug)
     leading_label = "La más reciente"
     if sort == "important":
         leading_label = "La más importante" if rows and rows[0].importance else "Pendiente de evaluación"

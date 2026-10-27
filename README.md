@@ -14,7 +14,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 - Filtros combinables por fuente, idioma y fecha; orden por recientes o importancia general estimada con IA.
 - Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
 - Agrupamiento LLM persistente con una tarjeta por acontecimiento y todas sus coberturas originales desplegables.
-- Fotografías temáticas locales y fotografías RSS de fuentes habilitadas, con crédito y respaldo ilustrativo.
+- Fotografías RSS de fuentes habilitadas y tres ilustraciones generales por categoría como respaldo, con identificación y crédito cuando corresponde.
 - Arranque local con un comando PowerShell y PostgreSQL aislado.
 - Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
 - Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
@@ -110,6 +110,8 @@ Dentro de cada categoría se combinan búsqueda en títulos, fuente, idioma, fec
 La búsqueda admite hasta 200 caracteres y se limita a títulos. PostgreSQL aplica stop words y stemming en español, inglés y portugués, incluidos códigos regionales, y exige todas las palabras significativas. Otros idiomas usan `simple`. No busca fragmentos arbitrarios, no traduce ni agrega sinónimos. Una consulta compuesta sólo por stop words no devuelve resultados. El índice GIN existente se conserva.
 
 Las fotografías de categoría son ocho archivos WebP locales con licencia Pexels, documentados con sus autores y enlaces en SOURCES. El collage de la portada pública reutiliza Argentina, geopolítica y tecnología en blanco y negro mediante HTML/CSS. En Mis noticias, un solo banner reúne el saludo, el acceso a Mis categorías y el resumen de las últimas 24 horas, sin ese collage. Los títulos de categorías conservan el blanco al pasar el cursor o enfocar; la acción cambia a coral claro.
+
+El respaldo de las noticias tiene tres SVG originales por cada una de las once categorías (33 recursos locales). Son conceptos generales del tema; Deportes usa formas abstractas de movimiento, sin identificar una disciplina. La selección depende del identificador de noticia o del acontecimiento verificado, por lo que se conserva al recargar, paginar o cambiar su cobertura representante. No se generan imágenes con IA ni se consulta un servicio externo. Las fotografías fijas de las tarjetas de categoría se conservan.
 
 Las fotografías RSS requieren `Feed.show_images`; `0013` incorpora URL/crédito, `0014` habilitó MIT y `0015` habilita los once feeds actuales por decisión expresa del usuario para su presentación educativa. Esa decisión no acredita una licencia de los medios; SOURCES conserva las condiciones revisadas. Nuevas fuentes siguen deshabilitadas por defecto. Se mantienen créditos, atribución y respaldo temático rotulado «Imagen ilustrativa» si falta o falla una fotografía o se deshabilita el feed para imágenes. No se descargan ni almacenan fotografías RSS en el servidor.
 
