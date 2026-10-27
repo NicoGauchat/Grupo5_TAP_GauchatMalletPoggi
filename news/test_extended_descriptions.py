@@ -78,23 +78,44 @@ class ExtendedDescriptionActivationTests(TestCase):
         for command, target in (("classify_news_ai", "news.management.commands.classify_news_ai.classify_batch"),
                                 ("group_news_ai", "news.management.commands.group_news_ai.group_articles"),
                                 ("score_news_ai", "news.management.commands.score_news_ai.score_stories")):
-            with self.subTest(command=command), patch(target) as provider:
+            module = command
+            with self.subTest(command=command), patch(target) as provider, patch(
+                f"news.management.commands.{module}.AI_EXCLUDED_SOURCES", ("EL PAÍS",),
+            ):
                 call_command(command, stdout=StringIO())
                 provider.assert_not_called()
-        with patch("news.management.commands.generate_news_briefing.summarize_articles", return_value=[]) as provider:
+        with patch("news.management.commands.generate_news_briefing.summarize_articles", return_value=[]) as provider, patch(
+            "news.management.commands.generate_news_briefing.AI_EXCLUDED_SOURCES", ("EL PAÍS",),
+        ):
             call_command("generate_news_briefing", force=True, stdout=StringIO())
         self.assertEqual(provider.call_args.args[0], [])
         self.assertEqual(Article.objects.filter(feed=feed).count(), 2)
 
     def test_all_activation_revokes_restricted_ai_flags_but_preserves_rss(self):
         active_before = dict(Feed.objects.filter(source__name="EL PAÍS").values_list("pk", "is_active"))
-        with patch("news.management.commands.refresh_briefing_descriptions.ingest_feed", return_value=SimpleNamespace(
+        with patch("news.management.commands.refresh_briefing_descriptions.AI_EXCLUDED_SOURCES", ("EL PAÍS",)), patch("news.management.commands.refresh_briefing_descriptions.ingest_feed", return_value=SimpleNamespace(
             created=0, duplicates=0,
         )):
             call_command("refresh_briefing_descriptions", source="all", enable_reviewed=True, stdout=StringIO())
         for feed in Feed.objects.filter(source__name="EL PAÍS"):
             self.assertFalse(feed.allow_ai_grouping or feed.allow_ai_briefing or feed.show_summary)
             self.assertEqual(feed.is_active, active_before[feed.pk])
+
+    def test_all_briefing_activation_restores_elpais_and_does_not_reactivate_other_paused_feeds(self):
+        Feed.objects.filter(source__name="EL PAÍS").update(is_active=False, allow_ai_briefing=False, show_summary=False)
+        paused = Feed.objects.get(url=NASA_DESCRIPTION_FEED)
+        paused.is_active = False
+        paused.show_summary = paused.allow_ai_briefing = False
+        paused.save()
+        before = list(Feed.objects.order_by("pk").values())
+        call_command("enable_news_briefing", stdout=StringIO())
+        self.assertEqual(before, list(Feed.objects.order_by("pk").values()))
+        call_command("enable_news_briefing", apply=True, stdout=StringIO())
+        self.assertFalse(Feed.objects.filter(is_active=True, allow_ai_briefing=False).exists())
+        self.assertFalse(Feed.objects.filter(is_active=True, show_summary=False).exists())
+        self.assertFalse(Feed.objects.filter(source__name="EL PAÍS", is_active=False).exists())
+        paused.refresh_from_db()
+        self.assertFalse(paused.is_active or paused.show_summary or paused.allow_ai_briefing)
 
     def test_explicit_activation_only_changes_selected_active_reviewed_feed(self):
         feed = Feed.objects.get(url=NASA_DESCRIPTION_FEED)

@@ -13,7 +13,7 @@ on:
       mode:
         description: Flujo completo, pendientes IA, comprobación, reparación, resumen o diagnóstico de antigüedad
         type: choice
-        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog, update-sources]
+        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog, update-sources, enable-briefing]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -139,6 +139,12 @@ jobs:
       - name: Clasificar nuevas fuentes argentinas
         if: env.MAINTENANCE_MODE == 'update-sources' && env.GEMINI_API_KEY != ''
         run: python manage.py classify_news_ai --source Cenital --source 'La Capital' --source 'El Ciudadano'
+      - name: Habilitar síntesis y bajadas en todos los feeds, incluido EL PAÍS
+        if: env.MAINTENANCE_MODE == 'enable-briefing'
+        run: python manage.py enable_news_briefing --apply
+      - name: Regenerar briefing de todos los feeds habilitados
+        if: env.MAINTENANCE_MODE == 'enable-briefing' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '')
+        run: python manage.py generate_news_briefing --force
       - name: Generar briefing con las fuentes incorporadas
         if: env.MAINTENANCE_MODE == 'update-sources' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '')
         run: python manage.py generate_news_briefing --force

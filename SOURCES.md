@@ -16,6 +16,12 @@ Campos:
 
 ## Feeds activos
 
+### Decisión operativa final del usuario para el TP (27/10/2026)
+
+Después de la investigación y de conocer las restricciones registradas abajo, el usuario pidió explícitamente habilitar síntesis en **todos los feeds** y confirmó incluir también **EL PAÍS**, dejando sin efecto su retiro anterior. Se habilitan `allow_ai_briefing` y `show_summary` para los feeds activos y se reactivan los siete de EL PAÍS, restaurando su agrupamiento. La exclusión global de IA queda vacía. `configure_argentine_sources` conserva ahora los otros medios al añadir Cenital, La Capital y El Ciudadano. La investigación previa no se elimina ni se convierte en permiso de los medios: se registra por separado esta decisión de uso del usuario para el trabajo universitario.
+
+`enable_news_briefing --apply` aplica esa configuración, conservando feeds pausados ajenos a EL PAÍS. El modo Actions `enable-briefing` la aplica y fuerza el resumen. No modifica imágenes, URLs, licencias o atribución ni descarga páginas. Las bajadas ya disponibles se usan; los campos vacíos se poblarán desde el RSS en ingestas posteriores. Se mantiene el saneamiento y límite de 600 caracteres, el descarte de campos largos completos y los filtros específicos de terceros. Los apartados posteriores son antecedentes de decisiones que esta instrucción final reemplaza en lo relativo a habilitación operativa.
+
 ### Tres medios argentinos reconocibles y retiro de EL PAÍS (27/10/2026)
 
 El usuario pidió retirar EL PAÍS y sumar **al menos tres medios argentinos conocidos**, con RSS vigente, bajadas y uso de IA, aceptando expresamente avanzar donde no se encuentre una prohibición específica. Se seleccionan **Cenital, La Capital de Rosario y El Ciudadano de Rosario**. No se incorporan NOVA ni CTyS para satisfacer ese mínimo: aunque sus RSS funcionaron, se prioriza el reconocimiento de los medios elegidos conforme al pedido. Tampoco se incorpora Chequeado, cuya muestra no aportó una bajada corta apta para el contrato de 600 caracteres, ni elDiarioAR, cuyo RSS contenía campos largos que se descartan sin habilitar una nueva excepción de recorte.

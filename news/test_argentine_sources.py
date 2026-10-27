@@ -21,14 +21,14 @@ class ArgentineSourcesTests(TestCase):
         self.assertEqual(before, list(Feed.objects.order_by("pk").values()))
         download.assert_not_called()
 
-    def test_apply_adds_exactly_three_known_media_and_disables_elpais_without_deleting_articles(self):
+    def test_apply_adds_exactly_three_known_media_and_preserves_elpais_and_articles(self):
         old_feed = Feed.objects.filter(source__name="EL PAÍS").first()
         article = Article.objects.create(feed=old_feed, title="Noticia ficticia conservada",
                                          original_url="https://example.test/conservada", published_at=timezone.now())
         before_count = Feed.objects.count()
         call_command("configure_argentine_sources", apply=True, stdout=StringIO())
         self.assertEqual(Feed.objects.count(), before_count + 3)
-        self.assertFalse(Feed.objects.filter(source__name="EL PAÍS", is_active=True).exists())
+        self.assertTrue(Feed.objects.filter(source__name="EL PAÍS", is_active=True).exists())
         self.assertTrue(Article.objects.filter(pk=article.pk).exists())
         for name, _, _, url in REVIEWED_FEEDS:
             feed = Feed.objects.get(url=url)

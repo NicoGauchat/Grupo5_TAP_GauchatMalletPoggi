@@ -98,7 +98,7 @@ def summarize_articles(articles, *, previous_selection=None):
         "properties": {
             "items": {
                 "type": "ARRAY",
-                "minItems": 0,
+                "minItems": len(categories),
                 "maxItems": len(categories),
                 "items": {
                     "type": "OBJECT",
@@ -208,7 +208,9 @@ def _gemini_summary(prompt, schema, api_key):
 def _validate_summary(result, categories, article_categories, valid_ids, article_titles):
     rows = result.get("items") if isinstance(result, dict) else None
     if not isinstance(rows, list) or len(rows) != len(categories):
-        raise BriefingError("La respuesta no contiene una selección válida de sucesos")
+        received = len(rows) if isinstance(rows, list) else -1
+        raise BriefingError("La respuesta no contiene una selección válida de sucesos. "
+                            f"reason=selection_count expected={len(categories)} received={received}")
 
     validated = []
     used_categories = set()

@@ -17,7 +17,7 @@ REVIEWED_FEEDS = (
 
 
 class Command(BaseCommand):
-    help = "Simula la selección de tres medios argentinos y retiro de EL PAÍS; --apply la guarda."
+    help = "Simula la selección de tres medios argentinos; --apply la guarda, conservando otros medios."
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true")
@@ -27,16 +27,11 @@ class Command(BaseCommand):
         if options["ingest"] and not options["apply"]:
             raise CommandError("--ingest requiere --apply.")
         self.stdout.write(json.dumps({"mode": "apply" if options["apply"] else "preview",
-                                      "sources": [row[0] for row in REVIEWED_FEEDS],
-                                      "elpais_feeds": Feed.objects.filter(source__name="EL PAÍS").count()}))
+                                      "sources": [row[0] for row in REVIEWED_FEEDS]}))
         if not options["apply"]:
             return
         selected = []
         with transaction.atomic():
-            removed = Feed.objects.filter(source__name="EL PAÍS").update(
-                is_active=False, show_summary=False, show_images=False,
-                allow_ai_briefing=False, allow_ai_grouping=False,
-            )
             argentina = Category.objects.get(slug="argentina")
             for name, website, section, url in REVIEWED_FEEDS:
                 source, _ = Source.objects.get_or_create(name=name, defaults={"website_url": website})
@@ -51,7 +46,7 @@ class Command(BaseCommand):
                     feed.categories.add(argentina)
                 # Una ejecución posterior no reactiva feeds pausados ni revierte permisos del administrador.
                 selected.append(feed)
-        self.stdout.write(f"Configuración aplicada: {removed} feeds de EL PAÍS desactivados; tres medios argentinos revisados.")
+        self.stdout.write("Configuración aplicada: tres medios argentinos revisados; otros medios conservados.")
         if options["ingest"]:
             errors = 0
             for feed in selected:

@@ -28,6 +28,22 @@ class BriefingResponseTests(SimpleTestCase):
             language="es", feed=SimpleNamespace(source=SimpleNamespace(name="Medio")),
             categories=categories, llm_categories=SimpleNamespace(all=lambda: []))
 
+    def test_schema_requires_one_item_per_category_and_reports_missing_count(self):
+        self.article.categories = SimpleNamespace(all=lambda: [
+            SimpleNamespace(slug="tecnologia", name="Tecnología"),
+            SimpleNamespace(slug="deportes", name="Deportes"),
+        ])
+        rows = [{"category_slug": slug, "text": "Síntesis ficticia de la categoría.",
+                 "importance_score": 3, "article_ids": [7]} for slug in ("tecnologia", "deportes")]
+        with patch("news.llm_briefing.api_key_for", return_value="ficticia"), patch(
+            "news.llm_briefing._gemini_summary", side_effect=[{"items": rows}, {"items": rows[:1]}],
+        ) as provider, patch("news.llm_briefing.backup_configured", return_value=False):
+            self.assertEqual(len(summarize_articles([self.article])), 2)
+            schema = provider.call_args.args[1]["properties"]["items"]
+            self.assertEqual((schema["minItems"], schema["maxItems"]), (2, 2))
+            with self.assertRaisesRegex(BriefingError, "reason=selection_count expected=2 received=1"):
+                summarize_articles([self.article])
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")
     def test_rss_description_requires_both_permissions_and_remains_short_plain_text(self, client):

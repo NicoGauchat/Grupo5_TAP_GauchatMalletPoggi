@@ -29,8 +29,8 @@ LOSANDES_DESCRIPTION_FEEDS = (
     "https://www.losandes.com.ar/rss/pages/economia.xml",
     "https://www.losandes.com.ar/rss/pages/sociedad.xml",
 )
-# Oposición expresa a cualquier uso de IA, revisada el 27/10/2026.
-AI_EXCLUDED_SOURCES = ("EL PAÍS",)
+# El usuario decidió habilitar IA en todos los medios, incluido EL PAÍS, para el TP.
+AI_EXCLUDED_SOURCES = ()
 ARGENTINE_DESCRIPTION_SOURCES = {
     "https://cenital.com/feed/": "Cenital",
     "https://www.lacapital.com.ar/rss/home.xml": "La Capital",
