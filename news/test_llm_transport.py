@@ -13,6 +13,21 @@ from .llm_transport import BackupError, GROQ_MODEL, backup_providers, groq_json,
 
 
 class BackupTransportTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GROQ_API_KEY": "private-backup-key"}, clear=True)
+    def test_bad_request_diagnostics_only_expose_allowlisted_codes_or_parameters(self):
+        cases = [({"code": "json_validate_failed", "message": "private-response"}, "json_validate_failed"),
+                 ({"param": "response_format", "message": "private-response"}, "configuration_response_format"),
+                 ({"code": "private-response", "param": "private-response"}, "configuration")]
+        for details, expected in cases:
+            with self.subTest(expected=expected), patch("news.llm_transport.httpx.Client") as client:
+                post = client.return_value.__enter__.return_value.post
+                post.return_value.status_code = 400
+                post.return_value.json.return_value = {"error": details}
+                with self.assertRaises(BackupError) as caught:
+                    groq_json("synthetic", {}, "grouping")
+                self.assertEqual(caught.exception.code, expected)
+                self.assertNotIn("private-response", str(caught.exception))
+
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "unused-test-key"}, clear=True)
     def test_excluded_provider_does_not_enable_backup(self):
         self.assertEqual(backup_providers(), [])

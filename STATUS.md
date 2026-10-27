@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+La reparación **40430422611** aprobó la comprobación pequeña, guardó diez noticias y activó correctamente la reducción por 413 de **cien a cincuenta candidatos**. Más adelante Gemini repitió story_id en sus tres intentos y Groq devolvió **HTTP 400**. Importancia se omitió por el fallo de reparación. No se considera recuperado completamente el agrupamiento ni se atribuye el 400 a credenciales sin evidencia adicional.
+
+Se preparó diagnóstico de códigos 400 con lista cerrada, sin imprimir mensajes originales, failed_generation, claves o noticias. El comando sintético admite candidatos ficticios adicionales (0/10/25/50) para comprobar esquemas de referencias sin datos reales; obliga a mantener los tres pares separados de esos candidatos. La selección manual sólo afecta check-grouping y no altera la comprobación de reparación. **38 pruebas: 37 aprobadas y una omitida** por PostgreSQL; actionlint con la exclusión documentada de queue pasó. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no se amplían feeds, permisos, campos reales enviados o variables de aplicación. Se prepara comparación sintética de Groq con 25 referencias, sin nueva ingesta.
+
 La tanda sólo IA **40429116194**, con **72f334a**, completó **cien noticias clasificadas y cien acontecimientos evaluados**: se verificó el esquema corregido en ambas etapas. Agrupamiento guardó diez noticias y luego falló por `repeated_article_id` en los tres intentos de Gemini; Groq rechazó el respaldo con **HTTP 413**, anteriormente rotulado conexión. No se afirma que haya funcionado el respaldo real ni que toda la tanda haya sido exitosa.
 
 Se preparó manejo específico de `request_too_large`: el comando reinicia sólo el lote aún no guardado, reduce a la mitad el bloque de candidatos hasta uno y recorre todos sin omitirlos. Se descartan las propuestas parciales y se conserva el tamaño menor para el resto de la ejecución. Los demás errores no activan esa reducción y el caso mínimo fallido termina pendiente; no se recortan titulares ni relajan controles. Investigación oficial y dos SDK comparables registrada en PROJECT. Verificación: **37 pruebas, 36 aprobadas y una omitida** por PostgreSQL; cubren reinicio tras fallo en un bloque posterior, visita de todos los candidatos, descarte de propuestas parciales, límite mínimo y clasificación segura de 413. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque siguen iguales feeds, permisos, campos enviados y variables. Se prepara publicación y reparación real sólo de agrupamiento/importancia, sin repetir RSS.
@@ -244,7 +248,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar una reparación real de agrupamiento con reducción de bloques ante HTTP 413 y registrar su resultado.
+Comprobar Groq con 25 candidatos ficticios y usar el motivo seguro del error para resolver el respaldo de agrupamiento.
 
 ## Completado
 

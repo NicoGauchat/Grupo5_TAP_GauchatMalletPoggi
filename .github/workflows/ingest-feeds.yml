@@ -30,6 +30,11 @@ on:
         type: choice
         options: [gemini, groq]
         default: gemini
+      check_candidates:
+        description: Acontecimientos ficticios adicionales (sólo check-grouping)
+        type: choice
+        options: ['0', '10', '25', '50']
+        default: '0'
       enable_reviewed_descriptions:
         description: Habilitar y refrescar entradillas RSS revisadas de elDiario.es (sólo generate-briefing)
         type: boolean
@@ -135,7 +140,8 @@ jobs:
         if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && env.GEMINI_API_KEY != ''
         env:
           CHECK_PROVIDER: ${{ inputs.mode == 'check-grouping' && inputs.check_provider || 'gemini' }}
-        run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER"
+          CHECK_CANDIDATES: ${{ inputs.mode == 'check-grouping' && inputs.check_candidates || '0' }}
+        run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER" --candidates "$CHECK_CANDIDATES"
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}

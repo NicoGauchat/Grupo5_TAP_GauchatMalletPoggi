@@ -140,8 +140,13 @@ class GroupingValidationTests(SimpleTestCase):
                                   {"story_id": 0, "article_ids": [5, 6]}]
             call_command("check_news_grouping", stdout=StringIO())
             self.assertEqual(len(model.call_args.args[0]), 6)
-            call_command("check_news_grouping", provider="groq", stdout=StringIO())
+            call_command("check_news_grouping", provider="groq", candidates=25, stdout=StringIO())
             self.assertEqual(model.call_args.kwargs["provider"], "groq")
+            self.assertEqual(len(model.call_args.args[1]), 25)
+            self.assertFalse({a.pk for a in model.call_args.args[0]} & {a.pk for a in model.call_args.args[1]})
+            model.return_value[0]["story_id"] = 2000
+            with self.assertRaises(CommandError):
+                call_command("check_news_grouping", provider="groq", candidates=25, stdout=StringIO())
             model.return_value = [{"story_id": 0, "article_ids": [1, 2, 3, 4, 5, 6]}]
             with self.assertRaises(CommandError):
                 call_command("check_news_grouping", stdout=StringIO())

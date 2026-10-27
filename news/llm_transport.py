@@ -98,6 +98,18 @@ def request_backup(prompt, schema, task, provider):
                 code = "request_too_large" if response.status_code == 413 else "quota" if response.status_code == 429 else (
                     "configuration" if response.status_code in {400, 401, 402, 403, 404} else "connection"
                 )
+                if response.status_code == 400:
+                    try:
+                        details = response.json()
+                    except ValueError:
+                        details = {}
+                    error = details.get("error") if isinstance(details, dict) else None
+                    if isinstance(error, dict):
+                        known_codes = {"json_validate_failed", "model_generation_failed", "structured_generation_failed"}
+                        if isinstance(error.get("code"), str) and error["code"] in known_codes:
+                            code = error["code"]
+                        elif error.get("param") in ("response_format", "reasoning_effort", "max_completion_tokens"):
+                            code = f"configuration_{error['param']}"
                 raise BackupError(code, provider, response.status_code)
             result = json.loads(response.json()["choices"][0]["message"]["content"])
     except BackupError:

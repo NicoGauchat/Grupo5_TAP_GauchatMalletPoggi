@@ -13,6 +13,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--provider", choices=["gemini", "groq"], default="gemini")
+        parser.add_argument("--candidates", type=int, choices=[0, 10, 25, 50], default=0,
+                            help="Agregar acontecimientos ficticios ajenos para comprobar un esquema con referencias existentes.")
 
     def handle(self, *args, **options):
         titles = [
@@ -28,12 +30,17 @@ class Command(BaseCommand):
             pk=index, title=title, feed=SimpleNamespace(source=source),
             published_at=timezone.now(), language="en" if index == 2 else "es",
         ) for index, title in enumerate(titles, start=1)]
+        candidates = [SimpleNamespace(
+            pk=1000 + index, story_id=2000 + index,
+            title=f"El museo ficticio de la localidad {index} termina su inventario anual",
+            feed=SimpleNamespace(source=source), published_at=timezone.now(), language="es",
+        ) for index in range(options["candidates"])]
         try:
-            groups = group_articles(articles, [], provider=options["provider"])
+            groups = group_articles(articles, candidates, provider=options["provider"])
         except GroupingError as error:
             raise CommandError(str(error)) from error
         actual = {frozenset(group["article_ids"]) for group in groups}
         expected = {frozenset({1, 2}), frozenset({3, 4}), frozenset({5, 6})}
-        if actual != expected:
+        if actual != expected or any(group["story_id"] for group in groups):
             raise CommandError("La prueba sintética no separó los tres hechos conservando sus pares; no se deben aplicar uniones.")
         self.stdout.write(f"Comprobación sintética aprobada: tres hechos separados, sus pares unidos y traducción conservada. Proveedor solicitado: {options['provider']}. Modelo: {getattr(groups, 'model', 'no disponible')}.")
