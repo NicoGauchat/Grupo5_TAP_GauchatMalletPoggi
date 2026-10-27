@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+El usuario autorizó posteriormente la eliminación de las pendientes antiguas para evitar gastar cuota en esa cola histórica. Se agrega `purge_grouping_backlog` y el modo manual `purge-backlog`: simulación por defecto, corte explícito de al menos 48 horas, verificación del número esperado, bloqueo de artículos y borrado transaccional limitado a pendientes autorizados de la ventana de 14 días. Se conservan grupos verificados y noticias recientes. Siete pruebas SQLite de limpieza y diagnóstico aprobadas: cascadas de guardados/orígenes, conservación de usuarios/categorías/grupos, límites de fechas/permisos, simulación, cortes inválidos y rechazo de conteo cambiado; Django check, actionlint con la exclusión exacta de `queue` ya documentada y diff aprobados. Ejecución remota pendiente. No se modifica la retención ni se añaden bloqueos de reingesta. README y PROJECT documentan la limpieza; SOURCES y `.env.example` no requieren cambios, sin nuevos permisos de fuente ni variables.
+
 Por autorización del usuario se agrega `report_grouping_backlog` y el modo manual `report-backlog` de Actions para medir pendientes por publicación: hasta 24 horas, más de 24 hasta 48 y más de 48 dentro de los 14 días vigentes. Reutiliza los filtros del agrupador (fuente activa, permiso y grupo ausente o anterior), una sola agregación y una hora fija; PostgreSQL exige transacción de sólo lectura. No modifica noticias, retención ni clasificación y no llama a proveedores. Dos pruebas SQLite aprobadas: límites exactos de 24/48 horas y 14 días, exclusión de fuentes sin permiso/inactivas, fechas futuras/nulas, grupos verificados, inclusión de grupos anteriores, cola vacía y conservación de los registros. Django check y diff aprobados; actionlint aprobado con la exclusión exacta de `queue` ya documentada. Consulta remota pendiente. README documenta el comando; PROJECT, SOURCES y `.env.example` no requieren cambios: no cambian arquitectura, políticas de fuentes, almacenamiento ni variables.
 
 Diagnóstico publicado en `da878c3` y comprobado en **40479700613**, ejecución correcta con todas las etapas de escritura/IA omitidas. Consulta del **27/10/2026 a las 06:18:11 de Argentina**: **1609 pendientes**, **0 hasta 24 horas**, **0 de más de 24 hasta 48 horas** y **1609 de más de 48 horas**, sin grupos anteriores. La publicación más reciente de esa cola es del **24/10 a las 11:25:41** y la más antigua del **13/10 a las 20:22**. Son conteos de la cola autorizada de agrupamiento, no de todas las noticias ni de todos los grupos de la base. Los cortes de 24 y 48 horas abarcarían la misma cola pendiente en esta medición; no se eliminó ninguna noticia ni se modificó la retención de 14 días. El usuario evalúa hacer él mismo una eliminación; no hay autorización para ejecutarla desde esta tarea. Sólo se guardan métricas agregadas, sin titulares, URLs ni credenciales reales.
@@ -268,7 +270,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Definir con el usuario si desea cambiar el corte de conservación tras el diagnóstico; no ejecutar eliminaciones sin un pedido explícito.
+Verificar y ejecutar la limpieza puntual autorizada, y comprobar el conteo de pendientes al finalizar.
 
 ## Completado
 

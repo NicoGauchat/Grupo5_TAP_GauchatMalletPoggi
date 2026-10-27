@@ -13,7 +13,7 @@ on:
       mode:
         description: Flujo completo, pendientes IA, comprobación, reparación, resumen o diagnóstico de antigüedad
         type: choice
-        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog]
+        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -37,6 +37,18 @@ on:
         default: '0'
       enable_reviewed_descriptions:
         description: Habilitar y refrescar entradillas RSS revisadas de elDiario.es (sólo generate-briefing)
+        type: boolean
+        default: false
+      backlog_before:
+        description: Corte ISO 8601 con zona horaria, mínimo 48 horas de antigüedad (sólo purge-backlog)
+        type: string
+        default: ''
+      backlog_expected_count:
+        description: Cantidad exacta de noticias autorizadas a eliminar (sólo purge-backlog)
+        type: string
+        default: '0'
+      backlog_apply:
+        description: Aplicar eliminación de pendientes; false sólo simula (sólo purge-backlog)
         type: boolean
         default: false
 
@@ -119,6 +131,18 @@ jobs:
       - name: Consultar antigüedad de pendientes (sólo lectura)
         if: env.MAINTENANCE_MODE == 'report-backlog'
         run: python manage.py report_grouping_backlog
+      - name: Limpiar pendientes antiguos con conteo exacto
+        if: env.MAINTENANCE_MODE == 'purge-backlog'
+        env:
+          BACKLOG_BEFORE: ${{ inputs.backlog_before }}
+          BACKLOG_EXPECTED_COUNT: ${{ inputs.backlog_expected_count }}
+          BACKLOG_APPLY: ${{ inputs.backlog_apply }}
+        run: |
+          python manage.py purge_grouping_backlog --published-before "$BACKLOG_BEFORE"
+          if [ "$BACKLOG_APPLY" = 'true' ]; then
+            python manage.py purge_grouping_backlog --published-before "$BACKLOG_BEFORE" --expected-count "$BACKLOG_EXPECTED_COUNT" --apply
+          fi
+          python manage.py report_grouping_backlog
       - name: Ingerir feeds
         id: ingest
         if: env.MAINTENANCE_MODE == 'maintenance'

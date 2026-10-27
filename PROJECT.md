@@ -408,6 +408,8 @@ La ventana de 14 días se define una sola vez en `news/retention.py` para ingest
 
 ## Decisiones vigentes
 
+El 27/10/2026 el usuario autorizó eliminar la cola pendiente anterior a disponer de IA, diagnosticada con 1609 noticias de más de 48 horas. Se incorpora una limpieza manual puntual con corte de publicación explícito, simulación y cantidad esperada obligatoria al aplicar. Abarca sólo pendientes autorizados dentro de la retención, preserva grupos verificados y bloquea los artículos durante una transacción. El ORM elimina sus relaciones (incluidos guardados); no se borran grupos ni se cambia la retención de 14 días. No se añade una exclusión persistente a la ingesta: los RSS podrían volver a incorporar artículos borrados si aún los publican.
+
 1. RSS es la fuente principal del MVP.
 2. La aplicación se implementa con Python y Django, con plantillas del servidor.
 3. PostgreSQL almacena usuarios, preferencias, fuentes y metadatos de noticias.
