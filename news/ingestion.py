@@ -31,6 +31,11 @@ LOSANDES_DESCRIPTION_FEEDS = (
 )
 # Oposición expresa a cualquier uso de IA, revisada el 27/10/2026.
 AI_EXCLUDED_SOURCES = ("EL PAÍS",)
+ARGENTINE_DESCRIPTION_SOURCES = {
+    "https://cenital.com/feed/": "Cenital",
+    "https://www.lacapital.com.ar/rss/home.xml": "La Capital",
+    "https://elciudadanoweb.com/feed/": "El Ciudadano",
+}
 USER_AGENT = "LibreNews/0.1 (proyecto universitario; lector RSS)"
 TRACKING_PARAMETERS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 
@@ -84,8 +89,10 @@ def permitted_summary(entry, feed):
         return ""
     raw = entry.get("summary") or ""
     summary = " ".join(unescape(strip_tags(raw)).split())
-    if getattr(feed, "url", "") in LOSANDES_DESCRIPTION_FEEDS:
-        if feed.source.name != "Los Andes":
+    url = getattr(feed, "url", "")
+    reviewed_source = ARGENTINE_DESCRIPTION_SOURCES.get(url)
+    if url in LOSANDES_DESCRIPTION_FEEDS or reviewed_source:
+        if feed.source.name != (reviewed_source or "Los Andes"):
             return ""
         rights = " ".join(str(entry.get(key) or "") for key in ("author", "rights", "copyright", "source"))
         if re.search(r"©|\bcopyright\b|\b(?:reuters|efe|afp|associated\s+press|the\s+guardian)\b",

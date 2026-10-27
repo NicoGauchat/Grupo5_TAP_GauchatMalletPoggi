@@ -15,18 +15,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--limit", type=int, default=100, help="Máximo de noticias por ejecución (1 a 100)")
+        parser.add_argument("--source", action="append", default=[], help="Limitar a medios por nombre; se puede repetir.")
 
     def handle(self, *args, **options):
         limit = options["limit"]
         if not 1 <= limit <= 100:
             raise CommandError("--limit debe estar entre 1 y 100")
         categories = dict(Category.objects.filter(slug__in=CATEGORY_DESCRIPTIONS).values_list("slug", "id"))
-        pending = list(
-            Article.objects.filter(
+        eligible = Article.objects.filter(
                 llm_classified_at__isnull=True, published_at__gte=retention_cutoff(),
                 feed__is_active=True,
-            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source").order_by("-published_at", "-id")[:limit]
-        )
+            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES)
+        if options["source"]:
+            eligible = eligible.filter(feed__source__name__in=options["source"])
+        pending = list(eligible.select_related("feed__source").order_by("-published_at", "-id")[:limit])
         if not pending:
             self.stdout.write("No hay noticias pendientes de clasificación por IA.")
             return

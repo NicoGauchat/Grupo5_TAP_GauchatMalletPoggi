@@ -13,7 +13,7 @@ on:
       mode:
         description: Flujo completo, pendientes IA, comprobación, reparación, resumen o diagnóstico de antigüedad
         type: choice
-        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog]
+        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog, update-sources]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -133,6 +133,15 @@ jobs:
         id: purge
         if: env.MAINTENANCE_MODE == 'maintenance'
         run: python manage.py purge_old_articles
+      - name: Configurar e importar tres medios argentinos revisados
+        if: env.MAINTENANCE_MODE == 'update-sources'
+        run: python manage.py configure_argentine_sources --apply --ingest
+      - name: Clasificar nuevas fuentes argentinas
+        if: env.MAINTENANCE_MODE == 'update-sources' && env.GEMINI_API_KEY != ''
+        run: python manage.py classify_news_ai --source Cenital --source 'La Capital' --source 'El Ciudadano'
+      - name: Generar briefing con las fuentes incorporadas
+        if: env.MAINTENANCE_MODE == 'update-sources' && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '')
+        run: python manage.py generate_news_briefing --force
       - name: Consultar antigüedad de pendientes (sólo lectura)
         if: env.MAINTENANCE_MODE == 'report-backlog'
         run: python manage.py report_grouping_backlog

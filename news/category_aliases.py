@@ -26,6 +26,16 @@ CATEGORY_ALIASES = {
 # equivalencias se limitan a cada feed para no tratar una etiqueta genérica
 # "Política" de otro medio como política argentina.
 FEED_CATEGORY_ALIASES = {
+    "https://cenital.com/feed/": {
+        "Mundo": {"geopolitica"}, "Mundo Propio": {"geopolitica"}, "Ciudades": {"argentina"},
+        "Primera mañana": {"argentina"}, "Antes de mañana": {"argentina"}, "Sistema 2": {"politica-argentina", "argentina"},
+    },
+    "https://elciudadanoweb.com/feed/": {
+        "Ciudad": {"argentina"}, "País": {"argentina"}, "Policiales": {"argentina"},
+        "Política": {"politica-argentina", "argentina"}, "Economía": {"economia"},
+        "Econom�a": {"economia"}, "Salud": {"salud"}, "Mundo": {"geopolitica"},
+        "El Hincha": {"deportes"}, "Fútbol": {"deportes"}, "F�tbol": {"deportes"}, "Ascenso": {"deportes"},
+    },
     "https://www.losandes.com.ar/rss/pages/sociedad.xml": {"Sociedad": {"argentina"}},
     "https://www.nasa.gov/technology/feed/": {
         "Technology": {"tecnologia"}, "Technology Research": {"tecnologia"},

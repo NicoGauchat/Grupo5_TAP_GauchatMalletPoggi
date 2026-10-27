@@ -16,6 +16,22 @@ Campos:
 
 ## Feeds activos
 
+### Tres medios argentinos reconocibles y retiro de EL PAÍS (27/10/2026)
+
+El usuario pidió retirar EL PAÍS y sumar **al menos tres medios argentinos conocidos**, con RSS vigente, bajadas y uso de IA, aceptando expresamente avanzar donde no se encuentre una prohibición específica. Se seleccionan **Cenital, La Capital de Rosario y El Ciudadano de Rosario**. No se incorporan NOVA ni CTyS para satisfacer ese mínimo: aunque sus RSS funcionaron, se prioriza el reconocimiento de los medios elegidos conforme al pedido. Tampoco se incorpora Chequeado, cuya muestra no aportó una bajada corta apta para el contrato de 600 caracteres, ni elDiarioAR, cuyo RSS contenía campos largos que se descartan sin habilitar una nueva excepción de recorte.
+
+| Medio | RSS revisado | Entradas / vigentes en 14 días | Bajadas limpias de hasta 600 caracteres |
+|---|---|---|---|
+| [Cenital](https://cenital.com/) | https://cenital.com/feed/ | 10 / 10 | 10 |
+| [La Capital](https://www.lacapital.com.ar/) | https://www.lacapital.com.ar/rss/home.xml | 100 / 79 | 100; las entradas fuera de plazo no se importan |
+| [El Ciudadano](https://elciudadanoweb.com/) | https://elciudadanoweb.com/feed/ | 20 / 20 | 20 |
+
+La comprobación en memoria devolvió HTTP 200 y RSS 2.0 en los tres, por debajo de 2 MB, con publicaciones del 26–27/10/2026. Sólo se conservan estos agregados, no XML ni noticias reales en el repositorio. Se consultaron los sitios oficiales y la [política de privacidad de Cenital](https://cenital.com/politica-de-privacidad/); no se encontró en esas páginas una oposición específica al uso de IA. No se localizó una licencia expresa para transformación ni una política de contenido inequívoca en La Capital/El Ciudadano; sus páginas de términos intentadas devolvieron 404 o no estuvieron disponibles. **La activación responde a la decisión expresa de uso del usuario, no equivale a una autorización concedida por los medios ni afirma que silencio signifique licencia.** Se conservan titular, autor recibido, medio y enlace, se rotula la síntesis IA y no se descargan páginas de artículos.
+
+Los tres feeds nuevos tienen `show_summary=True`, `allow_ai_briefing=True` y `allow_ai_grouping=True`; imágenes deshabilitadas. Se guarda únicamente la bajada RSS ya acotada a 600 caracteres, sin recortar cuerpos largos y descartando señales identificadas de copyright/agencias de terceros. La asignación por reglas se limita a etiquetas observadas de cada RSS y al respaldo Argentina cuando faltan etiquetas; no se agregan nombres de newsletters como alias globales. La clasificación IA puede aportar otras categorías. La retención sigue en 14 días, por lo que una primera importación puede traer noticias anteriores a 48 horas.
+
+El comando manual `configure_argentine_sources` simula por defecto; con `--apply --ingest` crea sólo esa lista cerrada, conserva posteriores pausas/revocaciones y consulta únicamente sus RSS. Desactiva los siete feeds de EL PAÍS, sin borrar artículos o guardados históricos. Su modo Actions `update-sources` clasifica hasta cien pendientes **sólo de esos tres medios** y genera el briefing forzado, sin agrupar/puntuar ni consultar los RSS antiguos. No cambia esquema: usa los modelos y controles existentes y requiere este comando explícito también en instalaciones nuevas. Con los 26 feeds anteriores, retirar siete y agregar tres deja 22 activos si no hay pausas adicionales; la comprobación remota registrará el resultado efectivo.
+
 ### Revisión y ampliación de bajadas (27/10/2026, posterior al pedido de agrupamiento)
 
 El usuario pidió utilizar la misma descripción guardada en resúmenes y agrupamiento y decidió avanzar donde no se encontrara una prohibición expresa, sin confundir silencio con una licencia otorgada. Se habilita mediante control manual una lista cerrada de feeds ya existentes: elDiario.es, NASA Technology y Los Andes Política/Economía/Sociedad. No se agregan medios, feeds, imágenes, proveedores ni scraping. Se mantienen 600 caracteres limpios como máximo, descartando campos largos completos; para elDiario.es se conserva exclusivamente la excepción de primera entradilla ya revisada. La ingesta forzada actualiza bajadas existentes desde el feed original, y la ingesta normal mantiene los controles. La revocación de `show_summary` excluye el campo de las llamadas siguientes; no se reactivan feeds pausados.

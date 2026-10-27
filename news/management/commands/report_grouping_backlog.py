@@ -8,7 +8,7 @@ from django.db import connection, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
 
-from news.models import GROUPING_VERSION, Article
+from news.models import GROUPING_VERSION, Article, NewsBriefingItem
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.retention import RETENTION_DAYS
 
@@ -40,4 +40,17 @@ class Command(BaseCommand):
                 oldest=Min("published_at"),
                 newest=Max("published_at"),
             )
-        self.stdout.write(json.dumps({"measured_at": now, "retention_days": RETENTION_DAYS, **counts}, default=str))
+            sports = Article.objects.filter(
+                Q(categories__slug="deportes") | Q(llm_categories__slug="deportes"),
+                feed__is_active=True, published_at__gte=day, published_at__lte=now,
+            )
+            sports_sources = list(sports.values(
+                "feed__source__name", "feed__name", "feed__allow_ai_briefing", "feed__show_summary",
+            ).annotate(articles=Count("pk", distinct=True)).order_by("feed__source__name", "feed__name"))
+            sports_items = NewsBriefingItem.objects.filter(
+                category__slug="deportes", briefing__status="ready", briefing__generated_at__gte=day,
+            ).count()
+        self.stdout.write(json.dumps({"measured_at": now, "retention_days": RETENTION_DAYS, **counts,
+                                      "sports_last_24h_sources": sports_sources,
+                                      "sports_briefing_items_generated_last_24h": sports_items},
+                                     ensure_ascii=False, default=str))
