@@ -12,7 +12,7 @@ class Command(BaseCommand):
     help = "Evalúa un proveedor con tres pares de titulares ficticios; no lee ni escribe noticias."
 
     def add_arguments(self, parser):
-        parser.add_argument("--provider", choices=["gemini", "groq", "openrouter"], default="gemini")
+        parser.add_argument("--provider", choices=["gemini", "groq"], default="gemini")
 
     def handle(self, *args, **options):
         titles = [

@@ -13,7 +13,6 @@ from django.conf import settings
 GROQ_MODEL = "openai/gpt-oss-20b"
 BACKUPS = {
     "groq": ("GROQ_API_KEY", GROQ_MODEL, "https://api.groq.com/openai/v1/chat/completions"),
-    "openrouter": ("OPENROUTER_API_KEY", "openrouter/free", "https://openrouter.ai/api/v1/chat/completions"),
 }
 _last_request = {}
 
@@ -87,13 +86,7 @@ def request_backup(prompt, schema, task, provider):
             "name": "news_response", "strict": True, "schema": _strict_schema(schema),
         }},
     }
-    if provider == "groq":
-        body.update(reasoning_effort="low", max_completion_tokens=4096)
-    else:
-        body.update(max_tokens=4096, provider={
-            "require_parameters": True, "data_collection": "deny",
-            "max_price": {"prompt": 0, "completion": 0},
-        })
+    body.update(reasoning_effort="low", max_completion_tokens=4096)
     try:
         with httpx.Client(timeout=60, follow_redirects=False) as client:
             response = client.post(

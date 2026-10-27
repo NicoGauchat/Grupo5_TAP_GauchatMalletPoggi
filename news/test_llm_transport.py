@@ -9,23 +9,14 @@ from google.genai import errors
 
 from .llm_briefing import BriefingError, summarize_articles
 from .llm_grouping import GroupingError, group_articles
-from .llm_transport import BackupError, GROQ_MODEL, groq_json, pace_request, request_backup
+from .llm_transport import BackupError, GROQ_MODEL, backup_providers, groq_json, pace_request
 
 
 class BackupTransportTests(SimpleTestCase):
-    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "private-router-key"}, clear=True)
-    def test_openrouter_only_requests_free_model_with_zero_price_ceiling(self):
-        with patch("news.llm_transport.httpx.Client") as client:
-            post = client.return_value.__enter__.return_value.post
-            post.return_value.status_code = 200
-            post.return_value.json.return_value = {"choices": [{"message": {"content": '{"items": []}'}}]}
-            self.assertEqual(request_backup("synthetic", {"type": "object"}, "briefing", "openrouter"), {"items": []})
-            self.assertEqual(post.call_args.args[0], "https://openrouter.ai/api/v1/chat/completions")
-            body = post.call_args.kwargs["json"]
-            self.assertEqual(body["model"], "openrouter/free")
-            self.assertEqual(body["provider"]["max_price"], {"prompt": 0, "completion": 0})
-            self.assertEqual(body["provider"]["data_collection"], "deny")
-            self.assertTrue(body["provider"]["require_parameters"])
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "unused-test-key"}, clear=True)
+    def test_excluded_provider_does_not_enable_backup(self):
+        self.assertEqual(backup_providers(), [])
+
     @patch.dict("os.environ", {"GROQ_API_KEY": "private-backup-key"}, clear=True)
     def test_transport_uses_fixed_endpoint_and_structured_output_without_logging_secrets(self):
         with patch("news.llm_transport.httpx.Client") as client, self.assertLogs("news.llm_transport", level="WARNING") as logs:
@@ -37,6 +28,8 @@ class BackupTransportTests(SimpleTestCase):
             self.assertEqual(post.call_args.args[0], "https://api.groq.com/openai/v1/chat/completions")
             body = post.call_args.kwargs["json"]
             self.assertEqual(body["model"], GROQ_MODEL)
+            self.assertEqual(body["reasoning_effort"], "low")
+            self.assertEqual(body["max_completion_tokens"], 4096)
             schema = body["response_format"]["json_schema"]["schema"]
             self.assertEqual(schema["type"], "object")
             self.assertFalse(schema["additionalProperties"])
@@ -121,27 +114,3 @@ class CriticalFallbackTests(SimpleTestCase):
             with self.assertRaisesRegex(GroupingError, "reason=unknown_article_id"):
                 group_articles(self.articles(), [])
             self.assertEqual(model.call_count, 2)
-
-    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-test"})
-    def test_briefing_tries_openrouter_after_groq_fails(self):
-        valid = {"items": [{"category_slug": "ciencia", "text": "Síntesis ficticia.", "importance_score": 3, "article_ids": [1]}]}
-        with patch("news.llm_briefing.genai.Client") as client, patch("news.llm_briefing.request_backup", side_effect=[BackupError("quota"), valid]) as backup:
-            client.return_value.models.generate_content.side_effect = errors.APIError(503, {})
-            result = summarize_articles(self.articles())
-            self.assertEqual(result.model, "openrouter:openrouter/free")
-            self.assertEqual([c.args[-1] for c in backup.call_args_list], ["groq", "openrouter"])
-
-    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-test"})
-    def test_grouping_restarts_full_proposal_and_audit_with_next_provider(self):
-        def request(prompt, schema, key, *, provider="gemini"):
-            if provider == "gemini":
-                raise GroupingError("Gemini unavailable", retryable=False, fallback_allowed=True)
-            if "groups" in schema["properties"]:
-                return {"groups": [{"story_id": 0, "article_ids": [1, 2]}]}
-            return {"decisions": [] if provider == "groq" else [
-                {"article_id": 2, "same_event": True, "reason": "Mismo hecho sintético."}]}
-        with patch("news.llm_grouping.request_groups", side_effect=request) as model:
-            result = group_articles(self.articles(), [])
-            self.assertEqual(result.model, "openrouter:openrouter/free")
-            self.assertEqual([c.kwargs.get("provider", "gemini") for c in model.call_args_list],
-                             ["gemini", "groq", "groq", "openrouter", "openrouter"])

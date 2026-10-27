@@ -24,7 +24,7 @@ SECONDARY = "secondary-test-value"
 
 class APIKeyRoutingTests(SimpleTestCase):
     def test_model_selection_is_explicit_and_restricted(self):
-        for value, expected in (("", "gemini-3.1-flash-lite"), ("  gemini-3.5-flash-lite  ", "gemini-3.5-flash-lite")):
+        for value, expected in (("", "gemini-3.5-flash-lite"), ("gemini-3.1-flash-lite", "gemini-3.1-flash-lite"), ("  gemini-3.5-flash-lite  ", "gemini-3.5-flash-lite")):
             with self.subTest(value=value), patch.dict("os.environ", {"GEMINI_MODEL": value}):
                 self.assertEqual(configured_model(), expected)
         with patch.dict("os.environ", {"GEMINI_MODEL": "not-an-approved-model"}):

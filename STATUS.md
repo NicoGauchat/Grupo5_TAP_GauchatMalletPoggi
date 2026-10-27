@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** comprobar una generación real de resúmenes y un lote real de agrupamiento exitosos con Gemini, sin detener el trabajo ante un resultado parcial.
+**Objetivo actual:** conservar la recuperación verificada de resumen y agrupamiento con Gemini 3.5 y respaldo Groq, excluyendo OpenRouter por pedido del usuario.
 
 ## Último paso completado
+
+La recuperación real quedó comprobada: **40417034854** generó **diez síntesis sobre 81 titulares** con Gemini 3.5 y **40417039712** terminó correctamente con **cien noticias agrupadas y cien acontecimientos evaluados**; informó 2076 noticias aún pendientes, ninguna de grupos anteriores. La prueba real pequeña de Groq **40417446226** aprobó los tres hechos ficticios, pares y traducción, sin leer/escribir noticias. Es evidencia de estas ejecuciones, no garantía de disponibilidad permanente ni de precisión sobre todos los pendientes.
+
+Por decisión posterior del usuario se retiró OpenRouter del transporte, selector diagnóstico, entorno del workflow y `.env.example`; su secreto remoto queda sin uso y no se elimina. Sus comparaciones previas devolvieron HTTP 401 y, tras reemplazar la clave, respuesta inválida. Gemini **3.5 Flash-Lite** queda como modelo inicial en código, Actions y ejemplo local; la variable de repositorio ya estaba fijada en 3.5. Se conserva 3.1 como opción explícita. Resumen y agrupamiento mantienen Groq como único respaldo independiente; clasificación e importancia siguen con Gemini. Se mantienen tres intentos totales de agrupamiento para fallos reintentables, auditoría, referencias estrictas y espaciado de ocho segundos. No se activó facturación ni se desplegó Render.
+
+Verificación de cierre: **141 pruebas SQLite, 126 aprobadas y 15 omitidas** por requerir PostgreSQL; incluye que una clave OpenRouter presente no habilita respaldo. Django check con configuración de prueba, ausencia de migraciones pendientes, actionlint (exclusión exacta de `queue` ya aceptada por GitHub) y diff aprobados. README, PROJECT, SOURCES y `.env.example` actualizados. El chequeo inicial con configuración normal no se pudo ejecutar por ausencia de `DJANGO_SECRET_KEY` local; se verificó con la configuración de prueba, sin copiar secretos remotos. Los párrafos siguientes conservan el historial anterior y sus resultados parciales, superados por la evidencia de cierre.
 
 El respaldo y espaciado se publicaron en **2240e5f**. La ejecución **40417034854** volvió a generar correctamente **diez síntesis sobre 81 titulares** con Gemini 3.5; la reparación real **40417039712** sigue en comprobación. Se preparó selección explícita de proveedor para la prueba sintética (`check_provider`/`--provider`): Gemini, Groq u OpenRouter, sin leer/escribir noticias. La reparación normal conserva su comprobación inicial de Gemini y su respaldo validado; la selección de diagnóstico no cambia ese contrato. Las 36 pruebas focalizadas de agrupamiento/transporte ejecutaron **35 aprobadas y una omitida**; actionlint con exclusión acotada de `queue` y diff pasaron. README actualizado; PROJECT, SOURCES y `.env.example` no necesitan cambios adicionales para esta selección manual. No se considera finalizada la recuperación hasta comprobar la tanda real completa.
 
@@ -214,7 +220,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar el próximo lote real de agrupamiento con las referencias restringidas y registrar las causas seguras de cada intento si vuelve a fallar, antes de afirmar recuperación completa.
+Verificar el avance de pendientes en la próxima tanda automática de cien, programada cada quince minutos también durante la noche.
 
 ## Completado
 

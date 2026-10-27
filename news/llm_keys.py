@@ -3,7 +3,7 @@
 import os
 
 
-GEMINI_MODELS = ("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")
+GEMINI_MODELS = ("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")
 
 
 def configured_model():
