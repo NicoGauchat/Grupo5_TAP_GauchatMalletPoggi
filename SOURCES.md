@@ -16,6 +16,12 @@ Campos:
 
 ## Feeds activos
 
+### Descripciones RSS como base de la síntesis (26/10/2026)
+
+El usuario pidió que la síntesis tenga más contenido que una reformulación del título. Se preparó el uso de `Article.summary`, exclusivamente cuando la fuente tiene habilitados los dos controles existentes: `show_summary` y `allow_ai_briefing`. Se usa sólo la bajada RSS guardada, limpia y de hasta 600 caracteres; un campo mayor se descarta entero para no guardar/enviar artículos completos. No se activa ningún feed ni se descargan páginas. La selección vigente se incluye en las comparaciones sólo mientras cumpla ventana de 24 horas, categoría y permisos; ampliar la longitud no amplía material disponible ni permite inventar contexto.
+
+Se volvieron a consultar las [condiciones RSS de Clarín](https://www.clarin.com/filer/RSS/terminos_condiciones.html), [RSS de EL PAÍS](https://elpais.com/info/rss/), [RSS de Los Andes](https://www.losandes.com.ar/contenidos/rss.html), [términos de MIT News](https://news.mit.edu/terms-of-use) y [aviso legal de elDiario.es](https://www.eldiario.es/aviso-legal-eldiario-es/). No se encontró una autorización común para ampliar automáticamente todos los feeds a descripciones. Clarín limita su permiso a titulares/enlaces; EL PAÍS no resuelve en su directorio la transformación de bajadas. MIT exige atribución específica para republicar historias y elDiario.es declara CC BY-NC con excepciones de contenido ajeno. Antes de activar hay que resolver el uso y atribución de cada fuente y volver a ingerir sus RSS; los controles actuales siguen deshabilitados para descripciones. Las secciones siguientes conservan el contrato de titulares utilizado mientras no se active ese permiso. El soporte técnico no acredita que existan descripciones en producción ni que se haya autorizado leer artículos completos.
+
 ### Síntesis IA por categoría (26/10/2026)
 
 La nueva presentación redacta mediante Gemini una síntesis de la noticia más importante de cada categoría que tenga titulares habilitados, con un único artículo de referencia y enlace directo al medio. Se seleccionan candidatos de las últimas 24 horas con `allow_ai_briefing=True`; los quince feeds agregados en `0018` siguen deshabilitados para síntesis y no se amplía su permiso por tener categorías o permitir agrupamiento. Una categoría sin material autorizado muestra ese estado, sin reutilizar contenido de otro feed ni generar un resumen de relleno.

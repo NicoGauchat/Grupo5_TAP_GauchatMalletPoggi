@@ -8,17 +8,9 @@ from .models import Article, Category, NewsBriefing, NewsBriefingItem
 from .browsing import add_coverages
 
 
-def briefing_context(now, categories=()):
-    categories = list(categories)
-    if not categories:
-        return {"category_briefings": [], "has_briefing_items": False, "has_missing_briefings": False}
+def current_briefing_items(now, categories):
+    """Última selección válida de cada categoría, aunque otra categoría haya vencido."""
     cutoff = now - timedelta(hours=24)
-    eligible = Article.objects.filter(
-        feed__is_active=True, feed__allow_ai_briefing=True, published_at__gte=cutoff, published_at__lte=now,
-    )
-    available = set(Category.objects.filter(
-        Q(articles__in=eligible) | Q(llm_articles__in=eligible), pk__in=[category.pk for category in categories],
-    ).values_list("pk", flat=True))
     items = NewsBriefingItem.objects.filter(
         category__in=categories, briefing__status="ready", briefing__generated_at__gte=cutoff,
     ).exclude(articles__published_at__lt=cutoff).exclude(articles__published_at__gt=now).exclude(
@@ -33,6 +25,21 @@ def briefing_context(now, categories=()):
             category.pk for category in [*references[0].categories.all(), *references[0].llm_categories.all()]
         }:
             latest.setdefault(item.category_id, item)
+    return latest
+
+
+def briefing_context(now, categories=()):
+    categories = list(categories)
+    if not categories:
+        return {"category_briefings": [], "has_briefing_items": False, "has_missing_briefings": False}
+    cutoff = now - timedelta(hours=24)
+    eligible = Article.objects.filter(
+        feed__is_active=True, feed__allow_ai_briefing=True, published_at__gte=cutoff, published_at__lte=now,
+    )
+    available = set(Category.objects.filter(
+        Q(articles__in=eligible) | Q(llm_articles__in=eligible), pk__in=[category.pk for category in categories],
+    ).values_list("pk", flat=True))
+    latest = current_briefing_items(now, categories)
     attempt = NewsBriefing.objects.filter(generated_at__gte=cutoff).first()
     references = {category_id: list(item.articles.all())[0] for category_id, item in latest.items()}
     add_coverages(list(references.values()), cutoff=cutoff, now=now)

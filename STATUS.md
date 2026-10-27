@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** ampliar ligeramente las explicaciones públicas del puntaje de importancia, manteniendo su fundamento en los titulares.
+**Objetivo actual:** conservar la selección más importante de las últimas 24 horas, desarrollar sus síntesis y permitir contraer el resumen.
 
 ## Último paso completado
+
+Se implementó comparación con la última referencia vigente por categoría, reservándole lugar dentro de los 250 candidatos aun con muchas novedades. Se reutiliza la misma selección de vigencia de la web; una categoría vencida no invalida la anterior de otras. El prompt exige reemplazar sólo por un hecho claramente más importante y conservar ante empate/duda, sin dar prioridad a recencia o nueva cobertura. La decisión semántica sigue dependiendo del proveedor, sin garantía de precisión absoluta. Se conserva la ventana móvil de 24 horas y caché de dos horas, también al omitir caché con `--force`.
+
+Se solicitan dos o tres frases propias, procurando 300–450 caracteres, admitiendo menos cuando falta información y rechazando copia literal del titular (normalizada por palabras). Se conectó la descripción RSS existente, limpia y de hasta 600 caracteres, sólo con `show_summary` y `allow_ai_briefing` habilitados; ningún feed se activó ni se descargaron artículos. Las descripciones reales aún requieren resolver permisos/atribución por fuente y poblarlas mediante ingesta: no se afirma que ya estén activas. La revisión de condiciones oficiales quedó en SOURCES. El resumen completo se puede contraer/expandir mediante «Ver menos / Ver resumen» y comienza abierto, sin JavaScript; el cambio visual requiere despliegue de Render por el responsable.
+
+Verificación: **147 pruebas SQLite: 132 aprobadas y 15 omitidas** por requerir PostgreSQL. Incluyen reserva de la selección previa frente a 250 novedades, caducidad por categoría, relevo del candidato para la siguiente comparación, permisos/tamaño/limpieza de descripción y rechazo de copias literales. Edge/Playwright comprobó apertura inicial, contracción con Enter, expansión con espacio, fuentes independientes, orden inicial y ausencia de desbordamiento a 1440, 768 y 375 px; captura móvil contraída inspeccionada. README, PROJECT y SOURCES actualizados; `.env.example` no cambia porque no hay variables nuevas. Sin migraciones, servicios ni dependencias nuevos; no se desplegó Render ni se llamó a IA real en este bloque.
 
 Se ajustó la instrucción de importancia para pedir dos frases, procurando 220–300 caracteres: impacto y afectados cuando aparecen en los titulares, y criterio que justifica el puntaje, incluso bajo. Si falta evidencia se acepta una explicación más corta y prudente; no se inventan detalles para llegar a una longitud mínima. Se conserva el máximo de 300 caracteres, los campos, la rúbrica y la validación existentes, sin migraciones ni nuevos servicios. Se aplica a próximas evaluaciones; no se reevalúan masivamente noticias ni se cambian textos históricos. Verificación proporcional: diez pruebas de importancia ejecutadas, nueve aprobadas y una omitida por requerir PostgreSQL; Django system check y `git diff --check` sin incidencias. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, datos enviados ni configuración.
 
@@ -222,7 +228,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Revisar las nuevas explicaciones de importancia generadas en la próxima tanda automática.
+Resolver permisos y atribución de las fuentes cuyas descripciones RSS se quieran activar y volver a ingerir esas bajadas.
 
 ## Completado
 

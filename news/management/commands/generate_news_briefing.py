@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from news.briefings import valid_briefings
+from news.briefings import current_briefing_items, valid_briefings
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
 from news.retention import RETENTION_DAYS
@@ -52,17 +52,25 @@ class Command(BaseCommand):
                     self.stdout.write("Se reutiliza la presentación de las últimas dos horas.")
                     return
 
-        selected_ids = set()
+        previous_items = current_briefing_items(generated_at, categories)
+        previous_selection = {
+            category.slug: list(previous_items[category.pk].articles.all())[0].pk
+            for category in categories if category.pk in previous_items
+        }
+        selected_ids = set(previous_selection.values())
         per_category = max(1, MAX_ARTICLES // max(1, len(categories)))
         for category in categories:
+            previous_id = previous_selection.get(category.slug)
             selected_ids.update(eligible.filter(
                 Q(categories=category) | Q(llm_categories=category),
-            ).distinct().values_list("pk", flat=True)[:per_category])
+            ).exclude(pk=previous_id).distinct().values_list("pk", flat=True)[
+                :per_category - (1 if previous_id is not None else 0)
+            ])
         articles = list(eligible.filter(pk__in=selected_ids).prefetch_related("categories", "llm_categories"))
 
         status, error_code = "ready", ""
         try:
-            items = summarize_articles(articles)
+            items = summarize_articles(articles, previous_selection=previous_selection)
             if not items:
                 status = "empty"
                 error_code = "no_feeds" if not enabled else "no_articles"
@@ -101,8 +109,12 @@ class Command(BaseCommand):
         elif not articles:
             self.stdout.write("No hubo noticias publicadas en las últimas 24 horas; se guardó ese estado.")
         else:
+            retained = sum(previous_selection.get(item["category_slug"]) == item["article_ids"][0] for item in items)
             self.stdout.write(
                 f"Presentación actualizada: {len(items)} puntos sobre "
                 f"{len(articles)} titulares de las últimas 24 horas."
                 f" Modelo: {getattr(items, 'model', 'no disponible')}."
+            )
+            self.stdout.write(
+                f"Selección: {retained} referencias conservadas de {len(previous_selection)} anteriores vigentes."
             )

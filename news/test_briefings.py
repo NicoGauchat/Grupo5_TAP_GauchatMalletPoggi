@@ -30,6 +30,44 @@ class BriefingResponseTests(SimpleTestCase):
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")
+    def test_rss_description_requires_both_permissions_and_remains_short_plain_text(self, client):
+        client.return_value.models.generate_content.return_value.text = json.dumps({"items": [{
+            "category_slug": "tecnologia", "text": "Síntesis redactada del hecho.", "importance_score": 3, "article_ids": [7],
+        }]})
+        cases = [(True, True, "<p>Detalle adicional &amp; verificado.</p>", "Detalle adicional & verificado."),
+                 (False, True, "No autorizado", None), (True, False, "No autorizado", None),
+                 (True, True, "x" * 601, None), (True, True, "", None)]
+        for briefing, summary, description, expected in cases:
+            self.article.feed.allow_ai_briefing = briefing
+            self.article.feed.show_summary = summary
+            self.article.summary = description
+            with self.subTest(briefing=briefing, summary=summary, length=len(description)):
+                summarize_articles([self.article])
+                payload = json.loads(client.return_value.models.generate_content.call_args.kwargs["contents"].split("\n", 1)[1])
+                self.assertEqual(payload["articles"][0].get("rss_description"), expected)
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
+    @patch("news.llm_briefing.genai.Client")
+    def test_copied_headline_is_rejected_even_with_punctuation_or_case_changes(self, client):
+        for text in (self.article.title, "  TITULAR DE PRUEBA. "):
+            client.return_value.models.generate_content.return_value.text = json.dumps({"items": [{
+                "category_slug": "tecnologia", "text": text, "importance_score": 3, "article_ids": [7],
+            }]})
+            with self.subTest(text=text), self.assertRaisesRegex(BriefingError, "reason=copied_headline"):
+                summarize_articles([self.article])
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
+    @patch("news.llm_briefing.genai.Client")
+    def test_comparison_receives_only_current_references_in_their_own_category(self, client):
+        client.return_value.models.generate_content.return_value.text = json.dumps({"items": [{
+            "category_slug": "tecnologia", "text": "Síntesis redactada del hecho.", "importance_score": 3, "article_ids": [7],
+        }]})
+        summarize_articles([self.article], previous_selection={"tecnologia": 7, "ciencia": 7, "argentina": 999})
+        payload = json.loads(client.return_value.models.generate_content.call_args.kwargs["contents"].split("\n", 1)[1])
+        self.assertEqual(payload["previous_selection"], {"tecnologia": 7})
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
+    @patch("news.llm_briefing.genai.Client")
     def test_validation_diagnostics_explain_field_without_echoing_response(self, client):
         row = {"category_slug": "tecnologia", "text": "private-summary", "importance_score": 4, "article_ids": [7]}
         cases = [(dict(row, category_slug="unknown-private-category"), "category"),
@@ -142,6 +180,43 @@ class BriefingTests(TestCase):
         self.assertContains(response, "Síntesis de prueba")
         self.assertContains(response, 'href="https://example.com/news" target="_blank" rel="noopener"')
         self.assertEqual(NewsBriefing.objects.first().status, "ready")
+
+    def test_current_selection_keeps_a_candidate_slot_despite_250_newer_headlines(self):
+        self.generate()
+        Article.objects.bulk_create([Article(feed=self.feed, title=f"Hecho nuevo {i}",
+            original_url=f"https://example.com/new/{i}", published_at=self.now) for i in range(250)])
+        Article.categories.through.objects.bulk_create([
+            Article.categories.through(article_id=pk, category_id=self.category.pk)
+            for pk in Article.objects.exclude(pk=self.article.pk).values_list("pk", flat=True)
+        ])
+        summarize = self.generate(force=True)
+        candidates = summarize.call_args.args[0]
+        self.assertEqual(len(candidates), 250)
+        self.assertIn(self.article.pk, {article.pk for article in candidates})
+        self.assertEqual(summarize.call_args.kwargs["previous_selection"], {self.category.slug: self.article.pk})
+        self.assertEqual(NewsBriefing.objects.first().items.get().articles.get().pk, self.article.pk)
+
+    def test_expired_selection_is_removed_while_other_category_keeps_its_candidate(self):
+        category, science = self.add_science()
+        rows = [{"category_slug": self.category.slug, "text": "Tecnología.", "article_ids": [self.article.pk]},
+                {"category_slug": category.slug, "text": "Ciencia.", "article_ids": [science.pk]}]
+        self.generate(rows=rows)
+        Article.objects.filter(pk=self.article.pk).update(published_at=self.now - timedelta(hours=25))
+        summarize = self.generate(rows=[rows[1]], force=True)
+        self.assertEqual(summarize.call_args.kwargs["previous_selection"], {category.slug: science.pk})
+        self.assertNotIn(self.article.pk, {article.pk for article in summarize.call_args.args[0]})
+
+    def test_new_choice_replaces_previous_and_becomes_next_comparison_reference(self):
+        self.generate()
+        newer = Article.objects.create(feed=self.feed, title="Otro hecho relevante",
+            original_url="https://example.com/new-winner", published_at=self.now)
+        newer.categories.add(self.category)
+        rows = [{"category_slug": self.category.slug, "text": "Síntesis del nuevo hecho.", "article_ids": [newer.pk]}]
+        first = self.generate(rows=rows, force=True)
+        self.assertEqual(first.call_args.kwargs["previous_selection"], {self.category.slug: self.article.pk})
+        self.assertEqual(briefing_context(timezone.now(), [self.category])["category_briefings"][0]["reference_id"], newer.pk)
+        second = self.generate(rows=rows, force=True)
+        self.assertEqual(second.call_args.kwargs["previous_selection"], {self.category.slug: newer.pk})
 
     def test_empty_success_is_cached(self):
         self.article.delete()
