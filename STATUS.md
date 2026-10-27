@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** comprobar la ingesta completa y corregir los rechazos de validación encontrados en clasificación e importancia.
+**Objetivo actual:** conservar la ingesta y las etapas IA verificadas, con asignaciones únicas por noticia y respaldo Groq 120B.
 
 ## Último paso completado
+
+La comprobación final **40433316880** terminó correctamente: **cien noticias agrupadas y 91 acontecimientos evaluados**, con **1883 pendientes** y cero de grupos anteriores. Agrupamiento duró 10 min 6 s; importancia, 1 min 24 s. No registró reintentos, rechazos ni uso de respaldo: se acredita el contrato por ID con Gemini principal sobre un lote real de cien. Antes, **40429116194** verificó cien clasificaciones y cien evaluaciones tras las correcciones, y **40426732862** incorporó 37 noticias nuevas y reutilizó el resumen vigente. La primera ingesta completa había fallado en dos etapas; las comprobaciones posteriores se hicieron sin repetir RSS. No se presenta esa primera ejecución como totalmente exitosa.
+
+Groq **120B** aprobó propuesta y auditoría con 25 candidatos ficticios en **40433089042**, después de que 20B fallara con `json_validate_failed`. Queda como respaldo gratuito; no se afirma haber completado cien noticias reales con ese proveedor. Las condiciones de fuente, claves asignadas, validaciones semánticas y transacciones se conservan. El formato por ID exige una asignación y una decisión por noticia y rechaza duplicados JSON; no requiere migración ni invalida grupos auditados anteriores.
+
+La suma de tiempos medidos de RSS (8 min 8 s), clasificación (1 min 23 s), agrupamiento (10 min 6 s) e importancia (1 min 24 s) supera el timeout previo del flujo completo. Se amplía a **treinta minutos sólo maintenance**, tanto manual como en sus horarios programados; process-ai, reparación, diagnóstico y resumen conservan veinte. No cambia límites, horarios, cancelación, cola ni facturación. Actionlint pasó con la exclusión exacta de `queue` ya documentada; el comprobador de las expresiones reales confirmó treinta minutos en maintenance manual/programado y veinte en los otros modos y crons, además de los 96 horarios, exclusiones y límite de cien. `git diff --check` pasó. Verificación del código: **162 pruebas SQLite, 147 aprobadas y 15 omitidas** por PostgreSQL; después de seleccionar 120B pasaron las diez pruebas de transporte. Django check y ausencia de migraciones aprobados. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios: no se agregan feeds, permisos, campos enviados ni variables de aplicación. No se desplegó Render ni se guardaron noticias reales o secretos en el repositorio.
 
 El formato por ID fue aprobado por Gemini con 25 candidatos ficticios en **40432770583**. Groq 20B generó la propuesta pero falló en auditoría con **HTTP 400 reason=json_validate_failed** en **40432775101**; el motivo seguro ya distingue generación fallida de configuración. Se prepara comparación de respaldo **openai/gpt-oss-120b**, incluido en el plan gratuito y compatible con modo estricto según documentación oficial. Gemini conserva prioridad, clave y modelo; no se activan pagos ni se cambian campos/destinos. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian permisos, proveedor ni variables. Todavía no se acredita el resultado de 120B.
 
@@ -258,7 +264,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar Groq 120B con el contrato por ID y completar una tanda real de cien con Gemini principal.
+Verificar la próxima ingesta automática completa con el margen de treinta minutos y los contratos corregidos.
 
 ## Completado
 

@@ -52,7 +52,7 @@ jobs:
   maintain:
     if: vars.NEWS_INGESTION_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ (inputs.mode == 'maintenance' || (github.event_name == 'schedule' && github.event.schedule == '0 0,6,8,10,12,14,16,18,20,22 * * *')) && 30 || 20 }}
     env:
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DJANGO_ALLOWED_HOSTS: localhost

@@ -173,6 +173,8 @@ El modelo se elige explícitamente mediante `GEMINI_MODEL`: se admiten `gemini-3
 
 ### Respaldo gratuito de resumen y agrupamiento
 
+El flujo completo tiene un máximo de treinta minutos por ejecución; las tandas sólo IA, reparación, diagnóstico y generación de resumen conservan veinte. El margen evita cortar las etapas finales cuando se suman RSS y los lotes IA, sin aumentar sus límites de noticias ni cambiar horarios o concurrencia.
+
 El agrupamiento solicita una asignación por ID de noticia en un objeto cerrado y la auditoría una decisión por ID; así no se puede colocar una noticia en dos filas ni repetir un acontecimiento en filas separadas. La conversión vuelve a validar referencias, integridad del lote y pertenencia de cada ancla al grupo; las uniones se auditan como antes. Una clave JSON repetida se rechaza sin conservar silenciosamente el último valor. El formato guardado y los grupos anteriores no cambian.
 
 Ante HTTP 413 del respaldo, el comando reinicia el lote aún no guardado con bloques de candidatos a la mitad (hasta uno), conserva ese tamaño para el resto de la ejecución y sigue recorriendo todos los candidatos. No recorta titulares ni elimina acontecimientos; se descartan las propuestas parciales del intento anterior. Si el pedido mínimo también falla, queda pendiente. Esta reducción puede aumentar la cantidad de llamadas y el tiempo; no cambia el límite de noticias elegido, cien por defecto, ni evita cuotas.
