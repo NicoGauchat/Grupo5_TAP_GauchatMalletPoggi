@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+**Priorizar pendientes sin nuevas descargas (27/10/2026):** el usuario pidió omitir RSS y ejecutar clasificación y etapas posteriores porque siguen entrando noticias sin procesar. Se encontró `40579411865` todavía en «Ingerir feeds», antes de clasificación, y se solicitó su cancelación. Se lanzó una única sustitución **40579948132**, modo existente `process-ai`, límite cien y respaldo local diez. Ese modo omite limpieza/RSS/briefing y ejecuta clasificación, agrupamiento e importancia con el fallback secundario ya publicado. No se borraron las noticias que la ejecución cancelada pudiera haber alcanzado a guardar ni se cambiaron horarios/configuración global. README ya documenta ese modo; PROJECT, SOURCES y `.env.example` no requieren cambios. Falta comprobar el resultado final y no se afirma cola vacía.
+
 **Publicado e ingesta lanzada con clave secundaria (27/10/2026):** push de **1778284** confirmado en `main`. Se disparó una única ejecución **40579411865**, `maintenance`, `grouping_limit=100`, `refresh_feeds=false`, `local_ai_limit=10`; `gh run view` confirma **queued** sobre `177828441746f5b42f9dae35dfa764dac0764554`. El lanzamiento está confirmado, no su procesamiento ni sus conteos finales. No se cambió ningún secreto ni se desplegó Render. La documentación de esta operación no requiere cambios adicionales fuera de STATUS.
 
 **Verificación final de respaldo secundario (27/10/2026):** suite aislada **243 pruebas, 228 aprobadas y 15 omitidas PostgreSQL**, con seis casos nuevos de principal 429 → secundaria, ambas 429 → Ollama, validación de secundaria, ausencia de rotación ante 403, auditoría de agrupamiento y claves idénticas sin duplicar intentos. Se actualizaron expectativas anteriores de secundaria sola para el nuevo comportamiento autorizado. Django check de la suite y diff aprobados; actionlint aprobado con la única excepción preexistente `concurrency.queue` que su versión no reconoce. No se consumieron llamadas IA reales para probar este cambio. Se procede a publicar y lanzar una única ingesta normal (`maintenance`, cien, sin forzar RSS), conforme al pedido del usuario.
@@ -409,7 +411,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar el resultado de 40579411865 y registrar uso de secundaria, conteos y pendientes informadas.
+Verificar el resultado de 40579948132 y registrar uso de secundaria, conteos y pendientes informadas.
 
 ## Completado
 
