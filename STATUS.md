@@ -1,9 +1,11 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** conservar la recuperación verificada de resumen y agrupamiento con Gemini 3.5 y respaldo Groq, excluyendo OpenRouter por pedido del usuario.
+**Objetivo actual:** ampliar ligeramente las explicaciones públicas del puntaje de importancia, manteniendo su fundamento en los titulares.
 
 ## Último paso completado
+
+Se ajustó la instrucción de importancia para pedir dos frases, procurando 220–300 caracteres: impacto y afectados cuando aparecen en los titulares, y criterio que justifica el puntaje, incluso bajo. Si falta evidencia se acepta una explicación más corta y prudente; no se inventan detalles para llegar a una longitud mínima. Se conserva el máximo de 300 caracteres, los campos, la rúbrica y la validación existentes, sin migraciones ni nuevos servicios. Se aplica a próximas evaluaciones; no se reevalúan masivamente noticias ni se cambian textos históricos. Verificación proporcional: diez pruebas de importancia ejecutadas, nueve aprobadas y una omitida por requerir PostgreSQL; Django system check y `git diff --check` sin incidencias. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, datos enviados ni configuración.
 
 La recuperación real quedó comprobada: **40417034854** generó **diez síntesis sobre 81 titulares** con Gemini 3.5 y **40417039712** terminó correctamente con **cien noticias agrupadas y cien acontecimientos evaluados**; informó 2076 noticias aún pendientes, ninguna de grupos anteriores. La prueba real pequeña de Groq **40417446226** aprobó los tres hechos ficticios, pares y traducción, sin leer/escribir noticias. Es evidencia de estas ejecuciones, no garantía de disponibilidad permanente ni de precisión sobre todos los pendientes.
 
@@ -220,7 +222,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar el avance de pendientes en la próxima tanda automática de cien, programada cada quince minutos también durante la noche.
+Revisar las nuevas explicaciones de importancia generadas en la próxima tanda automática.
 
 ## Completado
 
