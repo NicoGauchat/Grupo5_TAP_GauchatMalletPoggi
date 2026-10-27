@@ -10,7 +10,7 @@ from google.genai import errors, types
 
 from .llm_classification import MODEL
 from .ingestion import permitted_summary
-from .llm_keys import api_key_for
+from .llm_keys import api_key_for, with_secondary_on_quota
 from . import ollama
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, decode_json, request_backup, pace_request
@@ -139,6 +139,12 @@ def request_groups(prompt, schema, api_key, *, provider="gemini"):
         except BackupError as error:
             raise GroupingError(str(error), retryable=False,
                                 reduce_candidates=error.code == "request_too_large") from error
+    result = with_secondary_on_quota("grouping", api_key,
+                                     lambda key: _gemini_groups(prompt, schema, key))
+    return decode_assignments(result, schema)
+
+
+def _gemini_groups(prompt, schema, api_key):
     pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
@@ -162,7 +168,7 @@ def request_groups(prompt, schema, api_key, *, provider="gemini"):
             retryable=invalid_json or transient, delay=2 if transient else 0,
             fallback_allowed=invalid_json or transient or isinstance(error, errors.APIError) and error.code == 429,
         ) from error
-    return decode_assignments(result, schema)
+    return result
 
 
 def decode_assignments(result, schema):

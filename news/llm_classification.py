@@ -5,7 +5,7 @@ import json
 from google import genai
 from google.genai import types
 
-from .llm_keys import api_key_for, configured_model
+from .llm_keys import api_key_for, configured_model, with_secondary_on_quota
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import pace_request
 from . import ollama
@@ -91,6 +91,12 @@ def _classify_batch(articles, available_slugs, *, local=False):
         return ollama.ModelDict(validate_classification(response, {article.pk for article in articles}, slugs), ollama.model_name())
     if not api_key:
         raise ClassificationError("Ollama no está disponible y falta GEMINI_API_KEY para el respaldo.")
+    result = with_secondary_on_quota("classification", api_key,
+                                     lambda key: _gemini_classification(prompt, schema, key))
+    return validate_classification(result, {article.pk for article in articles}, slugs)
+
+
+def _gemini_classification(prompt, schema, api_key):
     pace_request("gemini", api_key)
     try:
         client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
@@ -114,7 +120,7 @@ def _classify_batch(articles, available_slugs, *, local=False):
         if "client" in locals():
             client.close()
 
-    return validate_classification(result, {article.pk for article in articles}, slugs)
+    return result
 
 
 def validate_classification(result, expected_ids, slugs):

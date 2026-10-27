@@ -109,10 +109,10 @@ class APIKeyRoutingTests(SimpleTestCase):
                 self.assertEqual([api_key_for(task) for task in TASK_API_KEYS], [PRIMARY] * 4)
 
     @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
-    def test_only_secondary_enables_editorial_tasks(self):
-        self.assertEqual(configured_tasks(), ["importance", "briefing"])
-        self.assertEqual(api_key_for("classification"), "")
-        self.assertEqual(api_key_for("grouping"), "")
+    def test_only_secondary_enables_all_tasks(self):
+        self.assertEqual(configured_tasks(), list(TASK_API_KEYS))
+        self.assertEqual(api_key_for("classification"), SECONDARY)
+        self.assertEqual(api_key_for("grouping"), SECONDARY)
 
     @patch.dict("os.environ", {}, clear=True)
     def test_no_credentials_disables_all_tasks(self):
@@ -165,13 +165,99 @@ class APIKeyRoutingTests(SimpleTestCase):
                 self.assertNotIn("provider-private-message", str(caught.exception))
 
     @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
-    def test_secondary_does_not_run_unassigned_primary_tasks(self):
+    def test_secondary_alone_runs_classification_and_grouping(self):
         with patch("news.llm_classification.genai.Client") as client:
-            with self.assertRaises(ClassificationError):
-                classify_batch([self.article()], ["ciencia"])
-            with self.assertRaises(GroupingError):
-                group_articles([self.article()], [])
-            client.assert_not_called()
+            client.return_value.models.generate_content.return_value.text = json.dumps(
+                {"articles": [{"article_id": 7, "categories": ["ciencia"]}]})
+            client.return_value.__enter__.return_value.models.generate_content.return_value.text = json.dumps(
+                {"groups": {"7": "new:7"}})
+            self.assertEqual(classify_batch([self.article()], ["ciencia"]), {7: ["ciencia"]})
+            self.assertEqual(group_articles([self.article()], []), [{"story_id": 0, "article_ids": [7]}])
+            self.assertEqual([call.kwargs["api_key"] for call in client.call_args_list], [SECONDARY, SECONDARY])
+
+
+@patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY,
+                          "AI_API_FIRST": "true"}, clear=True)
+class SecondaryQuotaFallbackTests(SimpleTestCase):
+    def setUp(self):
+        from . import ollama
+        ollama._fallback_used.clear()
+
+    def article(self, pk=7):
+        article = APIKeyRoutingTests.article(self)
+        article.pk = pk
+        article.story_id = None
+        return article
+
+    def sdk(self, key, response):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.__enter__.return_value = client
+        if key == PRIMARY:
+            client.models.generate_content.side_effect = errors.APIError(429, {"error": {"message": "private"}})
+        else:
+            client.models.generate_content.return_value.text = json.dumps(response)
+        return client
+
+    @patch("news.ollama.request_json")
+    @patch("news.llm_classification.genai.Client")
+    def test_classification_secondary_quota_fallback_before_ollama(self, cloud, local):
+        response = {"articles": [{"article_id": 7, "categories": ["ciencia"]}]}
+        cloud.side_effect = lambda **kwargs: self.sdk(kwargs["api_key"], response)
+        with self.assertLogs("news.llm_keys", "WARNING") as logs:
+            result = classify_batch([self.article()], ["ciencia"])
+        self.assertEqual(result, {7: ["ciencia"]})
+        self.assertEqual([call.kwargs["api_key"] for call in cloud.call_args_list], [PRIMARY, SECONDARY])
+        local.assert_not_called()
+        self.assertNotIn(PRIMARY, str(logs.output))
+        self.assertNotIn(SECONDARY, str(logs.output))
+
+    @patch("news.ollama.request_json")
+    @patch("news.llm_classification.genai.Client")
+    def test_both_keys_quota_then_ollama(self, cloud, local):
+        cloud.side_effect = lambda **kwargs: self.sdk(PRIMARY, {})
+        local.return_value = {"articles": [{"article_id": 7, "categories": ["ciencia"]}]}
+        self.assertEqual(classify_batch([self.article()], ["ciencia"]), {7: ["ciencia"]})
+        self.assertEqual([call.kwargs["api_key"] for call in cloud.call_args_list], [PRIMARY, SECONDARY])
+        local.assert_called_once()
+
+    @patch.dict("os.environ", {"AI_API_FIRST": "false"})
+    @patch("news.llm_classification.genai.Client")
+    def test_invalid_secondary_response_is_not_saved(self, cloud):
+        cloud.side_effect = lambda **kwargs: self.sdk(kwargs["api_key"], {"articles": [{"article_id": 999, "categories": []}]})
+        with self.assertRaises(ClassificationError):
+            classify_batch([self.article()], ["ciencia"])
+        self.assertEqual(cloud.call_count, 2)
+
+    @patch.dict("os.environ", {"AI_API_FIRST": "false"})
+    @patch("news.llm_classification.genai.Client")
+    def test_permission_error_does_not_consume_secondary(self, cloud):
+        cloud.side_effect = errors.APIError(403, {"error": {"message": "private"}})
+        with self.assertRaises(ClassificationError):
+            classify_batch([self.article()], ["ciencia"])
+        cloud.assert_called_once()
+
+    @patch("news.ollama.request_json")
+    @patch("news.llm_grouping.genai.Client")
+    def test_grouping_secondary_also_runs_independent_identity_check(self, cloud, local):
+        def sdk(**kwargs):
+            response = ({"groups": {"7": "new:7", "8": "new:7"}} if cloud.call_count <= 2 else
+                        {"decisions": {"8": {"same_event": False, "reason": "Hechos distintos."}}})
+            return self.sdk(kwargs["api_key"], response)
+        cloud.side_effect = sdk
+        result = group_articles([self.article(7), self.article(8)], [])
+        self.assertEqual([row["article_ids"] for row in result], [[7], [8]])
+        self.assertEqual([call.kwargs["api_key"] for call in cloud.call_args_list],
+                         [PRIMARY, SECONDARY, PRIMARY, SECONDARY])
+        local.assert_not_called()
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": PRIMARY, "AI_API_FIRST": "false"})
+    @patch("news.llm_classification.genai.Client")
+    def test_identical_keys_are_not_attempted_twice(self, cloud):
+        cloud.side_effect = lambda **kwargs: self.sdk(PRIMARY, {})
+        with self.assertRaises(ClassificationError):
+            classify_batch([self.article()], ["ciencia"])
+        cloud.assert_called_once()
 
 
 class EditorialKeyStateTests(TestCase):

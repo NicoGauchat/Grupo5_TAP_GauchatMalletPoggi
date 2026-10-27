@@ -126,14 +126,14 @@ jobs:
           if [ -n "$GEMINI_API_KEY" ] && [ -z "$GEMINI_API_KEY_SECONDARY" ]; then
             echo 'IA: sólo hay clave principal; todas las funciones usarán esa clave.'
           elif [ -n "$GEMINI_API_KEY_SECONDARY" ] && [ -z "$GEMINI_API_KEY" ]; then
-            echo 'IA: sólo hay segunda clave; clasificación y agrupamiento quedan pendientes.'
+            echo 'IA: sólo hay segunda clave; todas las funciones usarán esa clave.'
           fi
           if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] && [ -z "$GEMINI_API_KEY_SECONDARY" ] && [ -z "$GEMINI_API_KEY" ]; then
             echo 'Falta configurar una clave de Gemini en Actions para generar el resumen IA.'
             exit 1
           fi
-          if [ "$MAINTENANCE_MODE" = 'check-grouping' ] && [ -z "$GEMINI_API_KEY" ]; then
-            echo 'Falta configurar la clave principal para la comprobación sintética.'
+          if [ "$MAINTENANCE_MODE" = 'check-grouping' ] && [ -z "$GEMINI_API_KEY" ] && [ -z "$GEMINI_API_KEY_SECONDARY" ]; then
+            echo 'Falta configurar una clave Gemini para la comprobación sintética.'
             exit 1
           fi
       - name: Instalar dependencias
@@ -172,7 +172,7 @@ jobs:
         if: env.MAINTENANCE_MODE == 'update-sources'
         run: python manage.py configure_argentine_sources --apply --ingest
       - name: Clasificar nuevas fuentes argentinas
-        if: env.MAINTENANCE_MODE == 'update-sources' && env.GEMINI_API_KEY != ''
+        if: env.MAINTENANCE_MODE == 'update-sources' && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '')
         run: python manage.py classify_news_ai --source Cenital --source 'La Capital' --source 'El Ciudadano'
       - name: Habilitar síntesis y bajadas en todos los feeds, incluido EL PAÍS
         if: env.MAINTENANCE_MODE == 'enable-briefing'
@@ -217,7 +217,7 @@ jobs:
           fi
           exit "$result"
       - name: Clasificar noticias con IA
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '') }}
         run: python manage.py classify_news_ai --limit "$AI_PROCESS_LIMIT"
       - name: Actualizar entradillas RSS revisadas
         id: briefing_descriptions
@@ -235,14 +235,14 @@ jobs:
           fi
       - name: Comprobar identidad con titulares ficticios
         id: grouping_check
-        if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && env.GEMINI_API_KEY != ''
+        if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '')
         env:
           CHECK_PROVIDER: ${{ inputs.mode == 'check-grouping' && inputs.check_provider || 'gemini' }}
           CHECK_CANDIDATES: ${{ inputs.mode == 'check-grouping' && inputs.check_candidates || '0' }}
         run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER" --candidates "$CHECK_CANDIDATES"
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '') && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
         env:
           GROUPING_LIMIT: ${{ env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
         run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
