@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+**Publicado e ingesta lanzada con clave secundaria (27/10/2026):** push de **1778284** confirmado en `main`. Se disparó una única ejecución **40579411865**, `maintenance`, `grouping_limit=100`, `refresh_feeds=false`, `local_ai_limit=10`; `gh run view` confirma **queued** sobre `177828441746f5b42f9dae35dfa764dac0764554`. El lanzamiento está confirmado, no su procesamiento ni sus conteos finales. No se cambió ningún secreto ni se desplegó Render. La documentación de esta operación no requiere cambios adicionales fuera de STATUS.
+
 **Verificación final de respaldo secundario (27/10/2026):** suite aislada **243 pruebas, 228 aprobadas y 15 omitidas PostgreSQL**, con seis casos nuevos de principal 429 → secundaria, ambas 429 → Ollama, validación de secundaria, ausencia de rotación ante 403, auditoría de agrupamiento y claves idénticas sin duplicar intentos. Se actualizaron expectativas anteriores de secundaria sola para el nuevo comportamiento autorizado. Django check de la suite y diff aprobados; actionlint aprobado con la única excepción preexistente `concurrency.queue` que su versión no reconoce. No se consumieron llamadas IA reales para probar este cambio. Se procede a publicar y lanzar una única ingesta normal (`maintenance`, cien, sin forzar RSS), conforme al pedido del usuario.
 
 **Respaldo Gemini secundario autorizado (27/10/2026):** el usuario pidió que clasificación/agrupamiento prueben `GEMINI_API_KEY_SECONDARY` ante cuota de la principal, antes de Ollama. Se implementa una alternativa ante HTTP 429, sin repetir claves idénticas ni rotar ante errores de permisos/JSON; conserva los validadores y la segunda comprobación de identidad. La secundaria sola ahora habilita todas las funciones y sus condiciones Actions. Resumen/importancia mantienen su preferencia previa. README, PROJECT y comentarios de `.env.example` actualizados; SOURCES no requiere cambios porque no cambian datos enviados ni permisos de fuentes. Se está completando la verificación; todavía no se acredita una tanda real con este código. El usuario autorizó publicar y lanzar una única ingesta después de terminar. La ejecución anterior `40576880697` figura completada/cancelada al consultar; no se atribuye aquí la causa.
@@ -407,7 +409,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar el resultado de 40576880697 y registrar conteos, proveedores efectivos y pendientes informadas.
+Verificar el resultado de 40579411865 y registrar uso de secundaria, conteos y pendientes informadas.
 
 ## Completado
 
