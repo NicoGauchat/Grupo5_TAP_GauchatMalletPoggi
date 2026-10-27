@@ -6,7 +6,8 @@ from django.db.models import Case, Q, Value, When
 from django.utils import timezone
 
 from news.llm_classification import MODEL
-from news.llm_grouping import GroupingError, group_articles
+from news.ingestion import AI_EXCLUDED_SOURCES
+from news.llm_grouping import GroupingError, group_articles, metadata
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
 
@@ -27,7 +28,7 @@ class Command(BaseCommand):
             raise CommandError("--limit debe estar entre 1 y 500.")
         eligible = Article.objects.filter(
             feed__is_active=True, feed__allow_ai_grouping=True, published_at__gte=retention_cutoff(), published_at__lte=timezone.now(),
-        ).select_related("feed__source")
+        ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source")
         needs_review = Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION)
         pending = list(eligible.filter(needs_review).annotate(
             review_priority=Case(When(story__isnull=False, then=Value(0)), default=Value(1)),
@@ -50,8 +51,7 @@ class Command(BaseCommand):
                     pk__in=[article.pk for article in batch],
                 ))
                 def snapshot(rows):
-                    return {article.pk: (article.story_id, article.title, article.published_at,
-                                         article.feed_id, article.language) for article in rows}
+                    return {article.pk: (article.story_id, metadata(article), article.feed_id) for article in rows}
                 current_anchors = list(eligible.select_for_update(of=("self",)).filter(
                     pk__in=[article.pk for article in representatives.values()],
                     story__grouping_version=GROUPING_VERSION,

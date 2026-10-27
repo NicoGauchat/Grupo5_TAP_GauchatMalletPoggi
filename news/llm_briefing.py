@@ -9,7 +9,7 @@ from google import genai
 from google.genai import errors, types
 
 from .llm_classification import MODEL
-from .ingestion import permitted_summary
+from .ingestion import NASA_DESCRIPTION_FEED, permitted_summary
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, request_backup, pace_request
@@ -21,6 +21,9 @@ class BriefingError(Exception):
     def __init__(self, message, code="invalid_response"):
         super().__init__(message)
         self.code = code
+
+
+NASA_AI_NOTICE = "Síntesis generada por IA con material de NASA; NASA no la revisó ni responde por su exactitud."
 
 
 def summarize_articles(articles, *, previous_selection=None):
@@ -119,9 +122,25 @@ def summarize_articles(articles, *, previous_selection=None):
     valid_ids = {article.pk for article in articles}
     article_titles = {article.pk: article.title for article in articles}
     description_ids = {item["article_id"] for item in items if "rss_description" in item}
+    nasa_ids = {article.pk for article in articles if article.feed.source.name == "NASA"
+                and getattr(article.feed, "url", "") == NASA_DESCRIPTION_FEED}
+    if nasa_ids:
+        # Mantiene el JSON como última línea del prompt y reserva espacio al aviso obligatorio.
+        instructions, payload = prompt.split("\n", 1)
+        prompt = (instructions + f" Para referencias NASA (IDs {sorted(nasa_ids)}), redactá como máximo "
+                  f"{450 - len(NASA_AI_NOTICE) - 1} caracteres. Atribuí la salida a la IA, sin frases como "
+                  "'según NASA' o 'according to NASA'; identificar la fuente no implica revisión, "
+                  "permiso específico ni aval de NASA. El sistema añadirá el aviso de exactitud.\n" + payload)
 
     def validated_result(result, model):
         validated = ModelList(_validate_summary(result, categories, article_categories, valid_ids, article_titles), model)
+        for item in validated:
+            if item["article_ids"][0] in nasa_ids:
+                if (len(item["text"]) + len(NASA_AI_NOTICE) + 1 > 450
+                        or re.search(r"\b(?:seg[uú]n|according\s+to|de\s+acuerdo\s+con)\s+(?:la\s+)?NASA\b",
+                                     item["text"], re.IGNORECASE)):
+                    raise BriefingError("La síntesis NASA no cumple la atribución o el espacio del aviso.")
+                item["text"] += " " + NASA_AI_NOTICE
         validated.description_count = sum(item["article_ids"][0] in description_ids for item in validated)
         return validated
 

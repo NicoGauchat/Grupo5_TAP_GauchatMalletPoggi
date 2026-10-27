@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from news.models import GROUPING_VERSION, Article, SavedArticle
+from news.ingestion import AI_EXCLUDED_SOURCES
 from news.retention import RETENTION_DAYS
 
 
@@ -36,7 +37,8 @@ class Command(BaseCommand):
             pending = Article.objects.filter(
                 feed__is_active=True, feed__allow_ai_grouping=True,
                 published_at__gte=now - timedelta(days=RETENTION_DAYS), published_at__lt=cutoff,
-            ).filter(Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION))
+            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).filter(
+                Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION))
             # Bloquea sólo artículos; los grupos son opcionales y no se eliminan.
             ids = list(pending.select_for_update(of=("self",)).values_list("pk", flat=True))
             saved = SavedArticle.objects.filter(article_id__in=ids).count()

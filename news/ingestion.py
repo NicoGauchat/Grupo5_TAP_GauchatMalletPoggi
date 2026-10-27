@@ -22,6 +22,15 @@ MAX_FEED_BYTES = 2_000_000
 MAX_SUMMARY_LENGTH = 600
 ELDIARIO_DESCRIPTION_FEED = "https://www.eldiario.es/rss/internacional/"
 ELDIARIO_LICENSE = "https://creativecommons.org/licenses/by-nc/4.0/"
+NASA_DESCRIPTION_FEED = "https://www.nasa.gov/technology/feed/"
+NASA_USAGE_POLICY = "https://www.nasa.gov/nasa-brand-center/images-and-media/"
+LOSANDES_DESCRIPTION_FEEDS = (
+    "https://www.losandes.com.ar/rss/pages/politica.xml",
+    "https://www.losandes.com.ar/rss/pages/economia.xml",
+    "https://www.losandes.com.ar/rss/pages/sociedad.xml",
+)
+# Oposición expresa a cualquier uso de IA, revisada el 27/10/2026.
+AI_EXCLUDED_SOURCES = ("EL PAÍS",)
 USER_AGENT = "LibreNews/0.1 (proyecto universitario; lector RSS)"
 TRACKING_PARAMETERS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 
@@ -75,6 +84,20 @@ def permitted_summary(entry, feed):
         return ""
     raw = entry.get("summary") or ""
     summary = " ".join(unescape(strip_tags(raw)).split())
+    if getattr(feed, "url", "") in LOSANDES_DESCRIPTION_FEEDS:
+        if feed.source.name != "Los Andes":
+            return ""
+        rights = " ".join(str(entry.get(key) or "") for key in ("author", "rights", "copyright", "source"))
+        if re.search(r"©|\bcopyright\b|\b(?:reuters|efe|afp|associated\s+press|the\s+guardian)\b",
+                     f"{rights} {summary}", re.IGNORECASE):
+            return ""
+    if getattr(feed, "url", "") == NASA_DESCRIPTION_FEED:
+        if feed.source.name != "NASA" or feed.source.license_url != NASA_USAGE_POLICY:
+            return ""
+        rights = " ".join(str(entry.get(key) or "") for key in ("author", "rights", "copyright", "source"))
+        if re.search(r"©|\bcopyright\b|\b(?:reuters|efe|afp|associated\s+press|the\s+guardian)\b",
+                     f"{rights} {summary}", re.IGNORECASE):
+            return ""
     if getattr(feed, "url", "") == ELDIARIO_DESCRIPTION_FEED:
         # Excepción revisada: usar sólo la primera entradilla propia bajo CC BY-NC.
         # El resto del artículo que viene en el RSS nunca se guarda.

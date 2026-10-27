@@ -31,7 +31,7 @@ class APIKeyRoutingTests(SimpleTestCase):
             with self.assertRaises(ValueError):
                 configured_model()
 
-    @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "", "GEMINI_API_KEY_SECONDARY": SECONDARY, "GROQ_API_KEY": ""})
     def test_sdk_retries_unavailable_but_not_quota_with_mock_http(self):
         real_client = genai.Client
         result = {"items": [{"category_slug": "ciencia", "text": "Síntesis de prueba.",

@@ -36,9 +36,14 @@ on:
         options: ['0', '10', '25', '50']
         default: '0'
       enable_reviewed_descriptions:
-        description: Habilitar y refrescar entradillas RSS revisadas de elDiario.es (sólo generate-briefing)
+        description: Habilitar y refrescar descripciones RSS de la fuente revisada elegida (sólo generate-briefing)
         type: boolean
         default: false
+      reviewed_description_source:
+        description: Fuente revisada a habilitar/refrescar (sólo generate-briefing con enable_reviewed_descriptions)
+        type: choice
+        options: [eldiario, nasa, losandes, all]
+        default: eldiario
       backlog_before:
         description: Corte ISO 8601 con zona horaria, mínimo 48 horas de antigüedad (sólo purge-backlog)
         type: string
@@ -153,7 +158,9 @@ jobs:
       - name: Actualizar entradillas RSS revisadas
         id: briefing_descriptions
         if: env.MAINTENANCE_MODE == 'generate-briefing' && inputs.enable_reviewed_descriptions
-        run: python manage.py refresh_briefing_descriptions --enable-reviewed
+        env:
+          DESCRIPTION_SOURCE: ${{ inputs.reviewed_description_source || 'eldiario' }}
+        run: python manage.py refresh_briefing_descriptions --enable-reviewed --source "$DESCRIPTION_SOURCE"
       - name: Generar presentación de las últimas 24 horas
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: |

@@ -9,6 +9,7 @@ from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
 
 from news.models import GROUPING_VERSION, Article
+from news.ingestion import AI_EXCLUDED_SOURCES
 from news.retention import RETENTION_DAYS
 
 
@@ -28,7 +29,8 @@ class Command(BaseCommand):
                 feed__allow_ai_grouping=True,
                 published_at__gte=now - timedelta(days=RETENTION_DAYS),
                 published_at__lte=now,
-            ).filter(Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION))
+            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).filter(
+                Q(story__isnull=True) | ~Q(story__grouping_version=GROUPING_VERSION))
             counts = pending.aggregate(
                 total=Count("pk"),
                 up_to_24h=Count("pk", filter=Q(published_at__gte=day)),

@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from news.llm_classification import BATCH_SIZE, CATEGORY_DESCRIPTIONS, MODEL, ClassificationError, classify_batch
+from news.ingestion import AI_EXCLUDED_SOURCES
 from news.models import Article, Category
 from news.retention import retention_cutoff
 
@@ -24,7 +25,7 @@ class Command(BaseCommand):
             Article.objects.filter(
                 llm_classified_at__isnull=True, published_at__gte=retention_cutoff(),
                 feed__is_active=True,
-            ).select_related("feed__source").order_by("-published_at", "-id")[:limit]
+            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source").order_by("-published_at", "-id")[:limit]
         )
         if not pending:
             self.stdout.write("No hay noticias pendientes de clasificación por IA.")

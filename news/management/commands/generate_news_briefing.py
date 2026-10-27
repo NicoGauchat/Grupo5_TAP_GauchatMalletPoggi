@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from news.briefings import current_briefing_items, valid_briefings
+from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
 from news.retention import RETENTION_DAYS
@@ -29,7 +30,7 @@ class Command(BaseCommand):
         eligible = Article.objects.filter(
             feed__is_active=True, feed__allow_ai_briefing=True,
             published_at__gte=window_start, published_at__lte=generated_at,
-        ).select_related("feed__source").order_by("-published_at", "-id")
+        ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source").order_by("-published_at", "-id")
         categories = list(Category.objects.filter(
             Q(articles__in=eligible) | Q(llm_articles__in=eligible),
         ).distinct())

@@ -475,6 +475,28 @@ class StoryTests(TestCase):
             call_command("score_news_ai", stdout=StringIO())
             model.assert_not_called()
 
+    def test_changed_description_or_revoked_permission_aborts_grouping(self):
+        self.feeds[0].show_summary = True
+        self.feeds[0].save()
+        pending = self.article("Pendiente con descripción")
+        for change in ("description", "permission"):
+            pending.summary = "Descripción original ficticia."
+            pending.save(update_fields=["summary"])
+            self.feeds[0].show_summary = True
+            self.feeds[0].save()
+            def group(batch, candidates):
+                if change == "description":
+                    Article.objects.filter(pk=pending.pk).update(summary="Información nueva ficticia.")
+                else:
+                    Feed.objects.filter(pk=self.feeds[0].pk).update(show_summary=False)
+                return [{"story_id": 0, "article_ids": [pending.pk]}]
+            with self.subTest(change=change), patch(
+                "news.management.commands.group_news_ai.group_articles", side_effect=group,
+            ), self.assertRaisesMessage(CommandError, "Los datos cambiaron"):
+                call_command("group_news_ai", stdout=StringIO())
+            pending.refresh_from_db()
+            self.assertIsNone(pending.story_id)
+
     def test_cleanup_drops_empty_stories_without_extending_saved_articles(self):
         story = Story.objects.create()
         article = self.article("Vieja", story=story, age=15 * 24)

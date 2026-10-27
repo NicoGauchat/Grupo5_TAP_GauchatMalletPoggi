@@ -6,6 +6,7 @@ from django.db.models import F, Max, Q
 from django.utils import timezone
 
 from news.llm_classification import MODEL
+from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_importance import ImportanceError, score_stories
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
@@ -23,7 +24,8 @@ class Command(BaseCommand):
             raise CommandError("--limit debe estar entre 1 y 500.")
         now = timezone.now()
         allowed = Q(articles__feed__is_active=True, articles__feed__allow_ai_grouping=True,
-                    articles__published_at__gte=retention_cutoff(), articles__published_at__lte=now)
+                    articles__published_at__gte=retention_cutoff(), articles__published_at__lte=now) & ~Q(
+                        articles__feed__source__name__in=AI_EXCLUDED_SOURCES)
         stories = Story.objects.filter(grouping_version=GROUPING_VERSION).annotate(
             latest_coverage=Max("articles__fetched_at", filter=allowed),
         ).filter(latest_coverage__isnull=False)
@@ -37,7 +39,7 @@ class Command(BaseCommand):
             for article in Article.objects.filter(
                 story_id__in=batch, feed__is_active=True, feed__allow_ai_grouping=True,
                 published_at__gte=retention_cutoff(), published_at__lte=now,
-            ).select_related("feed__source").order_by("-published_at", "-pk"):
+            ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source").order_by("-published_at", "-pk"):
                 seen = sources[article.story_id]
                 if article.feed.source_id not in seen and len(seen) < 3:
                     batch[article.story_id].append(article)
