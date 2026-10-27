@@ -57,7 +57,8 @@ def summarize_articles(articles, *, previous_selection=None):
     ]
     for article, item in zip(articles, items):
         if getattr(article.feed, "allow_ai_briefing", False) and getattr(article.feed, "show_summary", False):
-            description = permitted_summary({"summary": getattr(article, "summary", "")}, article.feed)
+            description = permitted_summary({"summary": getattr(article, "summary", ""),
+                                             "author": getattr(article, "byline", "")}, article.feed)
             if description:
                 item["rss_description"] = description
     prompt = (
@@ -117,9 +118,16 @@ def summarize_articles(articles, *, previous_selection=None):
     }
     valid_ids = {article.pk for article in articles}
     article_titles = {article.pk: article.title for article in articles}
+    description_ids = {item["article_id"] for item in items if "rss_description" in item}
+
+    def validated_result(result, model):
+        validated = ModelList(_validate_summary(result, categories, article_categories, valid_ids, article_titles), model)
+        validated.description_count = sum(item["article_ids"][0] in description_ids for item in validated)
+        return validated
+
     try:
         result = _gemini_summary(prompt, schema, api_key)
-        return ModelList(_validate_summary(result, categories, article_categories, valid_ids, article_titles), MODEL)
+        return validated_result(result, MODEL)
     except BriefingError as error:
         if not backup_configured() or error.code not in {"quota", "timeout", "connection", "invalid_response"}:
             raise
@@ -128,7 +136,7 @@ def summarize_articles(articles, *, previous_selection=None):
         for provider in backup_providers():
             try:
                 result = request_backup(prompt, schema, "briefing", provider)
-                return ModelList(_validate_summary(result, categories, article_categories, valid_ids, article_titles), backup_model(provider))
+                return validated_result(result, backup_model(provider))
             except (BackupError, BriefingError) as backup_error:
                 logging.getLogger(__name__).warning("Resumen: respaldo %s rechazado; %s", provider, backup_error)
                 last_error = backup_error

@@ -42,9 +42,10 @@ class BriefingResponseTests(SimpleTestCase):
             self.article.feed.show_summary = summary
             self.article.summary = description
             with self.subTest(briefing=briefing, summary=summary, length=len(description)):
-                summarize_articles([self.article])
+                result = summarize_articles([self.article])
                 payload = json.loads(client.return_value.models.generate_content.call_args.kwargs["contents"].split("\n", 1)[1])
                 self.assertEqual(payload["articles"][0].get("rss_description"), expected)
+                self.assertEqual(result.description_count, int(expected is not None))
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"})
     @patch("news.llm_briefing.genai.Client")

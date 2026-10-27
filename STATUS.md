@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+La generación real **40425330385** aprobó el nuevo formato con Gemini 3.5: **diez síntesis sobre 81 titulares y diez referencias conservadas de diez anteriores vigentes**, sin cambiar de noticia por recencia. Por el pedido posterior «hacelo», se preparó la activación efectiva de entradillas del RSS existente de elDiario.es: licencia CC BY-NC revisada, autoría/enlace/licencia preservados, primer párrafo textual de hasta 600 caracteres y descarte de señales conocidas de terceros. La consulta local en memoria obtuvo 14 entradillas permitidas, seis dentro de 24 horas, sin guardar noticias reales en el repositorio. No se habilitan otros feeds por analogía.
+
+Se agregó un refresco explícito mediante `refresh_briefing_descriptions --enable-reviewed`, también seleccionable en Actions con `enable_reviewed_descriptions: true` exclusivamente en generate-briefing. No reactiva pausados ni cambia fotos/categorías/otras fuentes. La reingesta actualiza o limpia la descripción en noticias existentes sólo desde su feed original. El control manual está apagado por defecto y un fallo de refresco bloquea la síntesis. Verificación: **153 pruebas SQLite: 138 aprobadas y 15 omitidas** por requerir PostgreSQL; el refresco, atribución, exclusión de terceros, límite de primer párrafo, preservación del feed original, revocación y falta de reactivación de pausados están cubiertos. Actionlint con la exclusión documentada de `queue`, comprobador de los cinco modos/horarios y bloqueo de síntesis ante fallo de refresco, y diff aprobados. Se prepara la publicación y prueba remota de activación, sin migración ni necesidad de acceso a Render para procesar datos. README, PROJECT y SOURCES actualizados; `.env.example` no cambia.
+
 Se implementó comparación con la última referencia vigente por categoría, reservándole lugar dentro de los 250 candidatos aun con muchas novedades. Se reutiliza la misma selección de vigencia de la web; una categoría vencida no invalida la anterior de otras. El prompt exige reemplazar sólo por un hecho claramente más importante y conservar ante empate/duda, sin dar prioridad a recencia o nueva cobertura. La decisión semántica sigue dependiendo del proveedor, sin garantía de precisión absoluta. Se conserva la ventana móvil de 24 horas y caché de dos horas, también al omitir caché con `--force`.
 
 Se solicitan dos o tres frases propias, procurando 300–450 caracteres, admitiendo menos cuando falta información y rechazando copia literal del titular (normalizada por palabras). Se conectó la descripción RSS existente, limpia y de hasta 600 caracteres, sólo con `show_summary` y `allow_ai_briefing` habilitados; ningún feed se activó ni se descargaron artículos. Las descripciones reales aún requieren resolver permisos/atribución por fuente y poblarlas mediante ingesta: no se afirma que ya estén activas. La revisión de condiciones oficiales quedó en SOURCES. El resumen completo se puede contraer/expandir mediante «Ver menos / Ver resumen» y comienza abierto, sin JavaScript; el cambio visual requiere despliegue de Render por el responsable.
@@ -228,7 +232,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Resolver permisos y atribución de las fuentes cuyas descripciones RSS se quieran activar y volver a ingerir esas bajadas.
+Ejecutar la activación revisada de entradillas en Actions y comprobar la generación posterior sin ampliar permisos de otros feeds.
 
 ## Completado
 

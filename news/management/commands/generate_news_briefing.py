@@ -118,3 +118,4 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"Selección: {retained} referencias conservadas de {len(previous_selection)} anteriores vigentes."
             )
+            self.stdout.write(f"Síntesis con entradilla RSS autorizada: {getattr(items, 'description_count', 0)}.")

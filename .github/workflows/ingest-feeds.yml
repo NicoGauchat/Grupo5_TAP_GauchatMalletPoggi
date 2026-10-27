@@ -30,6 +30,10 @@ on:
         type: choice
         options: [gemini, groq]
         default: gemini
+      enable_reviewed_descriptions:
+        description: Habilitar y refrescar entradillas RSS revisadas de elDiario.es (sólo generate-briefing)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -114,8 +118,12 @@ jobs:
       - name: Clasificar noticias con IA
         if: (env.MAINTENANCE_MODE == 'maintenance' || env.MAINTENANCE_MODE == 'process-ai') && env.GEMINI_API_KEY != ''
         run: python manage.py classify_news_ai
+      - name: Actualizar entradillas RSS revisadas
+        id: briefing_descriptions
+        if: env.MAINTENANCE_MODE == 'generate-briefing' && inputs.enable_reviewed_descriptions
+        run: python manage.py refresh_briefing_descriptions --enable-reviewed
       - name: Generar presentación de las últimas 24 horas
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: |
           if [ "$MAINTENANCE_MODE" = 'generate-briefing' ]; then
             python manage.py generate_news_briefing --force

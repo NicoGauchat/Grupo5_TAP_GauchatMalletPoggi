@@ -1,6 +1,7 @@
 """Lectura y guardado de metadatos de feeds RSS seleccionados."""
 
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import unescape
@@ -19,6 +20,8 @@ from .retention import retention_cutoff
 
 MAX_FEED_BYTES = 2_000_000
 MAX_SUMMARY_LENGTH = 600
+ELDIARIO_DESCRIPTION_FEED = "https://www.eldiario.es/rss/internacional/"
+ELDIARIO_LICENSE = "https://creativecommons.org/licenses/by-nc/4.0/"
 USER_AGENT = "LibreNews/0.1 (proyecto universitario; lector RSS)"
 TRACKING_PARAMETERS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 
@@ -70,7 +73,28 @@ def publication_date(entry):
 def permitted_summary(entry, feed):
     if not feed.show_summary:
         return ""
-    summary = " ".join(unescape(strip_tags(entry.get("summary") or "")).split())
+    raw = entry.get("summary") or ""
+    summary = " ".join(unescape(strip_tags(raw)).split())
+    if getattr(feed, "url", "") == ELDIARIO_DESCRIPTION_FEED:
+        # Excepción revisada: usar sólo la primera entradilla propia bajo CC BY-NC.
+        # El resto del artículo que viene en el RSS nunca se guarda.
+        source = feed.source
+        if source.name != "elDiario.es" or source.license_url != ELDIARIO_LICENSE:
+            return ""
+        author = entry.get("author") or ""
+        rights = " ".join(str(entry.get(key) or "") for key in ("rights", "copyright", "source"))
+        if not author.strip() or re.search(
+            r"\b(?:the\s+guardian|reuters|efe|afp|associated\s+press|europa\s+press|agencias?)\b|theguardian\.com",
+            f"{author} {rights} {summary}", re.IGNORECASE,
+        ):
+            return ""
+        if "<" in raw:
+            summary = ""
+            for paragraph in re.finditer(r"<p(?:\s[^>]*)?>(.*?)</p\s*>", raw, re.IGNORECASE | re.DOTALL):
+                text = " ".join(unescape(strip_tags(paragraph.group(1))).split())
+                if text:
+                    summary = text
+                    break
     # Algunos feeds incluyen el artículo completo en este campo.
     return summary if len(summary) <= MAX_SUMMARY_LENGTH else ""
 
@@ -216,7 +240,8 @@ def ingest_feed(feed, force_download=False):
                 if article.feed_id == feed.pk:
                     article.image_url, article.image_credit = permitted_image(entry, feed)
                     article.byline = byline or article.byline
-                    article.save(update_fields=["image_url", "image_credit", "byline"])
+                    article.summary = permitted_summary(entry, feed)
+                    article.save(update_fields=["image_url", "image_credit", "byline", "summary"])
                 record_origin(article, feed, guid, category_ids)
             result.duplicates += 1
             continue
