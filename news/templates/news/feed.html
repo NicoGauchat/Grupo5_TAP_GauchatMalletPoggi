@@ -29,6 +29,12 @@
                 {% for entry in category_briefings %}
                     {% if entry.item %}<li class="briefing-story">
                         <h3>{{ entry.category.name }}</h3>
+                        <figure class="briefing-media">
+                            {% if entry.image_article %}<a href="{{ entry.image_article.original_url }}" target="_blank" rel="noopener" aria-label="Leer {{ entry.image_article.title }} en {{ entry.image_article.feed.source.name }} (nueva pestaña)">
+                                <img src="{{ entry.image_article.image_url }}" data-fallback="{% static entry.fallback_image %}" alt="" width="960" height="600" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                            </a>{% else %}<img src="{% static entry.fallback_image %}" alt="" width="960" height="600" loading="lazy" decoding="async">{% endif %}
+                            <figcaption class="image-credit">{% if entry.image_article %}{{ entry.image_article.image_credit|default:entry.image_article.feed.source.name }}{% if entry.image_article.feed.url == 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml' %} · <a href="https://news.mit.edu/terms-of-use" target="_blank" rel="noopener">CC BY-NC-ND</a>{% endif %}{% else %}Imagen ilustrativa{% endif %}</figcaption>
+                        </figure>
                         <p class="briefing-text">{{ entry.item.text }}</p>
                         <div class="briefing-story-footer">
                             <details class="briefing-sources">

@@ -1,9 +1,13 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-27
-**Objetivo actual:** completar el respaldo de imágenes con variedad general por categoría, conservando las fotografías RSS habilitadas.
+**Objetivo actual:** publicar y comprobar en el sitio las imágenes del resumen IA y las ilustraciones generales ya implementadas.
 
 ## Último paso completado
+
+**Imágenes en el resumen IA (27/10/2026):** cada síntesis muestra una imagen enlazada al artículo que la aportó. Se prefiere la fotografía RSS permitida de la noticia de referencia; en su ausencia se elige una cobertura reciente del mismo acontecimiento verificado con `show_images=True`, priorizando la más reciente. Se calcula en cada lectura para respetar feeds desactivados y permisos revocados; sin foto válida o si falla la URL remota, aparece una de las tres ilustraciones locales de la categoría con «Imagen ilustrativa». Se conservan crédito, enlace de licencia MIT cuando corresponde, tamaño reservado, carga diferida, foco visible y vista adaptable. No se generan imágenes, se descargan fotografías al servidor ni se agregan llamadas IA, dependencias, migraciones o permisos de fuentes. Se mantiene pendiente el despliegue remoto. Verificación: suite SQLite completa **198 ejecutadas, 183 aprobadas y 15 omitidas por PostgreSQL**; Django check y ausencia de migraciones pendientes aprobados; `git diff --check` aprobado. Edge/Playwright con datos sintéticos fuera del repositorio a 1440 y 375 px: tres estados de imagen cargados, URL rota sustituida y crédito corregido, sin desbordamiento; capturas inspeccionadas. Servidor QA detenido. El detector Impeccable se ejecutó en modo degradado por módulos HTML/CSS ausentes y señaló la barra de progreso de lectura preexistente, no un cambio de este bloque. README, PROJECT y SOURCES actualizados por la nueva función visible y regla de selección/atribución; `.env.example` no requiere cambios. Implementación local sin commit, push ni despliegue de este bloque.
+
+**Revisión de entrega 2 e imágenes del resumen (27/10/2026):** los cinco requisitos enumerados están implementados en el código: clasificación LLM opcional junto a reglas, agrupamiento LLM por acontecimiento con coberturas, imágenes en tarjetas de noticias, una síntesis IA por categoría elegida en una ventana móvil de 24 horas y páginas de categoría con grilla, filtros y «Ver más». La imagen todavía no aparece en los puntos del resumen diario. Cada punto persiste una sola noticia de referencia y la vista reúne sus coberturas verificadas; el modelo de noticia ya conserva `image_url` y `image_credit`, y cada feed tiene `show_images`. Por lo tanto, puede elegirse en lectura una fotografía habilitada de la referencia o de una cobertura verificada del mismo acontecimiento, con atribución y enlace a su artículo; si falta, se usa una de las ilustraciones locales de esa categoría rotulada «Imagen ilustrativa». No hace falta otra llamada IA, dependencia ni migración. Hay que evitar fotos de otro hecho, respetar revocaciones de permisos, comprobar fallos de URL remota, peso, vista móvil y accesibilidad. Esta revisión no modifica código ni permisos de fuentes, ni comprueba el despliegue remoto. Pruebas focalizadas de resumen, agrupamiento e interfaz: **125 ejecutadas, 111 aprobadas y 14 omitidas por PostgreSQL**; Django check sin problemas. PROJECT, SOURCES, README y `.env.example` no requieren cambios: no se tomó una decisión nueva de arquitectura/fuentes ni cambió una función visible o variable.
 
 **Publicación solicitada (27/10/2026):** el usuario autoriza commit y push de la mejora de imágenes a `main`, incluyendo esta documentación y la evidencia operativa local anterior. Los registros de «sin commit/push» de abajo describen el cierre de sus respectivas tareas; esta nueva instrucción autoriza publicarlos junto con el cambio. `collectstatic` con manifiesto y compresión comprobado en un directorio temporal externo; recursos SVG versionados correctamente. El despliegue remoto permanece pendiente.
 
@@ -320,7 +324,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Desplegar esta versión y comprobar las ilustraciones generales en las categorías del sitio publicado.
+Publicar esta versión y comprobar en el sitio desplegado la fotografía o ilustración de cada síntesis, sus créditos y el respaldo ante fallos de carga.
 
 ## Completado
 

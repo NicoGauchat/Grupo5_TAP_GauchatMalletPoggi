@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.db.models import Q
 
 from .models import Article, Category, NewsBriefing, NewsBriefingItem
-from .browsing import add_coverages
+from .browsing import add_coverages, article_illustration
 
 
 def current_briefing_items(now, categories):
@@ -51,13 +51,24 @@ def briefing_context(now, categories=()):
         )
         reference = references.get(category.pk)
         sources = {}
+        image_article = None
         if reference:
             sources[reference.feed.source_id] = reference
             for coverage in reference.coverages:
                 sources.setdefault(coverage.feed.source_id, coverage)
+            candidates = [reference]
+            if reference.has_verified_story:
+                candidates.extend(sorted(
+                    (coverage for coverage in reference.coverages if coverage.pk != reference.pk),
+                    key=lambda coverage: (coverage.published_at, coverage.pk), reverse=True,
+                ))
+            image_article = next((article for article in candidates
+                                  if article.feed.is_active and article.feed.show_images and article.image_url), None)
         rows.append({"category": category, "item": item, "state": state,
                      "sources": sorted(sources.values(), key=lambda article: article.feed.source.name.casefold()),
                      "source_count": len(sources), "reference_id": reference.pk if reference else None,
+                     "image_article": image_article,
+                     "fallback_image": article_illustration(reference, category.slug) if reference else None,
                      "update_failed": bool(item and attempt and attempt.status == "error")})
     return {"category_briefings": rows, "has_briefing_items": any(row["item"] for row in rows),
             "has_missing_briefings": any(not row["item"] for row in rows)}

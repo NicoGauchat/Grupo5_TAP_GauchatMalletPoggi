@@ -404,6 +404,68 @@ class BriefingTests(TestCase):
         Story.objects.filter(pk=story.pk).update(grouping_version=0)
         self.assertEqual(briefing_context(self.now, [self.category])["category_briefings"][0]["source_count"], 1)
 
+    def test_briefing_image_prefers_reference_and_respects_revoked_permission(self):
+        self.feed.show_images = True
+        self.feed.save()
+        self.article.image_url = "https://example.com/reference.jpg"
+        self.article.image_credit = "Fotografía del medio"
+        self.article.save()
+        self.generate()
+
+        response = self.client.get(reverse("news_feed"))
+        row = response.context["category_briefings"][0]
+        self.assertEqual(row["image_article"].pk, self.article.pk)
+        self.assertContains(response, 'src="https://example.com/reference.jpg"')
+        self.assertContains(response, "Fotografía del medio")
+        self.assertContains(response, f'href="{self.article.original_url}" target="_blank" rel="noopener"')
+
+        self.feed.show_images = False
+        self.feed.save()
+        response = self.client.get(reverse("news_feed"))
+        row = response.context["category_briefings"][0]
+        self.assertIsNone(row["image_article"])
+        self.assertNotContains(response, "https://example.com/reference.jpg")
+        self.assertContains(response, "Imagen ilustrativa")
+        self.assertContains(response, f'src="/static/{row["fallback_image"]}"')
+
+    def test_briefing_image_uses_only_current_verified_coverage(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.save()
+        story = Story.objects.create()
+        self.article.story = story
+        self.article.save()
+        source = Source.objects.create(name="Cobertura con foto")
+        feed = Feed.objects.create(source=source, name="RSS", url="https://example.com/photo/rss",
+                                   is_active=True, allow_ai_grouping=True, show_images=True)
+        coverage = Article.objects.create(feed=feed, story=story, title="Mismo acontecimiento",
+            original_url="https://example.com/coverage/photo", published_at=self.now - timedelta(minutes=1),
+            image_url="https://example.com/coverage.jpg", image_credit="Crédito de cobertura")
+        unrelated = Article.objects.create(feed=feed, story=Story.objects.create(), title="Otro acontecimiento",
+            original_url="https://example.com/unrelated", published_at=self.now,
+            image_url="https://example.com/unrelated.jpg")
+        self.generate()
+
+        response = self.client.get(reverse("news_feed"))
+        row = response.context["category_briefings"][0]
+        self.assertEqual(row["image_article"].pk, coverage.pk)
+        self.assertContains(response, f'href="{coverage.original_url}" target="_blank" rel="noopener"')
+        self.assertContains(response, "Crédito de cobertura")
+        self.assertNotContains(response, unrelated.image_url)
+
+        Story.objects.filter(pk=story.pk).update(grouping_version=0)
+        response = self.client.get(reverse("news_feed"))
+        self.assertIsNone(response.context["category_briefings"][0]["image_article"])
+        self.assertNotContains(response, coverage.image_url)
+        Story.objects.filter(pk=story.pk).update(grouping_version=1)
+
+        feed.show_images = False
+        feed.save()
+        self.assertIsNone(briefing_context(timezone.now(), [self.category])["category_briefings"][0]["image_article"])
+        feed.show_images = True
+        feed.is_active = False
+        feed.save()
+        self.assertIsNone(briefing_context(timezone.now(), [self.category])["category_briefings"][0]["image_article"])
+
     def test_expired_category_does_not_hide_another_valid_ai_summary(self):
         category, article = self.add_science()
         self.generate(rows=[{"category_slug": self.category.slug, "text": "Síntesis que vencerá.", "article_ids": [self.article.pk]},
