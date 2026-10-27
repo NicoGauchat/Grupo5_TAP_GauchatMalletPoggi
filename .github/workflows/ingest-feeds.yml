@@ -18,7 +18,7 @@ on:
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
         type: choice
-        options: ['100', '500']
+        options: ['10', '100', '500']
         default: '100'
       gemini_model:
         description: Modelo Gemini para esta ejecución (repository-default usa la configuración del repositorio)

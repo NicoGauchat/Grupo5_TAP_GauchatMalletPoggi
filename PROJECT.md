@@ -302,6 +302,10 @@ Se reutiliza HTTPX existente para peticiones a hosts fijos, sin redirecciones ni
 
 ### Diagnóstico seguro de respuestas 400 del respaldo (26/10/2026)
 
+La prueba de diagnóstico 40431399616 aprobó los tres pares y traducción con Groq y 25 candidatos ficticios, sin leer/escribir noticias. Se habilita el valor diez en el selector manual existente de agrupamiento para aislar un lote real con pocas llamadas; el valor inicial y process-ai siguen en cien. La API de GitHub rechazó el primer intento de dispatch con diez por no figurar aún entre las opciones: no se ejecutó ese intento ni modificó datos.
+
+
+
 La reparación 40430422611 aprobó la prueba pequeña y guardó diez noticias. El rechazo 413 disparó correctamente la reducción de cien a cincuenta candidatos; más adelante Gemini repitió story_id y Groq respondió 400. Ese mensaje genérico no acredita por sí solo una clave mala o un esquema incorrecto. Se leen únicamente códigos de error de una lista cerrada (json_validate_failed, model_generation_failed, structured_generation_failed) o tres nombres de parámetros conocidos; nada del mensaje, failed_generation, prompts ni claves se imprime. Los códigos desconocidos conservan el diagnóstico genérico. No se reintentan ni relajan automáticamente estos 400.
 
 La comprobación ficticia admite ahora 0/10/25/50 acontecimientos candidatos ajenos para probar referencias múltiples en el esquema sin leer/escribir noticias; exige conservar los tres pares y no asociarlos a esos candidatos. La opción manual check_candidates se limita al modo de diagnóstico y reparación conserva cero por defecto. Esto facilita aislar el fallo de Groq sin otra ingesta ni modificar grupos reales. La [guía oficial de Groq](https://console.groq.com/docs/structured-outputs) mantiene soporte estricto de gpt-oss-20b y reconoce posibles errores 400 que requieren diagnóstico; no se infiere una causa concreta de los reportes externos ni se cambia de modelo sin comprobarlo.

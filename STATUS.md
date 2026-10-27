@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+La comprobación **40431399616** con **Groq y 25 candidatos ficticios** aprobó pares, separación y traducción, sin leer/escribir noticias. Se habilita diez como opción del selector manual de reparación para comprobar sólo el lote real pendiente con el diagnóstico seguro; el inicial y las tandas process-ai siguen en cien. El primer dispatch con diez fue rechazado por la validación de opciones de GitHub y no produjo ejecución ni cambios de datos. Sólo cambia esa opción visible: README y PROJECT actualizados; SOURCES y `.env.example` sin cambios necesarios. Se prepara el nuevo dispatch tras publicar la opción.
+
 La reparación **40430422611** aprobó la comprobación pequeña, guardó diez noticias y activó correctamente la reducción por 413 de **cien a cincuenta candidatos**. Más adelante Gemini repitió story_id en sus tres intentos y Groq devolvió **HTTP 400**. Importancia se omitió por el fallo de reparación. No se considera recuperado completamente el agrupamiento ni se atribuye el 400 a credenciales sin evidencia adicional.
 
 Se preparó diagnóstico de códigos 400 con lista cerrada, sin imprimir mensajes originales, failed_generation, claves o noticias. El comando sintético admite candidatos ficticios adicionales (0/10/25/50) para comprobar esquemas de referencias sin datos reales; obliga a mantener los tres pares separados de esos candidatos. La selección manual sólo afecta check-grouping y no altera la comprobación de reparación. **38 pruebas: 37 aprobadas y una omitida** por PostgreSQL; actionlint con la exclusión documentada de queue pasó. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no se amplían feeds, permisos, campos reales enviados o variables de aplicación. Se prepara comparación sintética de Groq con 25 referencias, sin nueva ingesta.
@@ -248,7 +250,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar Groq con 25 candidatos ficticios y usar el motivo seguro del error para resolver el respaldo de agrupamiento.
+Comprobar el lote real de diez pendientes con el diagnóstico seguro de Groq y resolver el rechazo restante.
 
 ## Completado
 
