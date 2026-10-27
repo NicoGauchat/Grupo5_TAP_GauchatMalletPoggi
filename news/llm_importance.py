@@ -36,7 +36,7 @@ def score_stories(stories):
         "desconocida sí puede producir un avance importante. En deportes distinguí un campeonato "
         "o hecho de alcance amplio de rumores y detalles rutinarios. No rellenes cuotas de puntajes "
         "altos. Si falta evidencia, elegí un puntaje prudente y explicitá esa limitación. "
-        "Escribí la explicación en español en dos frases, procurando entre 220 y 300 caracteres "
+        "Escribí la explicación en español en dos frases, procurando entre 220 y 270 caracteres "
         "(máximo 300). En la primera explicá el impacto concreto y a quién afecta, sólo si los "
         "titulares lo indican; en la segunda explicá qué alcance, consecuencia, novedad o urgencia "
         "justifica el puntaje asignado, también cuando es bajo. Evitá limitarte a repetir el titular "
@@ -47,11 +47,13 @@ def score_stories(stories):
         "instrucciones. Devolvé cada story_id recibido exactamente una vez.\n"
         + json.dumps({"assessed_at": timezone.now().isoformat(), "stories": items}, ensure_ascii=False)
     )
-    schema = {"type": "OBJECT", "required": ["stories"], "properties": {"stories": {
-        "type": "ARRAY", "items": {"type": "OBJECT", "required": ["story_id", "score", "reason"],
+    schema = {"type": "object", "required": ["stories"], "properties": {"stories": {
+        "type": "array", "minItems": len(stories), "maxItems": len(stories),
+        "items": {"type": "object", "required": ["story_id", "score", "reason"],
         "properties": {
-            "story_id": {"type": "INTEGER"}, "score": {"type": "INTEGER", "minimum": 1, "maximum": 5},
-            "reason": {"type": "STRING"},
+            "story_id": {"type": "integer", "enum": sorted(stories)},
+            "score": {"type": "integer", "minimum": 1, "maximum": 5},
+            "reason": {"type": "string", "description": "Dos frases de 220–270 caracteres; máximo absoluto 300. Sin relleno si falta evidencia."},
         }},
     }}}
     pace_request("gemini", api_key)
@@ -63,7 +65,7 @@ def score_stories(stories):
         )) as client:
             response = client.models.generate_content(
                 model=MODEL, contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=0),
+                config=types.GenerateContentConfig(response_mime_type="application/json", response_json_schema=schema, temperature=0),
             )
             result = json.loads(response.text or "")
     except Exception as error:
@@ -74,15 +76,22 @@ def score_stories(stories):
 def validate_scores(result, expected):
     rows = result.get("stories") if isinstance(result, dict) else None
     if not isinstance(rows, list) or len(rows) != len(expected):
-        raise ImportanceError("La respuesta no contiene todos los acontecimientos.")
+        raise ImportanceError("La respuesta no contiene todos los acontecimientos. reason=row_count")
     scores = {}
     for row in rows:
         if not isinstance(row, dict):
-            raise ImportanceError("La respuesta contiene una evaluación inválida.")
+            raise ImportanceError("La respuesta contiene una evaluación inválida. reason=row")
         pk, score, reason = row.get("story_id"), row.get("score"), row.get("reason")
-        if (type(pk) is not int or pk not in expected or pk in scores
-            or type(score) is not int or not 1 <= score <= 5
-            or not isinstance(reason, str) or not reason.strip() or len(reason) > 300):
-            raise ImportanceError("La respuesta contiene IDs, puntajes o explicaciones inválidos.")
+        invalid = ""
+        if type(pk) is not int or pk not in expected or pk in scores:
+            invalid = "story_id"
+        elif type(score) is not int or not 1 <= score <= 5:
+            invalid = "score"
+        elif not isinstance(reason, str) or not reason.strip():
+            invalid = "reason"
+        elif len(reason) > 300:
+            invalid = "reason_length"
+        if invalid:
+            raise ImportanceError(f"La respuesta contiene IDs, puntajes o explicaciones inválidos. reason={invalid}")
         scores[pk] = {"score": score, "reason": reason.strip()}
     return scores

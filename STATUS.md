@@ -1,9 +1,13 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-26
-**Objetivo actual:** conservar la selección más importante de las últimas 24 horas, desarrollar sus síntesis y permitir contraer el resumen.
+**Objetivo actual:** comprobar la ingesta completa y corregir los rechazos de validación encontrados en clasificación e importancia.
 
 ## Último paso completado
+
+La ingesta completa solicitada **40426732862** terminó fallida tras unos 18 minutos: **37 noticias nuevas y 538 duplicadas**, 25 RSS procesados y uno sin cambios (304). Migraciones y limpieza pasaron; RSS duró 8 min 8 s. Clasificación guardó **diez** noticias antes de rechazar IDs/categorías inválidos; el resumen reutilizó la presentación vigente de dos horas. Agrupamiento completó **cien noticias**, con **2013 pendientes** y cero de grupos anteriores, tras recuperar un intento con `repeated_article_id`. Importancia guardó **cincuenta acontecimientos** y rechazó luego IDs/puntajes/explicaciones inválidos. Los mensajes previos no distinguen el campo exacto: no se afirma que fuera longitud o referencia ni que haya fallado la cuota.
+
+Se restringieron los esquemas de clasificación e importancia a los IDs numéricos del lote y su cantidad exacta de filas, usando la misma interfaz JSON Schema ya verificada en agrupamiento. Clasificación restringe hasta tres categorías. Se conservan todas las comprobaciones locales y se agregan motivos seguros por campo. Importancia pide 220–270 caracteres con máximo 300, dejando margen sin cortar textos ni bajar controles. La documentación oficial confirma que maxLength y uniqueItems no se aplican en generación, por lo que se mantienen controles locales en lugar de asumir su eficacia. Verificación: **27 pruebas focalizadas, 26 aprobadas y una omitida** por requerir PostgreSQL, incluidos contratos de IDs/lotes y diagnósticos sin datos privados; diff sin errores. README y PROJECT actualizados; SOURCES y `.env.example` no requieren cambios porque no cambian feeds, permisos, datos enviados ni variables. Se prepara publicación y comprobación real sólo IA, sin repetir RSS ni desplegar Render.
 
 La activación quedó publicada en **01cf8d0** y comprobada en **40426423602**, finalizada correctamente: **26 noticias existentes revisadas y seis entradillas autorizadas disponibles dentro de 24 horas**. Gemini 3.5 generó **diez síntesis sobre 82 titulares** y conservó las **diez referencias anteriores**. El log informó **cero síntesis con entradilla** porque las referencias elegidas pertenecen a otros feeds: se confirma disponibilidad real de las bajadas para selección futura, no que esta edición haya recibido contenido adicional. No se forzó un cambio de noticia para inflar esa métrica ni se habilitaron otras fuentes. Los dos controles de elDiario.es quedan activos en la base compartida y la ingesta normal mantendrá sus entradillas. No requiere despliegue de Render para ese procesamiento; el responsable debe desplegar los cambios visuales del botón de contracción.
 
@@ -236,7 +240,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Desplegar `main` en Render mediante el responsable para mostrar el control «Ver menos / Ver resumen».
+Comprobar una tanda real sólo IA con los esquemas restringidos y registrar los motivos seguros si queda una etapa pendiente.
 
 ## Completado
 

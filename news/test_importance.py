@@ -18,6 +18,15 @@ from .models import Article, Category, Feed, Source, Story, UserPreference
 
 
 class ImportanceValidationTests(SimpleTestCase):
+    def test_reason_diagnostics_do_not_echo_invalid_content(self):
+        valid = {"story_id": 2, "score": 4, "reason": "Una explicación de prueba."}
+        cases = [(dict(valid, story_id=999), "story_id"), (dict(valid, score=True), "score"),
+                 (dict(valid, reason=" "), "reason"), (dict(valid, reason="private-reason" * 30), "reason_length")]
+        for row, reason in cases:
+            with self.subTest(reason=reason), self.assertRaisesRegex(ImportanceError, f"reason={reason}") as caught:
+                validate_scores({"stories": [row]}, {2})
+            self.assertNotIn("private-reason", str(caught.exception))
+
     def test_validates_scores_reasons_and_exact_partition(self):
         valid = {"stories": [{"story_id": 2, "score": 4, "reason": " Impacto público claro. "}]}
         self.assertEqual(validate_scores(valid, {2})[2], {"score": 4, "reason": "Impacto público claro."})
@@ -172,6 +181,9 @@ class ImportanceAndDateTests(TestCase):
             self.assertNotIn(article.original_url, payload)
             self.assertNotIn(self.user.username, payload)
             self.assertEqual(client.call_args.kwargs["http_options"].timeout, 60_000)
+            schema = generate.call_args.kwargs["config"].response_json_schema["properties"]["stories"]
+            self.assertEqual((schema["minItems"], schema["maxItems"]), (1, 1))
+            self.assertEqual(schema["items"]["properties"]["story_id"]["enum"], [article.story_id])
         self.feed.allow_ai_grouping = False
         self.feed.save()
         with patch("news.management.commands.score_news_ai.score_stories") as model:

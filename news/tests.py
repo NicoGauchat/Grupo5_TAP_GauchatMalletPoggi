@@ -34,6 +34,27 @@ class AIResponseTests(SimpleTestCase):
                 )
                 with self.assertRaises(ClassificationError):
                     classify_batch([article], ["economia"])
+                schema = client.return_value.models.generate_content.call_args.kwargs["config"].response_json_schema
+                rows = schema["properties"]["articles"]
+                self.assertEqual((rows["minItems"], rows["maxItems"]), (1, 1))
+                self.assertEqual(rows["items"]["properties"]["article_id"]["enum"], [7])
+                self.assertEqual(rows["items"]["properties"]["categories"]["maxItems"], 3)
+
+    def test_invalid_category_shapes_have_safe_diagnostics(self):
+        import json
+        article = SimpleNamespace(pk=7, title="Titular privado de ensayo", language="es",
+                                  feed=SimpleNamespace(source=SimpleNamespace(name="Fuente")))
+        cases = [(None, "categories"), ([["economia"]], "category"),
+                 (["private-category"], "category"), (["economia", "economia"], "repeated_category"),
+                 (["economia"] * 4, "too_many_categories")]
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "clave-de-prueba"}), patch("news.llm_classification.genai.Client") as client:
+            for categories, reason in cases:
+                client.return_value.models.generate_content.return_value.text = json.dumps({"articles": [{
+                    "article_id": 7, "categories": categories,
+                }]})
+                with self.subTest(reason=reason), self.assertRaisesRegex(ClassificationError, f"reason={reason}") as caught:
+                    classify_batch([article], ["economia"])
+                self.assertNotIn("private-category", str(caught.exception))
 
 
 class AIClassificationTests(TestCase):
