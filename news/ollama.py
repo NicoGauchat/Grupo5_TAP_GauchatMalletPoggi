@@ -28,7 +28,52 @@ class ModelDict(dict):
 
 
 def enabled():
-    return os.getenv("AI_LOCAL_FIRST", "").strip().lower() in {"1", "true", "yes"}
+    return local_first() or api_first()
+
+
+def local_first():
+    return not api_first() and os.getenv("AI_LOCAL_FIRST", "").strip().lower() in {"1", "true", "yes"}
+
+
+def api_first():
+    return os.getenv("AI_API_FIRST", "").strip().lower() in {"1", "true", "yes"}
+
+
+def batch_size(default=10):
+    small_fallback = api_first() and os.getenv("OLLAMA_FALLBACK_LIMIT", "10") == "3"
+    return 3 if local_first() or small_fallback else default
+
+
+_fallback_used = {}
+
+
+def route(task, remote, local, error_type, count):
+    """Conserva la validación de cada proveedor y acota el trabajo CPU de respaldo."""
+    if not enabled():
+        return remote()
+    if local_first():
+        try:
+            return local()
+        except (LocalModelError, error_type) as error:
+            if getattr(error, "reduce_candidates", False):
+                raise
+            fallback_notice(task, error)
+        return remote()
+    try:
+        return remote()
+    except error_type as remote_error:
+        try:
+            try:
+                limit = int(os.getenv("OLLAMA_FALLBACK_LIMIT", "10"))
+            except ValueError as error:
+                raise LocalModelError("fallback_limit") from error
+            if not 1 <= limit <= 10 or _fallback_used.get(task, 0) + count > limit:
+                raise LocalModelError("fallback_limit")
+            _fallback_used[task] = _fallback_used.get(task, 0) + count
+            logging.getLogger(__name__).warning("IA %s: API no disponible o respuesta inválida; se intenta Ollama.", task)
+            return local()
+        except (LocalModelError, error_type) as local_error:
+            raise error_type(f"API sin resultado válido ({remote_error}); respaldo Ollama: {local_error}") from local_error
 
 
 def model_name():

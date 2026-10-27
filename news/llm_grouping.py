@@ -43,12 +43,18 @@ def metadata(article):
 
 def group_articles(articles, candidates, *, provider="gemini", allow_local=True):
     if provider == "gemini" and allow_local and ollama.enabled():
-        try:
-            return group_articles(articles, candidates, provider="ollama")
-        except GroupingError as error:
-            if error.reduce_candidates and len(candidates) > 1:
-                raise
-            ollama.fallback_notice("grouping", error)
+        def local():
+            if ollama.local_first():
+                return group_articles(articles, candidates, provider="ollama")
+            result = ModelList([], ollama.model_name())
+            for start in range(0, len(articles), 3):
+                batch = articles[start:start + 3]
+                shortlist = ollama.shortlist_candidates(batch, candidates)
+                result.extend(group_articles(batch, shortlist, provider="ollama"))
+            return result
+        return ollama.route("grouping",
+                            lambda: group_articles(articles, candidates, allow_local=False),
+                            local, GroupingError, len(articles))
     api_key = api_key_for("grouping")
     if not api_key and provider != "ollama":
         raise GroupingError("Falta configurar GEMINI_API_KEY.")

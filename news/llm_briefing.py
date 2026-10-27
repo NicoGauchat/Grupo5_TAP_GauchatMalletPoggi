@@ -28,11 +28,31 @@ NASA_AI_NOTICE = "Síntesis generada por IA con material de NASA; NASA no la rev
 
 
 def summarize_articles(articles, *, previous_selection=None):
+    if not articles:
+        return []
+    def local():
+        # Una referencia por categoría conserva cobertura con el contexto acotado de la PC.
+        selected = {}
+        by_id = {article.pk: article for article in articles}
+        for article in articles:
+            for category in [*article.categories.all(), *article.llm_categories.all()]:
+                previous = (previous_selection or {}).get(category.slug)
+                candidate = by_id.get(previous, article)
+                assigned = {c.slug for c in [*candidate.categories.all(), *candidate.llm_categories.all()]}
+                selected.setdefault(category.slug, candidate if category.slug in assigned else article)
+        reduced = list({article.pk: article for article in selected.values()}.values())
+        return _summarize_articles(reduced, previous_selection=previous_selection, local=True)
+    # El briefing es una sola inferencia, con hasta once referencias, no una tanda de noticias.
+    return ollama.route("briefing", lambda: _summarize_articles(articles, previous_selection=previous_selection),
+                        local, BriefingError, 1)
+
+
+def _summarize_articles(articles, *, previous_selection=None, local=False):
     """Selecciona y redacta un suceso por categoría con titulares autorizados."""
     if not articles:
         return []
     api_key = api_key_for("briefing")
-    if not api_key and not ollama.enabled():
+    if not api_key and not local:
         raise BriefingError("Falta configurar la clave de Gemini.", "missing_key")
 
     categories = {}
@@ -137,15 +157,12 @@ def summarize_articles(articles, *, previous_selection=None):
         validated.description_count = sum(item["article_ids"][0] in description_ids for item in validated)
         return validated
 
-    if ollama.enabled():
-        try:
-            local = validated_result(ollama.request_json(prompt, schema, "briefing"), ollama.model_name())
-            sources = {item["article_id"]: item for item in items}
-            ollama.audit_texts({item["category_slug"]: {"source": sources[item["article_ids"][0]], "text": item["text"]}
-                               for item in local}, "briefing")
-            return local
-        except (ollama.LocalModelError, BriefingError) as error:
-            ollama.fallback_notice("briefing", error)
+    if local:
+        result = validated_result(ollama.request_json(prompt, schema, "briefing"), ollama.model_name())
+        sources = {item["article_id"]: item for item in items}
+        ollama.audit_texts({item["category_slug"]: {"source": sources[item["article_ids"][0]], "text": item["text"]}
+                           for item in result}, "briefing")
+        return result
     if not api_key:
         raise BriefingError("Ollama no está disponible y falta una clave Gemini para el respaldo.", "missing_key")
     try:

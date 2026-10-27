@@ -1,9 +1,15 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-10-27
-**Objetivo actual:** publicar Actions → Ollama de la PC y ejecutar una reingesta completa forzada con respaldo API de GitHub.
+**Objetivo actual:** priorizar las API de GitHub en tandas de cien y usar Ollama de la PC como respaldo acotado.
 
 ## Último paso completado
+
+**API primero y tandas de cien (27/10/2026):** por pedido del usuario, Actions mantiene `AI_PROCESS_LIMIT=100` aunque responda la PC y activa `AI_API_FIRST` para usar Ollama sólo tras el fallo de las rutas API existentes de cada función (Gemini y respaldo Groq donde ya existía). El agrupamiento periódico usa cien; el manual conserva `grouping_limit`. Se conserva `AI_LOCAL_FIRST` para pruebas directas, con prioridad para API primero si ambas variables están activas. No se crean proveedores, claves ni dependencias. Render no necesita redeploy para activar este cambio en ingesta.
+
+Clasificación/importancia usan lotes API de diez; con presupuesto local tres usan lotes de tres para que el respaldo quepa íntegro. Ollama divide internamente los lotes en sublotes de tres y reserva un máximo de diez noticias/acontecimientos por comando (`OLLAMA_FALLBACK_LIMIT`, elegido por `local_ai_limit` 3/10). Los intentos locales inválidos también consumen ese presupuesto; al agotarlo se informa `fallback_limit`, sin afirmar cola vacía. El briefing API vuelve a seleccionar entre hasta 250 candidatos; sólo el fallback local usa una referencia por categoría, manteniendo la selección anterior disponible y la auditoría de texto. El agrupamiento intenta primero todos los bloques API del lote y sólo después recupera candidatos locales desde el conjunto completo. Identidad, esquemas, permisos y atribución del modelo conservados.
+
+Verificación aislada final: **237 pruebas, 222 aprobadas y 15 omitidas PostgreSQL**, incluidos once casos nuevos de prioridad API, fallo de ambos proveedores, presupuesto/subdivisión, auditorías, respaldo Groq anterior a Ollama y recuperación sobre todos los candidatos. Django check y ausencia de migraciones aprobados; preflight del workflow ejecutado con PC disponible/ausente y diagnóstico explícito, sin red ni secretos. La primera ejecución de tests se detuvo al detectar que heredaba `AI_LOCAL_FIRST` local; la ejecución final fuerza ambas banderas apagadas salvo mocks explícitos y usa SQLite de prueba. README, PROJECT, SOURCES y `.env.example` actualizados con el orden y límites nuevos. Sin lanzar otra ingesta ni modificar claves/Render.
 
 **Importancia visible por defecto (27/10/2026):** el componente de tarjetas de categoría usa `open` en el desplegable de importancia general, mostrando puntaje y explicación al cargar. Conserva el control HTML nativo para cerrar/abrir con teclado. Cambio exclusivamente de presentación; README actualizado, sin cambios necesarios en PROJECT, SOURCES ni `.env.example`. Plantilla compilada correctamente y diff sin errores; sin llamadas IA ni cambios de datos. El usuario autorizó commit/push después de comprobar el cambio.
 
@@ -389,7 +395,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar en Render la importancia desplegada por defecto tras el despliegue de este cambio.
+Verificar los conteos y proveedores efectivos de la próxima tanda de Actions con API primero, sin asumir que cien vacía la cola.
 
 ## Completado
 

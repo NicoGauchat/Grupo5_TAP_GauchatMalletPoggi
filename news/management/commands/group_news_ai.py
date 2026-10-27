@@ -10,7 +10,7 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_grouping import GroupingError, group_articles, metadata
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
-from news.ollama import enabled as local_first
+from news.ollama import local_first, batch_size as inference_batch_size
 from news import ollama
 
 
@@ -37,7 +37,7 @@ class Command(BaseCommand):
         ).order_by("review_priority", "-published_at", "-pk")[:limit])
         processed = 0
         candidate_limit = MAX_CANDIDATES
-        batch_size = 3 if local_first() else BATCH_SIZE
+        batch_size = inference_batch_size(BATCH_SIZE)
         for start in range(0, len(pending), batch_size):
             batch = pending[start:start + batch_size]
             representatives = {}
@@ -82,6 +82,18 @@ class Command(BaseCommand):
         self.stdout.write(f"Se agruparon {processed} noticias; quedan {remaining} pendientes ({legacy} de grupos anteriores).")
 
     def propose_batch(self, batch, candidates, candidate_limit, *, allow_local=True):
+        if ollama.api_first() and allow_local:
+            def local():
+                groups = []
+                for start in range(0, len(batch), 3):
+                    chunk = batch[start:start + 3]
+                    shortlist = ollama.shortlist_candidates(chunk, candidates)
+                    result = group_articles(chunk, shortlist, provider="ollama")
+                    groups.extend(dict(row, _model=ollama.model_name()) for row in result)
+                return groups, candidate_limit
+            return ollama.route("grouping",
+                                lambda: self.propose_batch(batch, candidates, candidate_limit, allow_local=False),
+                                local, GroupingError, len(batch))
         while True:
             try:
                 remaining, groups, new_groups = batch, [], []

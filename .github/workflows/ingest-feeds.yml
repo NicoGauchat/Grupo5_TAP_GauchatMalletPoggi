@@ -25,7 +25,7 @@ on:
         type: boolean
         default: false
       local_ai_limit:
-        description: Noticias por etapa cuando responde la PC con Ollama
+        description: Máximo de noticias de respaldo en Ollama por etapa si fallan las API
         type: choice
         options: ['3', '10']
         default: '10'
@@ -95,6 +95,8 @@ jobs:
       OLLAMA_BRIDGE_TOKEN: ${{ secrets.OLLAMA_BRIDGE_TOKEN }}
       OLLAMA_MODEL: qwen3:4b-instruct
       AI_LOCAL_FIRST: 'false'
+      AI_API_FIRST: 'false'
+      OLLAMA_FALLBACK_LIMIT: ${{ inputs.local_ai_limit || '10' }}
       AI_PROCESS_LIMIT: '100'
       FORCE_RSS_REFRESH: ${{ inputs.refresh_feeds && 'true' || 'false' }}
       GEMINI_MODEL: ${{ inputs.gemini_model != 'repository-default' && inputs.gemini_model || vars.GEMINI_MODEL || 'gemini-3.5-flash-lite' }}
@@ -145,14 +147,14 @@ jobs:
           import os
           from news.ollama import remote_available
           ready = os.environ['MAINTENANCE_MODE'] != 'check-grouping' and remote_available()
-          limit = os.environ['PC_LIMIT'] if ready else '100'
-          if limit not in {'3', '10', '100'}:
+          limit = os.environ['PC_LIMIT']
+          if limit not in {'3', '10'}:
               raise SystemExit('Límite IA inválido.')
           with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write(f'AI_LOCAL_FIRST={str(ready).lower()}\nAI_PROCESS_LIMIT={limit}\n')
+              output.write(f'AI_LOCAL_FIRST=false\nAI_API_FIRST={str(ready).lower()}\nAI_PROCESS_LIMIT=100\nOLLAMA_FALLBACK_LIMIT={limit}\n')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'available={str(ready).lower()}\nlimit={limit}\n')
-          print('IA: Ollama de la PC primero; API de GitHub como respaldo.' if ready else 'IA: PC no disponible; se usan las API de GitHub.')
+              output.write(f'available={str(ready).lower()}\nlimit=100\n')
+          print('IA: API de GitHub primero (hasta 100); Ollama de la PC como respaldo acotado.' if ready else 'IA: PC no disponible; se usan las API de GitHub (hasta 100).')
           PY
       - name: Comprobar migraciones
         id: check_migrations
@@ -242,7 +244,7 @@ jobs:
         id: grouping
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
         env:
-          GROUPING_LIMIT: ${{ steps.local_pc.outputs.available == 'true' && steps.local_pc.outputs.limit || env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
+          GROUPING_LIMIT: ${{ env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
         run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
       - name: Evaluar importancia general
         if: ${{ always() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}

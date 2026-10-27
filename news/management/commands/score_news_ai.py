@@ -10,7 +10,7 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_importance import ImportanceError, score_stories
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
-from news.ollama import enabled as local_first
+from news.ollama import batch_size as inference_batch_size
 
 
 class Command(BaseCommand):
@@ -34,7 +34,7 @@ class Command(BaseCommand):
             stories = stories.filter(Q(importance_scored_at__isnull=True) | Q(importance_scored_at__lt=F("latest_coverage")))
         ids = list(stories.order_by("-latest_coverage", "-pk").values_list("pk", flat=True)[:options["limit"]])
         processed = 0
-        batch_size = 3 if local_first() else 10
+        batch_size = inference_batch_size()
         for start in range(0, len(ids), batch_size):
             batch = {pk: [] for pk in ids[start:start + batch_size]}
             sources = {pk: set() for pk in batch}

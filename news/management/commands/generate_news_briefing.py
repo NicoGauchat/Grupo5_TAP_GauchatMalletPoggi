@@ -12,7 +12,7 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
 from news.retention import RETENTION_DAYS
-from news.ollama import enabled as local_first
+from news.ollama import local_first
 
 
 MAX_ARTICLES = 250

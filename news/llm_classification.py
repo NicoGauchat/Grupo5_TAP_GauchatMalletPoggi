@@ -33,9 +33,19 @@ class ClassificationError(Exception):
 
 
 def classify_batch(articles, available_slugs):
+    def local():
+        result = ollama.ModelDict({}, ollama.model_name())
+        for start in range(0, len(articles), 3):
+            result.update(_classify_batch(articles[start:start + 3], available_slugs, local=True))
+        return result
+    return ollama.route("classification", lambda: _classify_batch(articles, available_slugs),
+                        local, ClassificationError, len(articles))
+
+
+def _classify_batch(articles, available_slugs, *, local=False):
     """Devuelve categorías por ID; valida el lote completo antes de persistirlo."""
     api_key = api_key_for("classification")
-    if not api_key and not ollama.enabled():
+    if not api_key and not local:
         raise ClassificationError("Falta GEMINI_API_KEY")
     slugs = sorted(set(available_slugs) & CATEGORY_DESCRIPTIONS.keys())
     if not slugs:
@@ -76,12 +86,9 @@ def classify_batch(articles, available_slugs):
         },
         "required": ["articles"],
     }
-    if ollama.enabled():
-        try:
-            local = ollama.request_json(prompt, schema, "classification")
-            return ollama.ModelDict(validate_classification(local, {article.pk for article in articles}, slugs), ollama.model_name())
-        except (ollama.LocalModelError, ClassificationError) as error:
-            ollama.fallback_notice("classification", error)
+    if local:
+        response = ollama.request_json(prompt, schema, "classification")
+        return ollama.ModelDict(validate_classification(response, {article.pk for article in articles}, slugs), ollama.model_name())
     if not api_key:
         raise ClassificationError("Ollama no está disponible y falta GEMINI_API_KEY para el respaldo.")
     pace_request("gemini", api_key)

@@ -8,7 +8,7 @@ from news.llm_classification import BATCH_SIZE, CATEGORY_DESCRIPTIONS, MODEL, Cl
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.models import Article, Category
 from news.retention import retention_cutoff
-from news.ollama import enabled as local_first
+from news.ollama import batch_size as inference_batch_size
 
 
 class Command(BaseCommand):
@@ -35,7 +35,7 @@ class Command(BaseCommand):
             return
 
         processed = 0
-        batch_size = 3 if local_first() else BATCH_SIZE
+        batch_size = inference_batch_size(BATCH_SIZE)
         for start in range(0, len(pending), batch_size):
             batch = pending[start:start + batch_size]
             try:
