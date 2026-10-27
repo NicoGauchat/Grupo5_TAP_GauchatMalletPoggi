@@ -290,6 +290,28 @@ El workflow comprueba los secretos sin imprimir sus valores y exige migraciones 
 
 Ante errores parciales de RSS, `ingest_feeds` conserva lo importado y sale con código 2 si al menos una fuente respondió correctamente (incluido HTTP 304); si fallan todas, sale con 1. Actions permite clasificación, presentación, agrupamiento e importancia tras el caso parcial, pero una etapa final conserva el estado fallido y los errores visibles de las fuentes. Un fallo total o interno bloquea ese procesamiento del modo maintenance. El comando sigue intentando los demás feeds después de un error RSS esperado; no se silencian excepciones internas ni se cambian permisos.
 
+## GitHub Actions con Ollama temporal en esta PC
+
+El flujo solicitado conserva GitHub Actions como coordinador y único proceso que accede a la base durante las tandas automáticas: **Actions → puente HTTPS autenticado → Ollama de la PC; si no está disponible o se rechaza la respuesta, API de GitHub**. Las claves Gemini/Groq y la conexión de base siguen en los secretos existentes de Actions. La PC sólo genera inferencias y no necesita esas credenciales. Render no requiere cambios para esta conexión.
+
+Con Ollama iniciado y `qwen3:4b-instruct`/`embeddinggemma:300m-qat-q4_0` descargados:
+
+```powershell
+.\start-ollama-bridge.ps1
+# Al terminar la demostración:
+.\start-ollama-bridge.ps1 -Stop
+```
+
+Requiere la `.venv` existente y `cloudflared`. El script inicia dos procesos ocultos de esta sesión, sin instalar servicios: un puente en loopback:11435 y un Quick Tunnel HTTPS temporal. Guarda token aleatorio y URL en `.env.ollama-tunnel`, y PIDs/fechas de inicio en `.env.ollama-bridge-state.json`; ambos están ignorados. No publica código ni configura GitHub. Al reiniciar cambia la URL y hay que actualizarla. Para activar Actions después de publicar el cambio, configurar **variable `OLLAMA_BRIDGE_URL`** y **secreto `OLLAMA_BRIDGE_TOKEN`** con los valores locales, sin mostrarlos en logs ni guardarlos en el repositorio.
+
+El workflow comprueba `/health`: con la PC disponible activa Ollama primero y limita cada etapa a 3 o 10 noticias según `local_ai_limit` (10 por defecto). Sin la PC conserva las tandas API normales de cien y el límite manual de agrupamiento. Si la PC se desconecta después de esa comprobación, las funciones intentan la API asignada usando las claves que ya tiene GitHub. Con un puente configurado el job admite hasta 60 minutos por la lentitud CPU; los demás conservan 20/30. Si también fallan las API, el lote queda pendiente y se informa el error.
+
+Para una reingesta completa forzada, ejecutar el workflow en modo `maintenance` con `refresh_feeds=true`: consulta todos los feeds activos con `ingest_feeds --refresh`, aunque tengan validadores HTTP, y fuerza un briefing nuevo tras una ingesta exitosa o parcial. No cambia permisos ni reactiva fuentes pausadas. Las etapas IA mantienen sus límites de tanda; reingesta completa no significa cola IA vacía. Un RSS fallido sigue visible como error al finalizar, sin bloquear el procesamiento de las fuentes que funcionaron.
+
+El puente requiere token en **todas** las rutas. Sólo acepta inferencia de los dos modelos revisados, con tamaño/contexto/salida acotados y hasta dos trabajos pendientes, ejecutados de a uno. No permite descargar modelos, navegar archivos, ejecutar comandos ni acceder a Supabase. Las inferencias se consultan mediante trabajos cortos de envío/consulta para que una respuesta lenta no dependa de mantener abierta una conexión del túnel. Las respuestas caducan a los diez minutos, se purgan de RAM periódicamente y se conservan como máximo treinta respuestas anteriores. El Ollama original sigue escuchando sólo en loopback:11434. Cloudflare transporta las solicitudes y no es el proveedor de inferencia; Quick Tunnels son para pruebas/desarrollo, cambian de URL, pueden demorar en resolver su hostname nuevo y no tienen garantía de disponibilidad. No es una solución de disponibilidad permanente.
+
+El modo Ollama usa lotes de tres, selección semántica de hasta cuatro candidatos por noticia y auditoría de uniones; puede omitir una coincidencia correcta y no garantiza ausencia de duplicados. Las razones/síntesis pasan otra auditoría local que también puede errar. El briefing reduce su muestra a once candidatos en total, repartidos entre categorías, en vez del máximo normal de 250. Se conserva el modelo efectivo, el último briefing válido y todo avance que supere validaciones. El esquema solicitado no ejecuta un trabajador de base de datos en la PC ni requiere un runner local.
+
 ## Despliegue web en Render
 
 `render.yaml` describe un servicio web gratuito, vinculado a la rama `main`, con Django, Gunicorn y WhiteNoise. Render genera `DJANGO_SECRET_KEY`; el resto de las credenciales de Supabase se solicitan al crear el Blueprint. Los cambios desplegados sirven archivos estáticos mediante WhiteNoise. Las migraciones se ejecutan durante el build, y las noticias continúan en PostgreSQL aunque el servicio se reinicie. `config.settings` es el perfil de producción: no lee `.env.local`, usa PostgreSQL por el puerto 5432 con SSL obligatorio y agrega automáticamente el hostname público de Render a `ALLOWED_HOSTS` y a los orígenes CSRF. Para un dominio propio, agregarlo en `DJANGO_ALLOWED_HOSTS` y su origen HTTPS en `DJANGO_CSRF_TRUSTED_ORIGINS`; `config.local_settings` y `dev.ps1` quedan reservados al desarrollo.

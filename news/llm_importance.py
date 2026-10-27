@@ -10,6 +10,7 @@ from .llm_classification import MODEL
 from .llm_keys import api_key_for
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import pace_request
+from . import ollama
 
 
 class ImportanceError(Exception):
@@ -18,7 +19,7 @@ class ImportanceError(Exception):
 
 def score_stories(stories):
     api_key = api_key_for("importance")
-    if not api_key:
+    if not api_key and not ollama.enabled():
         raise ImportanceError("Falta configurar GEMINI_API_KEY_SECONDARY o GEMINI_API_KEY.")
     items = [{"story_id": pk, "headlines": [{
         "title": article.title, "source": article.feed.source.name,
@@ -56,6 +57,18 @@ def score_stories(stories):
             "reason": {"type": "string", "description": "Dos frases de 220–270 caracteres; máximo absoluto 300. Sin relleno si falta evidencia."},
         }},
     }}}
+    if ollama.enabled():
+        try:
+            local = ollama.request_json(prompt, schema, "importance")
+            scores = validate_scores(local, set(stories))
+            sources = {str(item["story_id"]): item for item in items}
+            ollama.audit_texts({str(pk): {"source": sources[str(pk)], "text": score["reason"]}
+                               for pk, score in scores.items()}, "importance")
+            return ollama.ModelDict(scores, ollama.model_name())
+        except (ollama.LocalModelError, ImportanceError) as error:
+            ollama.fallback_notice("importance", error)
+    if not api_key:
+        raise ImportanceError("Ollama no está disponible y falta una clave Gemini para el respaldo.")
     pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(

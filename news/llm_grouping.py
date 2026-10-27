@@ -11,6 +11,7 @@ from google.genai import errors, types
 from .llm_classification import MODEL
 from .ingestion import permitted_summary
 from .llm_keys import api_key_for
+from . import ollama
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, decode_json, request_backup, pace_request
 
@@ -40,9 +41,16 @@ def metadata(article):
     return item
 
 
-def group_articles(articles, candidates, *, provider="gemini"):
+def group_articles(articles, candidates, *, provider="gemini", allow_local=True):
+    if provider == "gemini" and allow_local and ollama.enabled():
+        try:
+            return group_articles(articles, candidates, provider="ollama")
+        except GroupingError as error:
+            if error.reduce_candidates and len(candidates) > 1:
+                raise
+            ollama.fallback_notice("grouping", error)
     api_key = api_key_for("grouping")
-    if not api_key:
+    if not api_key and provider != "ollama":
         raise GroupingError("Falta configurar GEMINI_API_KEY.")
 
     prompt = (
@@ -79,7 +87,8 @@ def group_articles(articles, candidates, *, provider="gemini"):
     if provider != "gemini":
         result = request_groups(prompt, schema, api_key, provider=provider)
         groups = validate_groups(result, {article.pk for article in articles}, {article.story_id for article in candidates})
-        return ModelList(confirm_groups(articles, candidates, groups, api_key, provider=provider), backup_model(provider))
+        return ModelList(confirm_groups(articles, candidates, groups, api_key, provider=provider),
+                         ollama.model_name() if provider == "ollama" else backup_model(provider))
     for attempt in range(1, 4):
         try:
             result = request_groups(prompt, schema, api_key)
@@ -108,6 +117,16 @@ def group_articles(articles, candidates, *, provider="gemini"):
 
 
 def request_groups(prompt, schema, api_key, *, provider="gemini"):
+    if provider == "ollama":
+        try:
+            local_schema = json.loads(json.dumps(schema))
+            decision = local_schema.get("$defs", {}).get("decision", {})
+            if decision:
+                decision["properties"]["reason"].update(minLength=1, maxLength=240)
+            return decode_assignments(ollama.request_json(prompt, local_schema, "grouping"), schema)
+        except ollama.LocalModelError as error:
+            raise GroupingError(str(error), retryable=False,
+                                reduce_candidates=error.code == "request_too_large") from error
     if provider != "gemini":
         try:
             return decode_assignments(request_backup(prompt, schema, "grouping", provider), schema)
@@ -234,9 +253,17 @@ def validate_confirmations(result, expected_ids):
         if not isinstance(row, dict):
             raise GroupingError("La comprobación de identidad contiene una decisión inválida.")
         pk, same, reason = row.get("article_id"), row.get("same_event"), row.get("reason")
-        if (type(pk) is not int or pk not in expected_ids or pk in seen or type(same) is not bool
-            or not isinstance(reason, str) or not reason.strip() or len(reason) > 500):
-            raise GroupingError("La comprobación de identidad contiene referencias o decisiones inválidas.")
+        invalid = ""
+        if type(pk) is not int or pk not in expected_ids or pk in seen:
+            invalid = "article_id"
+        elif type(same) is not bool:
+            invalid = "same_event"
+        elif not isinstance(reason, str) or not reason.strip():
+            invalid = "reason"
+        elif len(reason) > 500:
+            invalid = "reason_length"
+        if invalid:
+            raise GroupingError(f"La comprobación de identidad contiene referencias o decisiones inválidas. reason={invalid}")
         seen.add(pk)
         if same:
             accepted.add(pk)

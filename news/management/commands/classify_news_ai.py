@@ -8,6 +8,7 @@ from news.llm_classification import BATCH_SIZE, CATEGORY_DESCRIPTIONS, MODEL, Cl
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.models import Article, Category
 from news.retention import retention_cutoff
+from news.ollama import enabled as local_first
 
 
 class Command(BaseCommand):
@@ -34,8 +35,9 @@ class Command(BaseCommand):
             return
 
         processed = 0
-        for start in range(0, len(pending), BATCH_SIZE):
-            batch = pending[start:start + BATCH_SIZE]
+        batch_size = 3 if local_first() else BATCH_SIZE
+        for start in range(0, len(pending), batch_size):
+            batch = pending[start:start + batch_size]
             try:
                 predictions = classify_batch(batch, categories)
             except ClassificationError as error:
@@ -47,7 +49,7 @@ class Command(BaseCommand):
                 for article in batch:
                     article.llm_categories.set([categories[slug] for slug in predictions[article.pk]])
                     article.llm_classified_at = classified_at
-                    article.llm_model = MODEL
+                    article.llm_model = getattr(predictions, "model", MODEL)
                     article.save(update_fields=["llm_classified_at", "llm_model"])
             processed += len(batch)
-        self.stdout.write(f"Se clasificaron {processed} noticias por IA con {MODEL}.")
+        self.stdout.write(f"Se clasificaron {processed} noticias por IA con {getattr(predictions, 'model', MODEL)} (último lote).")

@@ -20,6 +20,15 @@ on:
         type: choice
         options: ['10', '100', '500']
         default: '100'
+      refresh_feeds:
+        description: Forzar descarga RSS y regenerar briefing en el flujo completo
+        type: boolean
+        default: false
+      local_ai_limit:
+        description: Noticias por etapa cuando responde la PC con Ollama
+        type: choice
+        options: ['3', '10']
+        default: '10'
       gemini_model:
         description: Modelo Gemini para esta ejecución (repository-default usa la configuración del repositorio)
         type: choice
@@ -69,7 +78,7 @@ jobs:
   maintain:
     if: vars.NEWS_INGESTION_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ (inputs.mode == 'maintenance' || (github.event_name == 'schedule' && github.event.schedule == '0 0,6,8,10,12,14,16,18,20,22 * * *')) && 30 || 20 }}
+    timeout-minutes: ${{ vars.OLLAMA_BRIDGE_URL != '' && 60 || (inputs.mode == 'maintenance' || (github.event_name == 'schedule' && github.event.schedule == '0 0,6,8,10,12,14,16,18,20,22 * * *')) && 30 || 20 }}
     env:
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DJANGO_ALLOWED_HOSTS: localhost
@@ -82,6 +91,12 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_API_KEY_SECONDARY: ${{ secrets.GEMINI_API_KEY_SECONDARY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OLLAMA_BRIDGE_URL: ${{ vars.OLLAMA_BRIDGE_URL }}
+      OLLAMA_BRIDGE_TOKEN: ${{ secrets.OLLAMA_BRIDGE_TOKEN }}
+      OLLAMA_MODEL: qwen3:4b-instruct
+      AI_LOCAL_FIRST: 'false'
+      AI_PROCESS_LIMIT: '100'
+      FORCE_RSS_REFRESH: ${{ inputs.refresh_feeds && 'true' || 'false' }}
       GEMINI_MODEL: ${{ inputs.gemini_model != 'repository-default' && inputs.gemini_model || vars.GEMINI_MODEL || 'gemini-3.5-flash-lite' }}
       MAINTENANCE_MODE: ${{ inputs.mode || (github.event_name == 'schedule' && github.event.schedule != '0 0,6,8,10,12,14,16,18,20,22 * * *' && 'process-ai') || 'maintenance' }}
     steps:
@@ -121,6 +136,24 @@ jobs:
           fi
       - name: Instalar dependencias
         run: python -m pip install -r requirements.txt
+      - name: Comprobar Ollama en la PC
+        id: local_pc
+        env:
+          PC_LIMIT: ${{ inputs.local_ai_limit || '10' }}
+        run: |
+          python - <<'PY'
+          import os
+          from news.ollama import remote_available
+          ready = os.environ['MAINTENANCE_MODE'] != 'check-grouping' and remote_available()
+          limit = os.environ['PC_LIMIT'] if ready else '100'
+          if limit not in {'3', '10', '100'}:
+              raise SystemExit('Límite IA inválido.')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'AI_LOCAL_FIRST={str(ready).lower()}\nAI_PROCESS_LIMIT={limit}\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'available={str(ready).lower()}\nlimit={limit}\n')
+          print('IA: Ollama de la PC primero; API de GitHub como respaldo.' if ready else 'IA: PC no disponible; se usan las API de GitHub.')
+          PY
       - name: Comprobar migraciones
         id: check_migrations
         run: python manage.py migrate --check
@@ -169,7 +202,11 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          python manage.py ingest_feeds
+          if [ "$FORCE_RSS_REFRESH" = 'true' ]; then
+            python manage.py ingest_feeds --refresh
+          else
+            python manage.py ingest_feeds
+          fi
           result=$?
           set -e
           if [ "$result" -eq 2 ]; then
@@ -179,7 +216,7 @@ jobs:
           exit "$result"
       - name: Clasificar noticias con IA
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' }}
-        run: python manage.py classify_news_ai
+        run: python manage.py classify_news_ai --limit "$AI_PROCESS_LIMIT"
       - name: Actualizar entradillas RSS revisadas
         id: briefing_descriptions
         if: env.MAINTENANCE_MODE == 'generate-briefing' && inputs.enable_reviewed_descriptions
@@ -189,7 +226,7 @@ jobs:
       - name: Generar presentación de las últimas 24 horas
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: |
-          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ]; then
+          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] || [ "$FORCE_RSS_REFRESH" = 'true' ]; then
             python manage.py generate_news_briefing --force
           else
             python manage.py generate_news_briefing
@@ -205,11 +242,11 @@ jobs:
         id: grouping
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
         env:
-          GROUPING_LIMIT: ${{ env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
+          GROUPING_LIMIT: ${{ steps.local_pc.outputs.available == 'true' && steps.local_pc.outputs.limit || env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
         run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
       - name: Evaluar importancia general
         if: ${{ always() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
-        run: python manage.py score_news_ai
+        run: python manage.py score_news_ai --limit "$AI_PROCESS_LIMIT"
       - name: Informar errores de fuentes RSS
         if: ${{ always() && steps.ingest.outcome == 'failure' }}
         run: |

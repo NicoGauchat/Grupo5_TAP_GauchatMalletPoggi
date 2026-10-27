@@ -11,6 +11,7 @@ from google.genai import errors, types
 from .llm_classification import MODEL
 from .ingestion import NASA_DESCRIPTION_FEED, permitted_summary
 from .llm_keys import api_key_for
+from . import ollama
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, decode_json, request_backup, pace_request
 
@@ -31,7 +32,7 @@ def summarize_articles(articles, *, previous_selection=None):
     if not articles:
         return []
     api_key = api_key_for("briefing")
-    if not api_key:
+    if not api_key and not ollama.enabled():
         raise BriefingError("Falta configurar la clave de Gemini.", "missing_key")
 
     categories = {}
@@ -136,6 +137,17 @@ def summarize_articles(articles, *, previous_selection=None):
         validated.description_count = sum(item["article_ids"][0] in description_ids for item in validated)
         return validated
 
+    if ollama.enabled():
+        try:
+            local = validated_result(ollama.request_json(prompt, schema, "briefing"), ollama.model_name())
+            sources = {item["article_id"]: item for item in items}
+            ollama.audit_texts({item["category_slug"]: {"source": sources[item["article_ids"][0]], "text": item["text"]}
+                               for item in local}, "briefing")
+            return local
+        except (ollama.LocalModelError, BriefingError) as error:
+            ollama.fallback_notice("briefing", error)
+    if not api_key:
+        raise BriefingError("Ollama no está disponible y falta una clave Gemini para el respaldo.", "missing_key")
     try:
         result = _gemini_summary(prompt, schema, api_key)
         return validated_result(result, MODEL)

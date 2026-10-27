@@ -12,6 +12,7 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
 from news.retention import RETENTION_DAYS
+from news.ollama import enabled as local_first
 
 
 MAX_ARTICLES = 250
@@ -59,7 +60,8 @@ class Command(BaseCommand):
             for category in categories if category.pk in previous_items
         }
         selected_ids = set(previous_selection.values())
-        per_category = max(1, MAX_ARTICLES // max(1, len(categories)))
+        max_articles = 11 if local_first() else MAX_ARTICLES
+        per_category = max(1, max_articles // max(1, len(categories)))
         for category in categories:
             previous_id = previous_selection.get(category.slug)
             selected_ids.update(eligible.filter(

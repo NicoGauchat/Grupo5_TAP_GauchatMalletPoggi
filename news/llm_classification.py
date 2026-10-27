@@ -8,6 +8,7 @@ from google.genai import types
 from .llm_keys import api_key_for, configured_model
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import pace_request
+from . import ollama
 
 
 MODEL = configured_model()
@@ -34,7 +35,7 @@ class ClassificationError(Exception):
 def classify_batch(articles, available_slugs):
     """Devuelve categorías por ID; valida el lote completo antes de persistirlo."""
     api_key = api_key_for("classification")
-    if not api_key:
+    if not api_key and not ollama.enabled():
         raise ClassificationError("Falta GEMINI_API_KEY")
     slugs = sorted(set(available_slugs) & CATEGORY_DESCRIPTIONS.keys())
     if not slugs:
@@ -75,6 +76,14 @@ def classify_batch(articles, available_slugs):
         },
         "required": ["articles"],
     }
+    if ollama.enabled():
+        try:
+            local = ollama.request_json(prompt, schema, "classification")
+            return ollama.ModelDict(validate_classification(local, {article.pk for article in articles}, slugs), ollama.model_name())
+        except (ollama.LocalModelError, ClassificationError) as error:
+            ollama.fallback_notice("classification", error)
+    if not api_key:
+        raise ClassificationError("Ollama no está disponible y falta GEMINI_API_KEY para el respaldo.")
     pace_request("gemini", api_key)
     try:
         client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
@@ -98,7 +107,10 @@ def classify_batch(articles, available_slugs):
         if "client" in locals():
             client.close()
 
-    expected_ids = {article.pk for article in articles}
+    return validate_classification(result, {article.pk for article in articles}, slugs)
+
+
+def validate_classification(result, expected_ids, slugs):
     predictions = {}
     rows = result.get("articles") if isinstance(result, dict) else None
     if not isinstance(rows, list) or len(rows) != len(expected_ids):

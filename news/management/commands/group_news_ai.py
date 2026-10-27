@@ -10,6 +10,8 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_grouping import GroupingError, group_articles, metadata
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
+from news.ollama import enabled as local_first
+from news import ollama
 
 
 BATCH_SIZE = 10
@@ -35,14 +37,23 @@ class Command(BaseCommand):
         ).order_by("review_priority", "-published_at", "-pk")[:limit])
         processed = 0
         candidate_limit = MAX_CANDIDATES
-        for start in range(0, len(pending), BATCH_SIZE):
-            batch = pending[start:start + BATCH_SIZE]
+        batch_size = 3 if local_first() else BATCH_SIZE
+        for start in range(0, len(pending), batch_size):
+            batch = pending[start:start + batch_size]
             representatives = {}
             for article in eligible.filter(story__grouping_version=GROUPING_VERSION).order_by("pk").iterator():
                 representatives.setdefault(article.story_id, article)
             try:
                 candidates = list(representatives.values())
-                groups, candidate_limit = self.propose_batch(batch, candidates, candidate_limit)
+                allow_local = True
+                if local_first():
+                    try:
+                        candidates = ollama.shortlist_candidates(batch, candidates)
+                        representatives = {article.story_id: article for article in candidates}
+                    except ollama.LocalModelError as error:
+                        self.stderr.write(self.style.WARNING(f"No se pudo recuperar candidatos locales; se intenta la API. {error}"))
+                        allow_local = False
+                groups, candidate_limit = self.propose_batch(batch, candidates, candidate_limit, allow_local=allow_local)
             except GroupingError as error:
                 raise CommandError(f"Se agruparon {processed} noticias. {error}") from error
             with transaction.atomic():
@@ -70,12 +81,13 @@ class Command(BaseCommand):
         legacy = eligible.filter(needs_review, story__isnull=False).count()
         self.stdout.write(f"Se agruparon {processed} noticias; quedan {remaining} pendientes ({legacy} de grupos anteriores).")
 
-    def propose_batch(self, batch, candidates, candidate_limit):
+    def propose_batch(self, batch, candidates, candidate_limit, *, allow_local=True):
         while True:
             try:
                 remaining, groups, new_groups = batch, [], []
                 for offset in range(0, max(1, len(candidates)), candidate_limit):
-                    result = group_articles(remaining, candidates[offset:offset + candidate_limit])
+                    kwargs = {} if allow_local else {"allow_local": False}
+                    result = group_articles(remaining, candidates[offset:offset + candidate_limit], **kwargs)
                     result = [dict(row, _model=getattr(result, "model", MODEL)) for row in result]
                     groups.extend(row for row in result if row["story_id"])
                     new_groups = [row for row in result if not row["story_id"]]

@@ -10,6 +10,7 @@ from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_importance import ImportanceError, score_stories
 from news.models import GROUPING_VERSION, Article, Story
 from news.retention import retention_cutoff
+from news.ollama import enabled as local_first
 
 
 class Command(BaseCommand):
@@ -33,8 +34,9 @@ class Command(BaseCommand):
             stories = stories.filter(Q(importance_scored_at__isnull=True) | Q(importance_scored_at__lt=F("latest_coverage")))
         ids = list(stories.order_by("-latest_coverage", "-pk").values_list("pk", flat=True)[:options["limit"]])
         processed = 0
-        for start in range(0, len(ids), 10):
-            batch = {pk: [] for pk in ids[start:start + 10]}
+        batch_size = 3 if local_first() else 10
+        for start in range(0, len(ids), batch_size):
+            batch = {pk: [] for pk in ids[start:start + batch_size]}
             sources = {pk: set() for pk in batch}
             for article in Article.objects.filter(
                 story_id__in=batch, feed__is_active=True, feed__allow_ai_grouping=True,
@@ -58,7 +60,7 @@ class Command(BaseCommand):
                         continue
                     result = scores[story.pk]
                     story.importance_score, story.importance_reason = result["score"], result["reason"]
-                    story.importance_scored_at, story.importance_model = assessed_at, MODEL
+                    story.importance_scored_at, story.importance_model = assessed_at, getattr(scores, "model", MODEL)
                     story.save(update_fields=["importance_score", "importance_reason", "importance_scored_at", "importance_model"])
                     processed += 1
         self.stdout.write(f"Se evaluaron {processed} acontecimientos por importancia general.")
