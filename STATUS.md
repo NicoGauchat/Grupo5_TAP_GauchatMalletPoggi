@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+La activación quedó publicada en **01cf8d0** y comprobada en **40426423602**, finalizada correctamente: **26 noticias existentes revisadas y seis entradillas autorizadas disponibles dentro de 24 horas**. Gemini 3.5 generó **diez síntesis sobre 82 titulares** y conservó las **diez referencias anteriores**. El log informó **cero síntesis con entradilla** porque las referencias elegidas pertenecen a otros feeds: se confirma disponibilidad real de las bajadas para selección futura, no que esta edición haya recibido contenido adicional. No se forzó un cambio de noticia para inflar esa métrica ni se habilitaron otras fuentes. Los dos controles de elDiario.es quedan activos en la base compartida y la ingesta normal mantendrá sus entradillas. No requiere despliegue de Render para ese procesamiento; el responsable debe desplegar los cambios visuales del botón de contracción.
+
+La suite completa aprobó **153 pruebas SQLite: 138 aprobadas y 15 omitidas** por requerir PostgreSQL; tras agregar el contador de descripciones utilizadas se repitieron las 33 pruebas de resumen/entradillas, todas aprobadas. Django check, ausencia de migraciones, actionlint con exclusión exacta de `queue`, comprobador de horarios/modos y diff aprobados. README, PROJECT y SOURCES registran operación, atribución, excepción de primer párrafo y límites; `.env.example` no cambia. No se copiaron secretos ni material real de artículos al repositorio.
+
 La generación real **40425330385** aprobó el nuevo formato con Gemini 3.5: **diez síntesis sobre 81 titulares y diez referencias conservadas de diez anteriores vigentes**, sin cambiar de noticia por recencia. Por el pedido posterior «hacelo», se preparó la activación efectiva de entradillas del RSS existente de elDiario.es: licencia CC BY-NC revisada, autoría/enlace/licencia preservados, primer párrafo textual de hasta 600 caracteres y descarte de señales conocidas de terceros. La consulta local en memoria obtuvo 14 entradillas permitidas, seis dentro de 24 horas, sin guardar noticias reales en el repositorio. No se habilitan otros feeds por analogía.
 
 Se agregó un refresco explícito mediante `refresh_briefing_descriptions --enable-reviewed`, también seleccionable en Actions con `enable_reviewed_descriptions: true` exclusivamente en generate-briefing. No reactiva pausados ni cambia fotos/categorías/otras fuentes. La reingesta actualiza o limpia la descripción en noticias existentes sólo desde su feed original. El control manual está apagado por defecto y un fallo de refresco bloquea la síntesis. Verificación: **153 pruebas SQLite: 138 aprobadas y 15 omitidas** por requerir PostgreSQL; el refresco, atribución, exclusión de terceros, límite de primer párrafo, preservación del feed original, revocación y falta de reactivación de pausados están cubiertos. Actionlint con la exclusión documentada de `queue`, comprobador de los cinco modos/horarios y bloqueo de síntesis ante fallo de refresco, y diff aprobados. Se prepara la publicación y prueba remota de activación, sin migración ni necesidad de acceso a Render para procesar datos. README, PROJECT y SOURCES actualizados; `.env.example` no cambia.
@@ -232,7 +236,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Ejecutar la activación revisada de entradillas en Actions y comprobar la generación posterior sin ampliar permisos de otros feeds.
+Desplegar `main` en Render mediante el responsable para mostrar el control «Ver menos / Ver resumen».
 
 ## Completado
 
