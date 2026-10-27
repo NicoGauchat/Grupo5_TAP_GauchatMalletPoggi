@@ -1,5 +1,7 @@
 # Definición del proyecto
 
+Actualización operativa del 27/10/2026: un RSS defectuoso no debe bloquear la IA de los feeds importados correctamente. `ingest_feeds` distingue éxito (0), fallo parcial tras intentar todos los feeds (2, con al menos una consulta correcta, incluido 304) y fallo total (1); una excepción inesperada no se convierte en parcial. Actions conserva el resultado original mediante `steps.ingest.outcome` y sólo expone `partial=true` ante código 2. Con ingesta parcial y limpieza/migraciones correctas, las etapas IA pueden continuar; un paso final marca el job fallido para mantener visibles las fuentes con problemas. No se cambia el contrato de las noticias, la retención ni permisos/URLs de medios. Se reutilizan el comando y el workflow existentes, sin dependencias ni servicios nuevos. Referencias oficiales: [resultado original de los pasos](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#steps-context) y [continue-on-error](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepscontinue-on-error).
+
 ## Objetivo
 
 Construir una aplicación web universitaria que reúna noticias recientes de fuentes seleccionadas y diversas, las normalice y permita consultarlas por categorías, fuente e idioma. La aplicación atribuye cada contenido y dirige al usuario al artículo original.

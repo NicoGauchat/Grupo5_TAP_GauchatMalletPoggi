@@ -166,9 +166,19 @@ jobs:
       - name: Ingerir feeds
         id: ingest
         if: env.MAINTENANCE_MODE == 'maintenance'
-        run: python manage.py ingest_feeds
+        continue-on-error: true
+        run: |
+          set +e
+          python manage.py ingest_feeds
+          result=$?
+          set -e
+          if [ "$result" -eq 2 ]; then
+            echo 'partial=true' >> "$GITHUB_OUTPUT"
+            echo '::warning::Ingesta parcial: se procesarán las fuentes correctas; revisar los errores RSS.'
+          fi
+          exit "$result"
       - name: Clasificar noticias con IA
-        if: (env.MAINTENANCE_MODE == 'maintenance' || env.MAINTENANCE_MODE == 'process-ai') && env.GEMINI_API_KEY != ''
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' }}
         run: python manage.py classify_news_ai
       - name: Actualizar entradillas RSS revisadas
         id: briefing_descriptions
@@ -177,7 +187,7 @@ jobs:
           DESCRIPTION_SOURCE: ${{ inputs.reviewed_description_source || 'eldiario' }}
         run: python manage.py refresh_briefing_descriptions --enable-reviewed --source "$DESCRIPTION_SOURCE"
       - name: Generar presentación de las últimas 24 horas
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: |
           if [ "$MAINTENANCE_MODE" = 'generate-briefing' ]; then
             python manage.py generate_news_briefing --force
@@ -193,10 +203,15 @@ jobs:
         run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER" --candidates "$CHECK_CANDIDATES"
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && env.GEMINI_API_KEY != '' && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
         env:
           GROUPING_LIMIT: ${{ env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
         run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
       - name: Evaluar importancia general
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && steps.ingest.outcome == 'success')) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        if: ${{ always() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: python manage.py score_news_ai
+      - name: Informar errores de fuentes RSS
+        if: ${{ always() && steps.ingest.outcome == 'failure' }}
+        run: |
+          echo '::error::Falló al menos una fuente RSS. Las importaciones correctas se conservaron; revisar el paso Ingerir feeds.'
+          exit 1

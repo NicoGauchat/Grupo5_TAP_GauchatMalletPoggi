@@ -1,5 +1,7 @@
 # Fuentes de noticias
 
+Disponibilidad comprobada el 27/10/2026 tras la ejecución `40525255524`: **Perfil Salud (`https://www.perfil.com/feed/salud`) devuelve HTTP 404**; **La Capital (`https://www.lacapital.com.ar/rss/home.xml`) responde 200 y declara RSS 2.0, pero su XML contiene contenido después del cierre del documento** (`junk after document element`), por lo que el validador actual lo rechaza. La comprobación local repitió ambos resultados, sin guardar XML o noticias reales en el repositorio. Se mantienen sus URLs y permisos; no se inventa un reemplazo ni se relaja el parser frente a XML defectuoso. Las otras 27 fuentes de aquella ejecución se consultaron correctamente y sumaron 98 noticias nuevas. El flujo permite procesar la importación parcial conservando los errores visibles.
+
 ## Criterios y leyenda
 
 Este registro separa disponibilidad técnica de permiso de reutilización. Un feed accesible no autoriza a copiar el artículo completo ni necesariamente sus imágenes.
