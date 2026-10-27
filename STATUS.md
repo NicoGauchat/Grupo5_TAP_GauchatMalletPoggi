@@ -5,6 +5,10 @@
 
 ## Último paso completado
 
+**Publicado y reingesta forzada lanzada (27/10/2026):** integración enviada a `main` en **af0741d**, con `refresh_feeds=true` y límite local diez por etapa. Se configuraron el secreto independiente `OLLAMA_BRIDGE_TOKEN` y la variable `OLLAMA_BRIDGE_URL` desde el archivo local ignorado, sin mostrar valores ni modificar claves IA existentes. La primera ejecución **40558906603** confirmó en su log **«Ollama de la PC primero; API de GitHub como respaldo»**, acreditando acceso real desde el runner al puente. Se detuvo antes de RSS en comprobación de migraciones por **autenticación PostgreSQL**, no por cuota o migraciones faltantes.
+
+Se volvió a verificar la conexión local en sólo lectura y se sincronizó únicamente el secreto existente `POSTGRES_PASSWORD` de GitHub con esa contraseña válida. No se cambió la contraseña en Supabase, se mostraron credenciales ni se alteraron las otras claves. Con la primera ejecución finalizada y sin haber reingerido RSS, se lanzó una sola recuperación completa forzada, **40559349834**. Aún se debe verificar su ingesta/IA y no se afirma cola vacía ni resultado final. README/PROJECT documentan la opción manual; no hay cambios de fuentes, permisos o variables locales adicionales por este lanzamiento. Se corrige además una línea vacía final del archivo de pruebas para que el diff staged pase limpio.
+
 **Publicación y reingesta forzada autorizadas (27/10/2026):** tras las pruebas, el usuario pidió publicar/configurar la integración y tratar de ejecutar una ingesta completa forzada, dejando sin efecto para esta unidad la restricción anterior de no push. Puente HTTPS confirmado disponible y ningún workflow de ingesta activo al comprobar. Se añade `refresh_feeds` al disparo manual: `maintenance` usa `ingest_feeds --refresh` y briefing forzado, conservando los límites IA y el reporte de errores RSS parciales. README y PROJECT documentan el comando; SOURCES conserva permisos/URLs sin cambios por esta opción. El soporte Ollama ya pasó 226 pruebas (211 aprobadas/15 omitidas PostgreSQL); el nuevo ajuste sólo cambia selección de comandos de workflow. Se verificará el lanzamiento y su resultado sin presentar una tanda como vaciado total de pendientes.
 
 **Cierre de pruebas del puente, sin publicar (27/10/2026):** suite final **226 pruebas, 211 aprobadas y 15 omitidas por PostgreSQL**, incluyendo transporte autenticado, expiración, cliente asíncrono y compatibilidad Gemini/Groq. Django check, actionlint con la excepción preexistente `concurrency.queue`, sintaxis PowerShell y `git diff --check` aprobados. El último reinicio está **accesible por HTTPS y autenticado**, confirmado con `/health`; el token no se mostró. El puente temporal queda activo para la próxima comprobación autorizada, con Ollama en loopback y sin trabajos de base locales ejecutándose. Se respetó la instrucción: **sin commit, sin push, sin cambios de variables/secretos de GitHub y sin despliegue**. Pendiente exclusivamente la publicación/configuración autorizada y la prueba completa desde Actions; el fallback de API se probó con un SDK simulado, no con las claves reales de GitHub. Las comprobaciones explícitas `check-grouping` conservan el proveedor API elegido en sus diagnósticos.
@@ -371,7 +375,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Con autorización del usuario, publicar la versión probada y configurar URL/token del puente para verificar un workflow real desde GitHub Actions.
+Verificar el resultado de 40559349834 y registrar los conteos de ingesta forzada, proveedor efectivo y etapas IA completadas.
 
 ## Completado
 

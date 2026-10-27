@@ -173,4 +173,3 @@ class LocalPersistenceTests(TestCase):
         call_command("score_news_ai", limit=1, stdout=StringIO())
         article.story.refresh_from_db()
         self.assertEqual(article.story.importance_model, "ollama:qwen3:4b-instruct")
-
