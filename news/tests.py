@@ -436,12 +436,13 @@ class ArticleSearchTests(TestCase):
         Article.objects.filter(pk=tied.pk).update(published_at=newer.published_at)
         self.assertEqual([item.pk for item in self.results("robots mercado")[1]], [tied.pk, newer.pk, strong.pk, weak.pk])
 
-    def test_blank_search_preserves_chronological_feed(self):
+    def test_blank_search_preserves_default_sort_and_date_tiebreak(self):
         older = self.article("Robots y mercados", age=2)
         newer = self.article("Otra noticia")
         response, results = self.results("   ")
         self.assertEqual([item.pk for item in results], [newer.pk, older.pk])
-        self.assertContains(response, "La más reciente")
+        self.assertEqual(response.context["filter_form"].cleaned_data["sort"], "important")
+        self.assertContains(response, "Pendiente de evaluación")
         self.assertNotContains(response, "Más relevante")
 
     def test_search_keeps_source_language_preferences_and_retention(self):

@@ -1,0 +1,14 @@
+{% extends 'news/base.html' %}
+{% block title %}Completar cuenta · LibreNews{% endblock %}
+{% block content %}
+<section class="form-panel">
+    <h1>Completar cuenta</h1>
+    <p>Revisá tus datos para terminar el registro con Google. Si ya tenés cuenta, podés volver e ingresar con tu usuario y contraseña.</p>
+    <form class="account-form" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="button" type="submit">Crear cuenta</button>
+    </form>
+    <p><a href="{% url 'login' %}">Volver al ingreso</a></p>
+</section>
+{% endblock %}

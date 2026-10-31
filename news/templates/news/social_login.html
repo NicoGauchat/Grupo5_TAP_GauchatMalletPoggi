@@ -1,0 +1,9 @@
+{% load socialaccount %}
+{% if google_oauth_enabled %}
+<form class="google-signin" method="post" action="{% provider_login_url 'google' process='login' %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% include 'news/google_button.html' %}
+</form>
+<div class="auth-divider"><span>o con usuario y contraseña</span></div>
+{% endif %}

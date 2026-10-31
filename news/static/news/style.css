@@ -112,6 +112,17 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--er
 .errorlist { padding-left: 1.25rem; color: var(--error); font-size: 1rem; }
 .account-form .button { width: 100%; margin-top: .75rem; }
 
+.google-signin { margin-top: 1.75rem; }
+.google-button { display: grid; grid-template-columns: 20px 1fr 20px; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 12px; border: 1px solid #747775; border-radius: 999px; background: #fff; color: #1f1f1f; font: 500 14px/20px Arial, sans-serif; letter-spacing: .2px; cursor: pointer; transition: background-color 150ms ease, box-shadow 150ms ease, border-color 150ms ease; }
+.google-button img { display: block; width: 20px; height: 20px; }
+.google-button:hover { background: #f8faff; border-color: #50555d; box-shadow: 0 2px 6px rgb(31 31 31 / 10%); }
+.google-button:active { background: #edf2fa; box-shadow: none; }
+.google-button:focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+.auth-divider { display: flex; align-items: center; gap: .875rem; margin-block: 1.5rem; color: var(--muted); font-size: .875rem; text-align: center; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-divider + .account-form { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .google-button { transition: none; } }
+
 .preferences-panel { margin-block: 3rem; }
 .preferences-intro { padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
 .preferences-intro h1 { font-size: 3rem; }

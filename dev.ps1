@@ -1,4 +1,4 @@
-param([switch]$RefreshFeeds, [switch]$RefreshBriefing)
+param([switch]$RefreshFeeds, [switch]$RefreshBriefing, [switch]$Native)
 
 $ErrorActionPreference = 'Stop'
 $environmentBefore = @{}
@@ -8,6 +8,27 @@ foreach ($name in @('POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGR
 }
 Push-Location $PSScriptRoot
 try {
+    if (-not $Native) {
+        if ($RefreshFeeds -or $RefreshBriefing) { throw 'Usá -Native con estas opciones, o ejecutá los comandos de ingesta dentro de Compose según README.' }
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Instalá Docker Desktop e iniciá su motor.' }
+        if (-not (Test-Path '.env.local')) {
+            $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+            try {
+                $secretBytes = New-Object byte[] 48
+                $passwordBytes = New-Object byte[] 32
+                $rng.GetBytes($secretBytes)
+                $rng.GetBytes($passwordBytes)
+                $localConfig = (Get-Content '.env.example' -Raw) -replace '(?m)^DJANGO_SECRET_KEY=.*$', ('DJANGO_SECRET_KEY=' + [Convert]::ToBase64String($secretBytes))
+                $localConfig = $localConfig -replace '(?m)^POSTGRES_PASSWORD=.*$', ('POSTGRES_PASSWORD=' + [Convert]::ToBase64String($passwordBytes))
+                $localConfig = $localConfig -replace '(?m)^POSTGRES_DB=.*$', 'POSTGRES_DB=sitio_noticias_local'
+                [System.IO.File]::WriteAllText((Join-Path $PSScriptRoot '.env.local'), $localConfig)
+            } finally { $rng.Dispose() }
+        }
+        docker compose --env-file .env.local --project-name sitio-noticias-local up --build -d --wait --wait-timeout 180
+        if ($LASTEXITCODE -ne 0) { throw 'No se pudo iniciar la aplicación. Revisá Docker Desktop y los logs de Compose.' }
+        Write-Host 'Aplicación y PostgreSQL en Docker: http://127.0.0.1:8000/. Comandos de ingesta y apagado en README.'
+        return
+    }
     if (-not (Get-Command py -ErrorAction SilentlyContinue)) { throw 'Instalá Python 3.13 para ejecutar el sitio.' }
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Instalá Docker Desktop e iniciá su motor.' }
     $dockerCheck = New-Object System.Diagnostics.Process

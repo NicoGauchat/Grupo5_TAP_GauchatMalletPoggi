@@ -1,0 +1,13 @@
+{% extends 'news/base.html' %}
+{% block title %}Continuar con Google · LibreNews{% endblock %}
+{% block content %}
+<section class="form-panel">
+    <h1>Continuar con Google</h1>
+    <p>Google compartirá tu nombre y correo para crear tu cuenta o ingresar.</p>
+    <form class="account-form" method="post">
+        {% csrf_token %}
+        {% include 'news/google_button.html' %}
+    </form>
+    <p><a href="{% url 'login' %}">Volver al ingreso</a></p>
+</section>
+{% endblock %}

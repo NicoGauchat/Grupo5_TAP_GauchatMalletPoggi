@@ -31,7 +31,7 @@ def register(request):
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
-        login(request, user)
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         return redirect("preferences")
 
     return render(request, "news/register.html", {"form": form})

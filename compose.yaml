@@ -1,6 +1,30 @@
 name: sitio-noticias
 
 services:
+  web:
+    build: .
+    environment:
+      DJANGO_SETTINGS_MODULE: config.docker_settings
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Configurar DJANGO_SECRET_KEY en .env.local}
+      POSTGRES_DB: ${POSTGRES_DB:?Configurar POSTGRES_DB en .env.local}
+      POSTGRES_USER: ${POSTGRES_USER:?Configurar POSTGRES_USER en .env.local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configurar POSTGRES_PASSWORD en .env.local}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_SSLMODE: disable
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
   db:
     image: postgres:17
     environment:

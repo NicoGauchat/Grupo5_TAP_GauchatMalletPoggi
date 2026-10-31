@@ -323,6 +323,10 @@ La aplicación sólo persiste URL y crédito de imágenes permitidas. Al actuali
 
 La comprobación técnica del 24/10/2026 encontró referencias de imagen en los once feeds: Clarín 10/10 en cada canal; EL PAÍS Tecnología 17/21, Internacional 24/24 y Economía 37/37; MIT 50/50; Los Andes Política 17/20 y Economía 19/20; Cinco Días 25/25. Son referencias observadas en memoria, no permisos ni garantía de disponibilidad futura. En ese bloque muchos artículos usaban respaldo temático porque sólo MIT estaba habilitado.
 
+### Identidad visual del ingreso con Google
+
+El botón OAuth usa `news/static/news/images/google-g.png`, descargado el 31/10/2026 del [recurso oficial de Google](https://developers.google.com/static/identity/images/g-logo.png) enlazado desde sus [guías de marca](https://developers.google.com/identity/branding-guidelines). Se conserva el logo multicolor sin modificaciones, sobre un botón blanco con texto «Continuar con Google» y dimensiones proporcionales. Es una marca de Google utilizada para identificar el proveedor de acceso, sujeta a sus reglas de marca; no se atribuye una licencia libre al logo ni se utiliza como fotografía editorial. El recurso se sirve localmente, sin llamadas adicionales a Google al mostrar el formulario. No cambia ningún RSS ni permiso de noticias.
+
 ### Fotografías temáticas locales
 
 Se eligió [Pexels](https://www.pexels.com/license/), cuya licencia permite descarga, uso web gratuito y modificación sin atribución obligatoria. Se registran igualmente autores y enlaces. No se presenta a las personas o marcas fotografiadas como aval del sitio, no se revenden archivos ni se crea un banco de imágenes. Los recursos se recortaron a 960 × 600 y convirtieron a WebP; se sirven localmente, sin API ni consultas al proveedor al navegar. El total es inferior a 500 KB.

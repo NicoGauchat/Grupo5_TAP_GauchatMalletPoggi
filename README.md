@@ -7,6 +7,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 ## Ya implementado
 
 - Registro con nombre real e inicio de sesión con usuarios de Django. La bienvenida usa sólo el primer nombre; las cuentas anteriores sin nombre conservan el usuario como saludo.
+- Ingreso opcional con Google mediante OAuth, habilitado al configurar las credenciales del proveedor.
 - Preferencias individuales para once categorías, incluidas Salud, Medioambiente y Deportes.
 - Página de noticias para usuarios autenticados, separada por sus categorías, con fuente, fecha y enlace original.
 - Modelos y administración de categorías, fuentes, feeds y artículos.
@@ -15,7 +16,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 - Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
 - Agrupamiento LLM persistente con una tarjeta por acontecimiento y todas sus coberturas originales desplegables.
 - Fotografías RSS de fuentes habilitadas y tres ilustraciones generales por categoría como respaldo, tanto en tarjetas de noticias como en el resumen diario, con identificación y crédito cuando corresponde.
-- Arranque local con un comando PowerShell y PostgreSQL aislado.
+- Aplicación con Gunicorn y PostgreSQL aislado en Docker Compose; arranque con un comando PowerShell.
 - Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
 - Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
 - Identidad editorial compartida en inicio, ingreso, registro, preferencias y noticias; fuentes locales y diseño adaptable.
@@ -55,24 +56,44 @@ El próximo paso vigente se mantiene en [STATUS.md](./STATUS.md).
 
 ## Desarrollo local en Windows
 
-Requisitos: Python 3.13 y Docker Desktop con el motor iniciado. Desde PowerShell, en la raíz del repositorio:
+Requisito: Docker Desktop con el motor Linux iniciado. El modo Docker no requiere Python instalado en Windows. Desde PowerShell, en la raíz del repositorio:
 
 ```powershell
 .\dev.ps1
 ```
 
-El comando prepara `.venv`, instala las dependencias existentes, crea `.env.local` con claves aleatorias cuando falta, inicia PostgreSQL 17 en el proyecto Docker independiente `sitio-noticias-local`, espera a que esté disponible, aplica migraciones e importa RSS reales si no hay noticias. Si `.env.local` contiene `GEMINI_API_KEY`, genera el resumen cuando falta un resultado de las últimas dos horas. Luego sirve Django con recarga automática en `http://127.0.0.1:8000/`. Registrarse y elegir categorías; no se crean cuentas predeterminadas. Ctrl+C detiene la web; el volumen conserva la base.
+El comando crea `.env.local` con claves aleatorias cuando falta y levanta **web y db** en `sitio-noticias-local`. Construye la imagen Python 3.13, espera el healthcheck de PostgreSQL 17, aplica migraciones, recopila estáticos y sirve Django con Gunicorn en `http://127.0.0.1:8000/`. Registrarse y elegir categorías; no se crean cuentas predeterminadas. El servidor queda en segundo plano. Repetir el comando reconstruye la imagen tras cambios de código. `.dockerignore` excluye secretos y entornos locales de la imagen; la web conecta a `db:5432`, nunca a Supabase.
+
+Comandos habituales (no descargan RSS ni llaman a IA al arrancar):
+
+```powershell
+docker compose --env-file .env.local --project-name sitio-noticias-local logs --tail 50 web
+```
+
+Para crear el administrador e importar noticias, usar los comandos Django completos:
+
+```powershell
+docker compose --env-file .env.local --project-name sitio-noticias-local exec web python manage.py createsuperuser
+docker compose --env-file .env.local --project-name sitio-noticias-local exec web python manage.py ingest_feeds
+docker compose --env-file .env.local --project-name sitio-noticias-local down
+```
+
+`down` conserva el volumen PostgreSQL. No usar `down -v` si se quieren conservar los datos. En Linux/macOS: copiar `.env.example` a `.env.local`, completar las dos claves locales y ejecutar `docker compose --env-file .env.local --project-name sitio-noticias-local up --build -d --wait`.
+
+### Modo de desarrollo con Python en Windows
+
+Como alternativa con recarga automática, instalar Python 3.13 y ejecutar `.\dev.ps1 -Native`. Este modo prepara `.venv`, usa la misma base Docker e importa RSS si no hay noticias.
 
 Para actualizar los RSS antes de abrir la aplicación:
 
 ```powershell
-.\dev.ps1 -RefreshFeeds
+.\dev.ps1 -Native -RefreshFeeds
 ```
 
 Para forzar también un resumen nuevo, combinar ambos modificadores:
 
 ```powershell
-.\dev.ps1 -RefreshFeeds -RefreshBriefing
+.\dev.ps1 -Native -RefreshFeeds -RefreshBriefing
 ```
 
 `-RefreshFeeds` descarga los RSS aunque no hayan cambiado, para completar las fotografías de noticias existentes. `-RefreshBriefing` puede usarse solo. Configurar `GEMINI_API_KEY` únicamente en `.env.local`, nunca en el código ni por chat. Una falla de Gemini se informa y no impide iniciar la web; la recarga automática y las visitas no llaman al modelo.
@@ -92,6 +113,15 @@ Para detener la base conservando los datos:
 ```powershell
 docker compose --env-file .env.local --project-name sitio-noticias-local down
 ```
+
+## Configurar el ingreso con Google
+
+1. En [Google Cloud Console](https://console.cloud.google.com/), configurar la pantalla de consentimiento y crear un cliente OAuth de tipo **Aplicación web**. Sólo se solicitan perfil y correo; no hace falta habilitar un servicio pago. Si la aplicación está en modo de prueba, agregar las cuentas de demostración como usuarios de prueba.
+2. Registrar exactamente `http://127.0.0.1:8000/accounts/google/login/callback/` como URI de redirección. Si se usa `localhost`, registrar además `http://localhost:8000/accounts/google/login/callback/`. El host debe coincidir con el que se abre en el navegador.
+3. Completar `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.env.local`, sin compartirlos ni versionarlos, y repetir `.\dev.ps1` para recrear la web. El botón «Continuar con Google», con logo oficial, fondo blanco y separador de la opción con usuario y contraseña, aparece en ingreso y registro únicamente cuando ambas variables están completas. No crear otra SocialApp en administración: la configuración se lee del entorno.
+4. Para Render, cargar las mismas variables con un cliente habilitado para `https://<dominio>/accounts/google/login/callback/` y aplicar las migraciones de allauth mediante el build habitual. Esta tarea no configura ni despliega el servicio remoto.
+
+Las cuentas nuevas de Google eligen categorías en su primer ingreso; las existentes conservan sus preferencias y guardados. Se conserva el ingreso con usuario y contraseña. No se vinculan cuentas automáticamente por coincidencia de correo. OAuth inicia con POST y CSRF, valida el estado en la sesión y usa PKCE. No se guardan access/refresh tokens. Google comparte su identificador de cuenta, nombre, correo y datos del perfil; allauth guarda la asociación y los metadatos de identidad en PostgreSQL. La contraseña Google nunca pasa por LibreNews. Referencia: [proveedor Google de django-allauth](https://docs.allauth.org/en/latest/socialaccount/providers/google.html).
 
 ## Explorar noticias
 
@@ -227,7 +257,7 @@ python manage.py group_news_ai
 python manage.py score_news_ai
 ```
 
-`score_news_ai` usa el modelo existente para hasta cien acontecimientos por ejecución, en lotes de diez; `--limit 500` aumenta la carga y `--force` reevalúa los ya puntuados. Envía hasta tres titulares de medios distintos por grupo, con fechas e idiomas. Asigna importancia absoluta 1–5 por alcance, impacto, novedad y urgencia; fama, marca y número de publicaciones no bastan. Conserva una explicación en dos frases, procurando 220–270 caracteres: impacto y personas o sectores afectados cuando constan en los titulares, seguido del criterio que justifica el puntaje. Si falta información, permite una explicación más corta sin rellenar ni inventar contexto. El máximo sigue siendo 300 caracteres; guarda fecha y modelo. Este formato se aplica a las próximas evaluaciones; las explicaciones anteriores se mantienen hasta reevaluar el acontecimiento. El esquema restringe los IDs al lote y exige una evaluación por acontecimiento. Valida IDs, puntajes y explicaciones antes de guardar cada lote de manera atómica; se dejan hasta 30 caracteres de margen en la longitud solicitada, sin recortar respuestas que superen el máximo. Gemini no aplica los límites de longitud de cadenas ni la unicidad de arreglos del JSON Schema: ambos se comprueban localmente. Los errores incluyen motivos fijos por campo, sin contenido de noticias. Nuevas coberturas o correcciones administrativas del grupo dejan pendiente la reevaluación, conservando el puntaje anterior ante fallos. El cliente tiene timeout de 60 segundos por intento y hasta dos intentos para fallos transitorios. Sin clave o ante cuota no oculta noticias ni transforma pendientes en puntaje cero: cero sólo se usa internamente para colocarlas al final. Actions y `dev.ps1` incorporan estas etapas cuando hay clave. Las visitas siguen sin llamar a Gemini.
+`score_news_ai` usa el modelo existente para hasta cien acontecimientos por ejecución, en lotes de diez; `--limit 500` aumenta la carga y `--force` reevalúa los ya puntuados. Envía hasta tres titulares de medios distintos por grupo, con fechas e idiomas. Asigna importancia absoluta 1–5 por alcance, impacto, novedad y urgencia; fama, marca y número de publicaciones no bastan. Conserva una explicación en dos frases, procurando 220–270 caracteres: impacto y personas o sectores afectados cuando constan en los titulares, seguido del criterio que justifica el puntaje. Si falta información, permite una explicación más corta sin rellenar ni inventar contexto. El máximo sigue siendo 300 caracteres; guarda fecha y modelo. Este formato se aplica a las próximas evaluaciones; las explicaciones anteriores se mantienen hasta reevaluar el acontecimiento. El esquema restringe los IDs al lote y exige una evaluación por acontecimiento. Valida IDs, puntajes y explicaciones antes de guardar cada lote de manera atómica; se dejan hasta 30 caracteres de margen en la longitud solicitada, sin recortar respuestas que superen el máximo. Gemini no aplica los límites de longitud de cadenas ni la unicidad de arreglos del JSON Schema: ambos se comprueban localmente. Los errores incluyen motivos fijos por campo, sin contenido de noticias. Nuevas coberturas o correcciones administrativas del grupo dejan pendiente la reevaluación, conservando el puntaje anterior ante fallos. El cliente tiene timeout de 60 segundos por intento y hasta dos intentos para fallos transitorios. Sin clave o ante cuota no oculta noticias ni transforma pendientes en puntaje cero: cero sólo se usa internamente para colocarlas al final. Actions y `dev.ps1 -Native` incorporan estas etapas cuando hay clave. Las visitas siguen sin llamar a Gemini.
 
 Las tres categorías nuevas utilizan ilustraciones SVG locales propias, sin descargar fotografías adicionales. Los controles de fecha y orden no requieren variables nuevas; `.env.example` mantiene `GEMINI_API_KEY`. La configuración de producción y los secretos se cargan como antes.
 

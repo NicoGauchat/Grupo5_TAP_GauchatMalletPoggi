@@ -9,6 +9,7 @@
     </div>
     <section class="form-panel">
         <h1>Ingresar</h1>
+        {% include 'news/social_login.html' %}
         <form class="account-form" method="post">
             {% csrf_token %}
             {{ form.as_p }}
