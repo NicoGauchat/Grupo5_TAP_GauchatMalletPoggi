@@ -28,7 +28,6 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 
 - Crear el proyecto de Supabase, desplegar Django en Render y activar la recolección periódica.
 - Evaluar precisión de agrupamiento, clasificación e importancia con Gemini real y ampliar cobertura según su resultado.
-- Incorporar GDELT como complemento y evaluar la calidad del agrupamiento de coberturas.
 
 ## Stack acordado
 
