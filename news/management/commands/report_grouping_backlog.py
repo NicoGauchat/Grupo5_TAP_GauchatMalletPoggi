@@ -11,6 +11,9 @@ from django.utils import timezone
 from news.models import GROUPING_VERSION, Article, NewsBriefingItem
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.retention import RETENTION_DAYS
+from news.briefings import current_briefing_items
+from news.browsing import articles_for, story_articles, with_importance
+from news.models import Category, UserPreference
 
 
 class Command(BaseCommand):
@@ -50,7 +53,28 @@ class Command(BaseCommand):
             sports_items = NewsBriefingItem.objects.filter(
                 category__slug="deportes", briefing__status="ready", briefing__generated_at__gte=day,
             ).count()
+            categories = list(Category.objects.filter(slug="argentina"))
+            summaries = current_briefing_items(now, categories)
+            alignment = []
+            for category in categories:
+                item = summaries.get(category.pk)
+                reference = item.articles.first() if item else None
+                for mode, _ in UserPreference.CLASSIFICATION_CHOICES:
+                    candidates = articles_for([category], mode).filter(published_at__gte=day)
+                    for period, rows in (("24h", candidates), ("today", candidates.filter(
+                        published_at__gte=timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0),
+                    ))):
+                        winner = with_importance(story_articles(rows)).order_by("-importance", "-published_at", "-pk").first()
+                        alignment.append({"category": category.slug, "mode": mode, "period": period,
+                            "summary_reference_id": reference.pk if reference else None,
+                            "summary_generated_at": item.briefing.generated_at if item else None,
+                            "winner_id": winner.pk if winner else None,
+                            "winner_score": winner.importance if winner else None,
+                            "same_story": bool(reference and winner and (reference.pk == winner.pk or
+                                reference.has_verified_story and winner.has_verified_story and reference.story_id == winner.story_id)),
+                            "winner_allows_summary": winner.feed.allow_ai_briefing if winner else None})
         self.stdout.write(json.dumps({"measured_at": now, "retention_days": RETENTION_DAYS, **counts,
                                       "sports_last_24h_sources": sports_sources,
-                                      "sports_briefing_items_generated_last_24h": sports_items},
+                                      "sports_briefing_items_generated_last_24h": sports_items,
+                                      "argentina_summary_alignment": alignment},
                                      ensure_ascii=False, default=str))
