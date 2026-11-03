@@ -8,16 +8,11 @@ from django.db.models import Q
 from django.utils import timezone
 
 from news.briefings import current_briefing_items, valid_briefings
+from news.browsing import story_articles, with_importance
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
 from news.retention import RETENTION_DAYS
-from news.ollama import local_first
-
-
-MAX_ARTICLES = 250
-
-
 class Command(BaseCommand):
     help = "Genera una síntesis IA por categoría con titulares autorizados de las últimas 24 horas."
 
@@ -35,6 +30,14 @@ class Command(BaseCommand):
         categories = list(Category.objects.filter(
             Q(articles__in=eligible) | Q(llm_articles__in=eligible),
         ).distinct())
+        # La IA redacta sobre la misma ganadora que muestra «Más importantes» en 24h.
+        fixed_selection = {}
+        for category in categories:
+            winner = with_importance(story_articles(eligible.filter(
+                Q(categories=category) | Q(llm_categories=category),
+            ).distinct())).order_by("-importance", "-published_at", "-pk").first()
+            if winner is not None:
+                fixed_selection[category.slug] = winner.pk
         cached = valid_briefings(generated_at).filter(generated_at__gte=generated_at - timedelta(hours=2))
         if enabled:
             cached = cached.exclude(error_code="no_feeds")
@@ -51,29 +54,25 @@ class Command(BaseCommand):
                     }:
                         stored.add(item.category_id)
                 if (previous.status == "ready" and stored == expected) or (previous.status == "empty" and not expected):
-                    self.stdout.write("Se reutiliza la presentación de las últimas dos horas.")
-                    return
+                    references = {
+                        item.category.slug: item.articles.get().pk for item in previous.items.select_related("category")
+                    }
+                    if references == fixed_selection:
+                        self.stdout.write("Se reutiliza la presentación de las últimas dos horas con la misma selección por importancia.")
+                        return
 
         previous_items = current_briefing_items(generated_at, categories)
         previous_selection = {
             category.slug: list(previous_items[category.pk].articles.all())[0].pk
             for category in categories if category.pk in previous_items
         }
-        selected_ids = set(previous_selection.values())
-        max_articles = 11 if local_first() else MAX_ARTICLES
-        per_category = max(1, max_articles // max(1, len(categories)))
-        for category in categories:
-            previous_id = previous_selection.get(category.slug)
-            selected_ids.update(eligible.filter(
-                Q(categories=category) | Q(llm_categories=category),
-            ).exclude(pk=previous_id).distinct().values_list("pk", flat=True)[
-                :per_category - (1 if previous_id is not None else 0)
-            ])
+        selected_ids = set(fixed_selection.values())
         articles = list(eligible.filter(pk__in=selected_ids).prefetch_related("categories", "llm_categories"))
 
         status, error_code = "ready", ""
         try:
-            items = summarize_articles(articles, previous_selection=previous_selection)
+            items = summarize_articles(articles, previous_selection=previous_selection,
+                                       fixed_selection=fixed_selection)
             if not items:
                 status = "empty"
                 error_code = "no_feeds" if not enabled else "no_articles"

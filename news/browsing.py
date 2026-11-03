@@ -146,16 +146,21 @@ def add_coverages(rows, *, cutoff=None, now=None):
         article.coverage_sources = sorted({item.feed.source.name for item in article.coverages})
 
 
+def with_importance(articles):
+    """Puntaje compartido por listas y selección del resumen; desconocidos ordenan al final."""
+    return articles.annotate(importance=Case(
+        When(feed__allow_ai_grouping=True, story__grouping_version=GROUPING_VERSION,
+             story__importance_score__isnull=False, then="story__importance_score"),
+        default=Value(0), output_field=IntegerField(),
+    ))
+
+
 def article_batch(request, articles, context, search_text, sort=""):
     ranked = bool(search_text) and sort != "recent"
     if ranked:
         articles = articles.annotate(relevance=Cast("relevance", FloatField()))
     if sort == "important":
-        articles = articles.annotate(importance=Case(
-            When(feed__allow_ai_grouping=True, story__grouping_version=GROUPING_VERSION,
-                 story__importance_score__isnull=False, then="story__importance_score"),
-            default=Value(0), output_field=IntegerField(),
-        ))
+        articles = with_importance(articles)
     fields = (["importance"] if sort == "important" else []) + (["relevance"] if ranked else []) + ["published_at", "pk"]
     articles = articles.select_related("feed__source", "story").order_by(*[f"-{field}" for field in fields])
     is_json = "application/json" in request.headers.get("Accept", "")

@@ -28,6 +28,20 @@ class BriefingResponseTests(SimpleTestCase):
             language="es", feed=SimpleNamespace(source=SimpleNamespace(name="Medio")),
             categories=categories, llm_categories=SimpleNamespace(all=lambda: []))
 
+    def test_fixed_selection_restricts_schema_and_rejects_another_valid_category_article(self):
+        other = SimpleNamespace(**{**vars(self.article), "pk": 8})
+        rows = {"items": [{"category_slug": "tecnologia", "text": "Síntesis ficticia.",
+                           "importance_score": 3, "article_ids": [7]}]}
+        with patch("news.llm_briefing.api_key_for", return_value="ficticia"), patch(
+                "news.llm_briefing._gemini_summary", return_value=rows) as provider, patch(
+                "news.llm_briefing.backup_configured", return_value=False):
+            summarize_articles([self.article, other], fixed_selection={"tecnologia": 7})
+            schema = provider.call_args.args[1]["properties"]["items"]["properties"]["tecnologia"]
+            self.assertEqual(schema["properties"]["article_ids"]["items"]["enum"], [7])
+            rows["items"][0]["article_ids"] = [8]
+            with self.assertRaisesRegex(BriefingError, "reason=fixed_selection"):
+                summarize_articles([self.article, other], fixed_selection={"tecnologia": 7})
+
     def test_schema_requires_one_key_per_category_and_reports_missing_count(self):
         self.article.categories = SimpleNamespace(all=lambda: [
             SimpleNamespace(slug="tecnologia", name="Tecnología"),
@@ -201,8 +215,12 @@ class BriefingTests(TestCase):
         self.client.force_login(self.user)
 
     def generate(self, rows=None, **options):
-        rows = rows if rows is not None else [{"category_slug": self.category.slug, "text": "Síntesis de prueba", "article_ids": [self.article.pk]}]
-        with patch("news.management.commands.generate_news_briefing.summarize_articles", return_value=rows) as summarize:
+        def response(*args, **kwargs):
+            return rows if rows is not None else [
+                {"category_slug": slug, "text": "Síntesis de prueba", "article_ids": [pk]}
+                for slug, pk in kwargs["fixed_selection"].items()
+            ]
+        with patch("news.management.commands.generate_news_briefing.summarize_articles", side_effect=response) as summarize:
             call_command("generate_news_briefing", stdout=StringIO(), **options)
         return summarize
 
@@ -218,7 +236,38 @@ class BriefingTests(TestCase):
         self.assertContains(response, 'href="https://example.com/news" target="_blank" rel="noopener"')
         self.assertEqual(NewsBriefing.objects.first().status, "ready")
 
+    def test_summary_matches_24h_ranking_preserves_14d_and_invalidates_cache_on_new_winner(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.save()
+        self.article.story = Story.objects.create(importance_score=4)
+        self.article.save()
+        newer = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=2),
+            title="Más reciente pero menor", original_url="https://example.com/latest-minor", published_at=self.now)
+        older = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
+            title="Importante de la semana", original_url="https://example.com/older-major",
+            published_at=self.now - timedelta(days=7))
+        newer.categories.add(self.category)
+        older.categories.add(self.category)
+        generated = self.generate()
+        self.assertEqual(generated.call_args.kwargs["fixed_selection"], {self.category.slug: self.article.pk})
+        category_url = reverse("category_news", args=[self.category.slug])
+        first_24h = self.client.get(category_url, {"sort": "important", "period": "24h"}).context["articles"][0]
+        first_14d = self.client.get(category_url, {"sort": "important"}).context["articles"][0]
+        self.assertEqual(first_24h.pk, self.article.pk)
+        self.assertEqual(first_14d.pk, older.pk)
+        self.generate().assert_not_called()
+        Story.objects.filter(pk=newer.story_id).update(importance_score=5)
+        updated = self.generate()
+        updated.assert_called_once()
+        self.assertEqual(updated.call_args.kwargs["fixed_selection"], {self.category.slug: newer.pk})
+        reference = briefing_context(timezone.now(), [self.category])["category_briefings"][0]["reference_id"]
+        self.assertEqual(reference, self.client.get(category_url, {"sort": "important", "period": "24h"}).context["articles"][0].pk)
+
     def test_current_selection_keeps_a_candidate_slot_despite_250_newer_headlines(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.save()
+        self.article.story = Story.objects.create(importance_score=5)
+        self.article.save()
         self.generate()
         Article.objects.bulk_create([Article(feed=self.feed, title=f"Hecho nuevo {i}",
             original_url=f"https://example.com/new/{i}", published_at=self.now) for i in range(250)])
@@ -228,7 +277,7 @@ class BriefingTests(TestCase):
         ])
         summarize = self.generate(force=True)
         candidates = summarize.call_args.args[0]
-        self.assertEqual(len(candidates), 250)
+        self.assertEqual(len(candidates), 1)
         self.assertIn(self.article.pk, {article.pk for article in candidates})
         self.assertEqual(summarize.call_args.kwargs["previous_selection"], {self.category.slug: self.article.pk})
         self.assertEqual(NewsBriefing.objects.first().items.get().articles.get().pk, self.article.pk)
@@ -272,7 +321,7 @@ class BriefingTests(TestCase):
         self.assertContains(response, "No se pudo actualizar")
         self.assertContains(response, "Síntesis de prueba")
 
-    def test_only_latest_250_eligible_articles_are_sent_in_stable_order(self):
+    def test_ties_choose_latest_id_and_only_the_selected_reference_is_sent(self):
         Article.objects.bulk_create([Article(feed=self.feed, title=f"Titular {i}",
             original_url=f"https://example.com/batch/{i}", published_at=self.article.published_at) for i in range(255)])
         Article.categories.through.objects.bulk_create([
@@ -281,10 +330,10 @@ class BriefingTests(TestCase):
         ])
         for label, date in (("old", self.now - timedelta(hours=25)), ("future", self.now + timedelta(hours=1))):
             Article.objects.create(feed=self.feed, title=label, original_url=f"https://example.com/{label}", published_at=date)
-        expected = list(Article.objects.filter(published_at=self.article.published_at).order_by("-id").values_list("pk", flat=True)[:250])
+        expected = list(Article.objects.filter(published_at=self.article.published_at).order_by("-id").values_list("pk", flat=True)[:1])
         summarize = self.generate(rows=[])
         self.assertEqual([article.pk for article in summarize.call_args.args[0]], expected)
-        self.assertEqual(NewsBriefing.objects.first().article_count, 250)
+        self.assertEqual(NewsBriefing.objects.first().article_count, 1)
 
     def test_no_sources_no_articles_and_missing_key_have_distinct_states(self):
         self.assertEqual(briefing_context(self.now, [self.category])["category_briefings"][0]["state"], "pending")
@@ -546,6 +595,10 @@ class BriefingTests(TestCase):
         self.feed.allow_ai_grouping = True
         self.feed.show_images = True
         self.feed.save()
+        self.generate(rows=[
+            {"category_slug": self.category.slug, "text": "Síntesis tecnológica.", "article_ids": [self.article.pk]},
+            {"category_slug": science.slug, "text": "Síntesis científica.", "article_ids": [science_reference.pk]},
+        ])
         shared = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
             title="Acontecimiento de dos categorías", original_url="https://example.com/shared",
             published_at=self.now, image_url="https://example.com/shared.jpg")
@@ -554,11 +607,6 @@ class BriefingTests(TestCase):
             title="Otro hecho tecnológico", original_url="https://example.com/technology/second",
             published_at=self.now, image_url="https://example.com/second.jpg")
         alternative.categories.add(self.category)
-        self.generate(rows=[
-            {"category_slug": self.category.slug, "text": "Síntesis tecnológica.", "article_ids": [self.article.pk]},
-            {"category_slug": science.slug, "text": "Síntesis científica.", "article_ids": [science_reference.pk]},
-        ])
-
         sections = self.client.get(reverse("news_feed")).context["sections"]
         photos = {section["category"].slug: section["photo_article"] for section in sections}
         self.assertEqual(photos[science.slug].pk, shared.pk)
@@ -605,7 +653,7 @@ class BriefingTests(TestCase):
         forbidden.categories.add(category)
         model = self.generate(rows=[])
         sent = model.call_args.args[0]
-        self.assertEqual(len(sent), 126)
+        self.assertEqual(len(sent), 2)
         self.assertIn(science.pk, {article.pk for article in sent})
         self.assertNotIn(forbidden.pk, {article.pk for article in sent})
 

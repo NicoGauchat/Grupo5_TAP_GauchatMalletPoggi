@@ -230,15 +230,6 @@ jobs:
         env:
           DESCRIPTION_SOURCE: ${{ inputs.reviewed_description_source || 'eldiario' }}
         run: python manage.py refresh_briefing_descriptions --enable-reviewed --source "$DESCRIPTION_SOURCE"
-      - name: Generar presentación de las últimas 24 horas
-        timeout-minutes: 4
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
-        run: |
-          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] || [ "$FORCE_RSS_REFRESH" = 'true' ]; then
-            python manage.py generate_news_briefing --force
-          else
-            python manage.py generate_news_briefing
-          fi
       - name: Comprobar identidad con titulares ficticios
         id: grouping_check
         if: (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'check-grouping') && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '')
@@ -263,6 +254,15 @@ jobs:
       - name: Informar noticias que todavía requieren agrupamiento
         if: ${{ !cancelled() && steps.check_migrations.outcome == 'success' && env.MAINTENANCE_MODE == 'score-importance' }}
         run: python manage.py report_grouping_backlog
+      - name: Generar presentación de las últimas 24 horas
+        timeout-minutes: 4
+        if: ${{ !cancelled() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        run: |
+          if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] || [ "$FORCE_RSS_REFRESH" = 'true' ]; then
+            python manage.py generate_news_briefing --force
+          else
+            python manage.py generate_news_briefing
+          fi
       - name: Informar errores de fuentes RSS
         if: ${{ always() && steps.ingest.outcome == 'failure' }}
         run: |
