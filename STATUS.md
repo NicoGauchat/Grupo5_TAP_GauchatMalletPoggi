@@ -1,9 +1,11 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-11-02
-**Objetivo actual:** ejecutar la aplicación completa con Docker Compose y habilitar ingreso opcional con Google OAuth.
+**Objetivo actual:** mantener las noticias desplegadas agrupadas y con importancia general, con respaldos API gratuitos.
 
 ## Último paso completado
+
+**Recuperación completa y Cloudflare verificado (02/11/2026):** `41552584233` puntuó 133 acontecimientos y `41553045570` agrupó las diez noticias restantes y puntuó sus diez acontecimientos. Ambas terminaron correctamente; al cierre se informaron cero noticias pendientes de agrupamiento y cero grupos pendientes de importancia. No se descargaron RSS nuevos ni se forzó reevaluación masiva. Corrección `7b84ed4` y respaldo Cloudflare `5757f47` publicados en `main`. Con los secretos del usuario, `41553548499` aprobó en vivo la propuesta y auditoría de Cloudflare Llama 3.3 70B: tres hechos ficticios separados, pares unidos y traducción conservada; no leyó/escribió noticias. Esto acredita esa prueba sintética, no una tanda real de todas las funciones con Cloudflare. Las cuatro funciones disponen de la cadena Gemini preferido→otra clave distinta ante cuota→Groq→Cloudflare, con Ollama opcional al final; se conservan validadores, restricciones por error y límites documentados. Suite final de la integración: 258 pruebas SQLite (243 aprobadas, 15 omitidas PostgreSQL), incluidas tres nuevas de transporte Cloudflare, esquema/respuesta y cadena de cuota/configuración; el bloque previo también aprobó 33 casos de importancia/respaldos en PostgreSQL local. No hay dependencias nuevas ni secretos versionados. PROJECT, README, SOURCES y `.env.example` ya reflejan la implementación; este cierre sólo requiere actualizar STATUS. El callback Google de Render continúa como pendiente independiente, sin nueva verificación.
 
 **133 puntajes recuperados y Cloudflare preparado (02/11/2026):** corrección publicada en `main`, `7b84ed4`. La ejecución `41552584233` completó correctamente la evaluación de 133 acontecimientos y confirmó cero grupos pendientes de importancia. Su diagnóstico detectó diez noticias sin agrupar (siete de las últimas 24 horas, tres de 24–48 horas); se lanzó `41553045570` en `process-ai`, sin RSS nuevos, para completar esos pendientes, todavía en agrupamiento al consultar. Por pedido del usuario se preparó Cloudflare después de Groq para las cuatro tareas, modelo Llama 3.3 70B fijo y JSON Mode REST. Se verificó la existencia de ambos secretos por nombre, sin leer valores; se revisaron documentación, licencia y proyecto comparable en PROJECT. Suite final: 258 pruebas SQLite, 243 aprobadas y 15 omitidas por PostgreSQL; 34 pruebas específicas de transporte/respaldos aprobadas. Actionlint con la única exclusión preexistente `queue` y diff correctos. README, PROJECT, SOURCES y `.env.example` actualizados. Se procede a publicar y comprobar Cloudflare con titulares ficticios; todavía no se acredita el uso real de este proveedor.
 
@@ -431,7 +433,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar el cierre de la recuperación de las diez noticias restantes y la comprobación sintética de Cloudflare ya configurado.
+Verificar que la próxima ejecución programada complete agrupamiento e importancia con los límites por etapa publicados.
 
 ## Completado
 
