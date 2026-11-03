@@ -1,9 +1,11 @@
 # Estado del proyecto
 
 **Última actualización:** 2026-11-02
-**Objetivo actual:** mantener las noticias desplegadas agrupadas y con importancia general, con respaldos API gratuitos.
+**Objetivo actual:** reemplazar las ilustraciones de respaldo por fotografías generales autorizadas, cinco por categoría.
 
 ## Último paso completado
+
+**55 fotografías ilustrativas incorporadas (02/11/2026):** por pedido del usuario se buscaron imágenes reales en la web, se verificaron fichas/licencias y se seleccionaron cinco por cada una de las once categorías. Sin generación IA, dirigentes, celebridades ni imágenes que pretendan documentar el titular. Commons sólo aporta CC0/dominio público y Pexels su licencia gratuita; autores, fichas y permiso por archivo registrados en SOURCES. Hojas de contacto de las 55 imágenes inspeccionadas y tres sustituciones finales para mejorar claridad de política/IA. Activos JPEG 960 × 600, 55 hashes distintos y 5.535.593 bytes totales; selector estable actualizado a cinco fotos y respaldos de categorías sin SVG. Se conservan fotos RSS autorizadas y el rótulo Imagen ilustrativa. Verificación aprobada: las 24 pruebas de vistas de resumen y las dos del selector/estáticos; se actualizó la expectativa del respaldo para categorías desconocidas a la nueva foto. Django check y diff correctos. README y PROJECT actualizados; `.env.example` no requiere cambios. El despliegue público de Render sigue pendiente de verificar, como se registró en el bloque anterior.
 
 **Base y Argentina corregidas; interfaz Render pendiente de verificar (02/11/2026):** `c2812a5` publicado en `main` con titular visible, fecha inicial Hoy y clasificación sólo IA. Actions `41558973322` confirmó que `0021_solo_clasificacion_ia` ya está aplicada en la base remota. `41559123955` regeneró once síntesis sobre diez titulares con categorías IA. El diagnóstico posterior `41559263723` aprobó: Argentina tiene referencia de resumen 4614 y primera noticia IA 4614, puntaje 4, `same_story=true` tanto en 24h como Hoy. No se descargaron RSS ni se alteraron noticias/guardados. Los 263 casos PostgreSQL aprobaron sin omisiones; SQLite aprobó 248 y omitió quince específicos PostgreSQL, sobre 263. Check, migraciones propias y diff correctos. Sin embargo, solicitudes HTTP 200 a la página pública, incluso sin caché y con query distinta, siguen devolviendo CSS `v=20261027-featured-categories`, no el marcador nuevo `v=20261102-solo-ia`: no se acredita que el servicio público haya activado la interfaz nueva. No se atribuye la causa a Render sin logs. No hay CLI ni credencial Render disponible; se encontró la integración Render sin instalar y se indicó al usuario instalarla/conectar la cuenta para revisar servicio/despliegue. No se volvió a usar Brave tras su bloqueo por verificación de URL. README y PROJECT ya reflejan el código final; SOURCES y `.env.example` no requieren cambios. Queda pendiente sólo verificar o completar el despliegue público de esta interfaz, sin confundirlo con la recuperación de datos ya comprobada.
 
@@ -443,7 +445,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Verificar o completar el despliegue público de la interfaz nueva mediante la integración Render, cuando el usuario la instale y conecte.
+Publicar la selección fotográfica verificada y comprobar que Render sirva los cambios de interfaz pendientes.
 
 ## Completado
 

@@ -16,15 +16,14 @@ CATEGORY_IMAGES = {"argentina", "politica-argentina", "geopolitica", "economia",
                    "tecnologia", "inteligencia-artificial", "ciencia"}
 CURSOR_SALT = "news.category.stories.v3"
 ILLUSTRATION_POOLS = {
-    slug: tuple(f"illustrations/{slug}-{index}.svg" for index in range(1, 4))
+    slug: tuple(f"photos/{slug}-{index}.jpg" for index in range(1, 6))
     for slug in CATEGORY_IMAGES | {"salud", "medioambiente", "deportes"}
 }
 
 
 def category_image(slug):
-    if slug in {"salud", "medioambiente", "deportes"}:
-        return f"news/images/{slug}.svg"
-    return f"news/images/{slug if slug in CATEGORY_IMAGES else 'geopolitica'}.webp"
+    category = slug if slug in ILLUSTRATION_POOLS else "geopolitica"
+    return f"news/images/{ILLUSTRATION_POOLS[category][0]}"
 
 
 def article_illustration(article, slug):

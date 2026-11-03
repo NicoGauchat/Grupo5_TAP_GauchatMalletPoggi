@@ -42,7 +42,7 @@ class IllustrationTests(SimpleTestCase):
         self.assertEqual(article_illustration(first, "deportes"), article_illustration(second, "deportes"))
         second.has_verified_story = False
         self.assertNotEqual(article_illustration(first, "deportes"), article_illustration(second, "deportes"))
-        self.assertEqual(article_illustration(first, "unknown"), "news/images/geopolitica.webp")
+        self.assertEqual(article_illustration(first, "unknown"), "news/images/photos/geopolitica-1.jpg")
 
 
 class AIResponseTests(SimpleTestCase):
