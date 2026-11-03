@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 
 import httpx
@@ -11,8 +12,11 @@ from django.conf import settings
 
 
 GROQ_MODEL = "openai/gpt-oss-120b"
+CLOUDFLARE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 BACKUPS = {
     "groq": ("GROQ_API_KEY", GROQ_MODEL, "https://api.groq.com/openai/v1/chat/completions"),
+    "cloudflare": ("CLOUDFLARE_API_TOKEN", CLOUDFLARE_MODEL,
+                   "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/" + CLOUDFLARE_MODEL),
 }
 _last_request = {}
 
@@ -46,7 +50,8 @@ def backup_configured():
 
 
 def backup_providers():
-    return [provider for provider, (key, _, _) in BACKUPS.items() if os.getenv(key, "").strip()]
+    return [provider for provider, (key, _, _) in BACKUPS.items() if os.getenv(key, "").strip()
+            and (provider != "cloudflare" or os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip())]
 
 
 def backup_model(provider):
@@ -83,11 +88,30 @@ def groq_json(prompt, schema, task):
     return request_backup(prompt, schema, task, "groq")
 
 
+def request_backup_chain(prompt, schema, task):
+    """Agota respaldos configurados ante cuota o indisponibilidad, sin repetir proveedores."""
+    last_error = BackupError("missing_key")
+    for provider in backup_providers():
+        try:
+            return request_backup(prompt, schema, task, provider), backup_model(provider)
+        except BackupError as error:
+            if error.code not in {"quota", "timeout", "connection"}:
+                raise
+            logging.getLogger(__name__).warning("IA %s: respaldo %s no disponible; %s", task, provider, error)
+            last_error = error
+    raise last_error
+
+
 def request_backup(prompt, schema, task, provider):
     key_name, model, endpoint = BACKUPS[provider]
     api_key = os.getenv(key_name, "").strip()
     if not api_key:
         raise BackupError("missing_key", provider)
+    if provider == "cloudflare":
+        account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+        if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
+            raise BackupError("configuration_account_id", provider)
+        endpoint = endpoint.format(account_id=account_id)
     pace_request(provider, api_key)
     logging.getLogger(__name__).warning("IA: provider=%s model=%s task=%s", provider, model, task)
     body = {
@@ -98,6 +122,9 @@ def request_backup(prompt, schema, task, provider):
         }},
     }
     body.update(reasoning_effort="low", max_completion_tokens=4096)
+    if provider == "cloudflare":
+        body = {"messages": body["messages"], "max_tokens": 4096, "temperature": 0,
+                "response_format": {"type": "json_schema", "json_schema": _strict_schema(schema)}}
     try:
         with httpx.Client(timeout=60, follow_redirects=False) as client:
             response = client.post(
@@ -122,7 +149,14 @@ def request_backup(prompt, schema, task, provider):
                         elif error.get("param") in ("response_format", "reasoning_effort", "max_completion_tokens"):
                             code = f"configuration_{error['param']}"
                 raise BackupError(code, provider, response.status_code)
-            result = decode_json(response.json()["choices"][0]["message"]["content"])
+            if provider == "cloudflare":
+                payload = response.json()
+                if payload.get("success") is not True:
+                    raise BackupError("invalid_response", provider)
+                raw = payload["result"]["response"]
+                result = decode_json(raw) if isinstance(raw, str) else raw
+            else:
+                result = decode_json(response.json()["choices"][0]["message"]["content"])
     except BackupError:
         raise
     except (httpx.TimeoutException, TimeoutError) as error:

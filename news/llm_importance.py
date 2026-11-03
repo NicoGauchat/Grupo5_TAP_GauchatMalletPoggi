@@ -9,7 +9,7 @@ from google.genai import types
 from .llm_classification import MODEL
 from .llm_keys import api_key_for, with_secondary_on_quota, is_quota_error
 from .llm_diagnostics import safe_diagnostic
-from .llm_transport import pace_request, backup_configured, groq_json, backup_model, BackupError
+from .llm_transport import pace_request, backup_configured, request_backup_chain, BackupError
 from . import ollama
 
 
@@ -83,10 +83,10 @@ def _score_stories(stories, *, local=False):
         if not is_quota_error(error) or not backup_configured():
             raise
         try:
-            result = groq_json(prompt, schema, "importance")
+            result, model = request_backup_chain(prompt, schema, "importance")
         except BackupError as backup_error:
             raise ImportanceError(str(backup_error)) from backup_error
-        return ollama.ModelDict(validate_scores(result, set(stories)), backup_model("groq"))
+        return ollama.ModelDict(validate_scores(result, set(stories)), model)
     return validate_scores(result, set(stories))
 
 

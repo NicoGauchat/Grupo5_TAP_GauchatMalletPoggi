@@ -5,6 +5,8 @@
 
 ## Último paso completado
 
+**133 puntajes recuperados y Cloudflare preparado (02/11/2026):** corrección publicada en `main`, `7b84ed4`. La ejecución `41552584233` completó correctamente la evaluación de 133 acontecimientos y confirmó cero grupos pendientes de importancia. Su diagnóstico detectó diez noticias sin agrupar (siete de las últimas 24 horas, tres de 24–48 horas); se lanzó `41553045570` en `process-ai`, sin RSS nuevos, para completar esos pendientes, todavía en agrupamiento al consultar. Por pedido del usuario se preparó Cloudflare después de Groq para las cuatro tareas, modelo Llama 3.3 70B fijo y JSON Mode REST. Se verificó la existencia de ambos secretos por nombre, sin leer valores; se revisaron documentación, licencia y proyecto comparable en PROJECT. Suite final: 258 pruebas SQLite, 243 aprobadas y 15 omitidas por PostgreSQL; 34 pruebas específicas de transporte/respaldos aprobadas. Actionlint con la única exclusión preexistente `queue` y diff correctos. README, PROJECT, SOURCES y `.env.example` actualizados. Se procede a publicar y comprobar Cloudflare con titulares ficticios; todavía no se acredita el uso real de este proveedor.
+
 **Recuperación de importancia y respaldos en verificación (02/11/2026):** se confirmó en las anotaciones de Actions `41518401365` que el job agotó veinte minutos durante agrupamiento; las tres ejecuciones recientes no llegaron a importancia. Se preparó timeout por etapa, margen global de 45 minutos (60 con puente), continuidad de importancia tras fallos anteriores y modo manual `score-importance` de hasta 500 grupos, con conteo final de pendientes. Por pedido posterior del usuario, las cuatro tareas prueban la otra clave Gemini distinta ante cuota y disponen de respaldo Groq; clasificación/importancia preservan validación y modelo efectivo. Verificación aprobada: 255 pruebas SQLite (240 aprobadas y 15 omitidas por PostgreSQL), 33 pruebas de importancia/respaldos en PostgreSQL local sin omisiones, Django check y diff. Actionlint correcto salvo la exclusión explícita de `queue`, funcionalidad preexistente que su versión no reconoce. README, PROJECT, SOURCES y comentarios de `.env.example` actualizados. Se procede a publicar y ejecutar la recuperación real autorizada; todavía no se acredita su resultado. Cloudflare Workers AI se está evaluando con el usuario, sin credenciales ni integración nueva; OpenRouter permanece excluido.
 
 **Arranque local verificado (02/11/2026):** a pedido del usuario se inició Docker Desktop y se ejecutó `dev.ps1` en modo Docker. Imagen reconstruida y servicios web/PostgreSQL healthy; portada, ingreso y registro responden HTTP 200 en `http://127.0.0.1:8000/`, con botón Google presente. Ambos servicios quedan corriendo en segundo plano con el volumen existente. No se ejecutaron ingestas ni llamadas IA ni se modificó producción. README, PROJECT, SOURCES y `.env.example` no requieren cambios: se utilizó el procedimiento ya documentado. Se conserva como único próximo paso verificar el callback Google de Render.
@@ -429,7 +431,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Publicar la corrección verificada y completar la recuperación de importancia en la base desplegada, comprobando sus pendientes.
+Verificar el cierre de la recuperación de las diez noticias restantes y la comprobación sintética de Cloudflare ya configurado.
 
 ## Completado
 

@@ -12,7 +12,7 @@ class Command(BaseCommand):
     help = "Evalúa un proveedor con tres pares de titulares ficticios; no lee ni escribe noticias."
 
     def add_arguments(self, parser):
-        parser.add_argument("--provider", choices=["gemini", "groq"], default="gemini")
+        parser.add_argument("--provider", choices=["gemini", "groq", "cloudflare"], default="gemini")
         parser.add_argument("--candidates", type=int, choices=[0, 10, 25, 50], default=0,
                             help="Agregar acontecimientos ficticios ajenos para comprobar un esquema con referencias existentes.")
 

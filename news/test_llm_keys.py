@@ -272,7 +272,7 @@ class AllTaskQuotaFallbackTests(SimpleTestCase):
         ]
         for task, operation, valid, expected_keys in cases:
             with self.subTest(task=task), patch(f"news.llm_{task}.genai.Client") as client, patch(
-                    f"news.llm_{task}.groq_json", return_value=valid) as groq:
+                    f"news.llm_{task}.request_backup_chain", return_value=(valid, "groq:openai/gpt-oss-120b")) as groq:
                 error = errors.APIError(429, {"error": {"message": "private"}})
                 client.return_value.models.generate_content.side_effect = error
                 client.return_value.__enter__.return_value.models.generate_content.side_effect = error
@@ -280,7 +280,7 @@ class AllTaskQuotaFallbackTests(SimpleTestCase):
                 self.assertEqual(result.model, "groq:openai/gpt-oss-120b")
                 self.assertEqual([call.kwargs["api_key"] for call in client.call_args_list], expected_keys)
                 self.assertEqual(groq.call_args.args[2], task)
-                groq.return_value = {}
+                groq.return_value = ({}, "groq:openai/gpt-oss-120b")
                 with self.assertRaises((ClassificationError, ImportanceError)):
                     operation()
 
@@ -293,7 +293,7 @@ class AllTaskQuotaFallbackTests(SimpleTestCase):
             ("importance", lambda: score_stories({9: [article]})),
         ]:
             with self.subTest(task=task), patch(f"news.llm_{task}.genai.Client") as client, patch(
-                    f"news.llm_{task}.groq_json") as groq:
+                    f"news.llm_{task}.request_backup_chain") as groq:
                 error = errors.APIError(403, {"error": {"message": "private"}})
                 client.return_value.models.generate_content.side_effect = error
                 client.return_value.__enter__.return_value.models.generate_content.side_effect = error
@@ -312,7 +312,7 @@ class AllTaskQuotaFallbackTests(SimpleTestCase):
         article = APIKeyRoutingTests.article(self)
         scores = {9: {"score": 3, "reason": "Alcance sectorial."}}
         with patch("news.llm_importance.genai.Client") as gemini, patch(
-                "news.llm_importance.groq_json", side_effect=BackupError("quota", http_status=429)) as groq:
+                "news.llm_importance.request_backup_chain", side_effect=BackupError("quota", http_status=429)) as groq:
             gemini.return_value.__enter__.return_value.models.generate_content.side_effect = errors.APIError(429, {})
             with patch("news.ollama.request_json", return_value={"stories": [dict(story_id=9, **scores[9])]}), patch(
                     "news.ollama.audit_texts"):

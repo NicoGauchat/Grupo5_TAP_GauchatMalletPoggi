@@ -9,10 +9,53 @@ from google.genai import errors
 
 from .llm_briefing import BriefingError, summarize_articles
 from .llm_grouping import GroupingError, group_articles
-from .llm_transport import BackupError, GROQ_MODEL, backup_providers, decode_json, groq_json, pace_request
+from .llm_transport import (BackupError, GROQ_MODEL, CLOUDFLARE_MODEL, backup_providers,
+                            decode_json, groq_json, pace_request, request_backup, request_backup_chain)
 
 
 class BackupTransportTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GROQ_API_KEY": "groq-synthetic", "CLOUDFLARE_API_TOKEN": "cf-synthetic",
+                              "CLOUDFLARE_ACCOUNT_ID": "a" * 32}, clear=True)
+    def test_cloudflare_endpoint_schema_model_and_both_response_formats(self):
+        self.assertEqual(backup_providers(), ["groq", "cloudflare"])
+        schema = {"type": "object", "properties": {"stories": {"type": "array"}}, "required": ["stories"]}
+        for raw in ('{"stories": []}', {"stories": []}):
+            with self.subTest(raw=raw), patch("news.llm_transport.httpx.Client") as client, self.assertLogs(
+                    "news.llm_transport", "WARNING") as logs:
+                post = client.return_value.__enter__.return_value.post
+                post.return_value.status_code = 200
+                post.return_value.json.return_value = {"success": True, "result": {"response": raw}}
+                self.assertEqual(request_backup("synthetic", schema, "importance", "cloudflare"), {"stories": []})
+                self.assertEqual(post.call_args.args[0], "https://api.cloudflare.com/client/v4/accounts/" + "a" * 32 + "/ai/run/" + CLOUDFLARE_MODEL)
+                body = post.call_args.kwargs["json"]
+                self.assertEqual(body["response_format"]["json_schema"]["type"], "object")
+                self.assertEqual(body["max_tokens"], 4096)
+                self.assertNotIn("reasoning_effort", body)
+                self.assertNotIn("cf-synthetic", str(logs.output))
+
+    @patch.dict("os.environ", {"GROQ_API_KEY": "groq-synthetic", "CLOUDFLARE_API_TOKEN": "cf-synthetic",
+                              "CLOUDFLARE_ACCOUNT_ID": "a" * 32}, clear=True)
+    def test_quota_chain_reaches_cloudflare_once_and_surfaces_configuration(self):
+        with patch("news.llm_transport.request_backup", side_effect=[BackupError("quota", http_status=429), {"ok": True}]) as request:
+            value, model = request_backup_chain("synthetic", {}, "importance")
+            self.assertEqual(value, {"ok": True})
+            self.assertEqual(model, "cloudflare:" + CLOUDFLARE_MODEL)
+            self.assertEqual([call.args[3] for call in request.call_args_list], ["groq", "cloudflare"])
+        with patch("news.llm_transport.request_backup", side_effect=BackupError("configuration", http_status=403)) as request:
+            with self.assertRaises(BackupError):
+                request_backup_chain("synthetic", {}, "importance")
+            request.assert_called_once()
+
+    @patch.dict("os.environ", {"CLOUDFLARE_API_TOKEN": "cf-synthetic"}, clear=True)
+    def test_cloudflare_requires_account_and_rejects_untrusted_path_before_http(self):
+        self.assertEqual(backup_providers(), [])
+        with patch.dict("os.environ", {"CLOUDFLARE_ACCOUNT_ID": "../../private"}), patch("news.llm_transport.httpx.Client") as client:
+            with self.assertRaises(BackupError) as caught:
+                request_backup("synthetic", {}, "grouping", "cloudflare")
+            self.assertEqual(caught.exception.code, "configuration_account_id")
+            self.assertNotIn("private", str(caught.exception))
+            client.assert_not_called()
+
     def test_duplicate_json_keys_are_rejected_without_silent_overwrites(self):
         with self.assertRaises(json.JSONDecodeError) as caught:
             decode_json('{"groups":{"1":"new:1","1":"private-target"}}')
