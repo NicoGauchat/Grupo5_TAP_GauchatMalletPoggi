@@ -5,7 +5,22 @@ from datetime import timedelta
 from django.db.models import Q
 
 from .models import Article, Category, NewsBriefing, NewsBriefingItem
-from .browsing import add_coverages, article_illustration
+from .browsing import add_coverages, article_illustration, articles_for, story_articles, with_importance
+from .ingestion import AI_EXCLUDED_SOURCES
+
+
+def briefing_winners(now, categories):
+    """La misma primera noticia que la categoría en 24h, con permiso de síntesis."""
+    cutoff = now - timedelta(hours=24)
+    winners = {}
+    for category in categories:
+        eligible = articles_for([category]).filter(
+            feed__allow_ai_briefing=True, published_at__gte=cutoff, published_at__lte=now,
+        ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES)
+        winner = with_importance(story_articles(eligible)).order_by("-importance", "-published_at", "-pk").first()
+        if winner:
+            winners[category.pk] = winner
+    return winners
 
 
 def current_briefing_items(now, categories):
@@ -16,13 +31,17 @@ def current_briefing_items(now, categories):
     ).exclude(articles__published_at__lt=cutoff).exclude(articles__published_at__gt=now).exclude(
         articles__published_at__isnull=True,
     ).exclude(articles__feed__is_active=False).exclude(articles__feed__allow_ai_briefing=False).select_related("briefing").prefetch_related(
-        "articles__feed__source", "articles__story", "articles__categories", "articles__llm_categories",
+        "articles__feed__source", "articles__story", "articles__llm_categories",
     ).order_by("-briefing__generated_at", "-briefing_id", "position")
     latest = {}
     for item in items:
         references = list(item.articles.all())
-        if len(references) == 1 and item.category_id in {
-            category.pk for category in [*references[0].categories.all(), *references[0].llm_categories.all()]
+        if len(references) != 1:
+            continue
+        reference = references[0]
+        assigned = list(reference.llm_categories.all())
+        if item.category_id in {
+            category.pk for category in assigned
         }:
             latest.setdefault(item.category_id, item)
     return latest
@@ -36,8 +55,9 @@ def briefing_context(now, categories=()):
     eligible = Article.objects.filter(
         feed__is_active=True, feed__allow_ai_briefing=True, published_at__gte=cutoff, published_at__lte=now,
     )
+    match = Q(llm_articles__in=eligible)
     available = set(Category.objects.filter(
-        Q(articles__in=eligible) | Q(llm_articles__in=eligible), pk__in=[category.pk for category in categories],
+        match, pk__in=[category.pk for category in categories],
     ).values_list("pk", flat=True))
     latest = current_briefing_items(now, categories)
     attempt = NewsBriefing.objects.filter(generated_at__gte=cutoff).first()
@@ -67,6 +87,7 @@ def briefing_context(now, categories=()):
         rows.append({"category": category, "item": item, "state": state,
                      "sources": sorted(sources.values(), key=lambda article: article.feed.source.name.casefold()),
                      "source_count": len(sources), "reference_id": reference.pk if reference else None,
+                     "reference": reference,
                      "image_article": image_article,
                      "fallback_image": article_illustration(reference, category.slug) if reference else None,
                      "update_failed": bool(item and attempt and attempt.status == "error")})

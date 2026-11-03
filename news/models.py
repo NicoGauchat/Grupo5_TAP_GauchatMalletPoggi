@@ -189,12 +189,8 @@ class NewsBriefingItem(models.Model):
 
 
 class UserPreference(models.Model):
-    CLASSIFICATION_BOTH = "both"
-    CLASSIFICATION_RULES = "rules"
     CLASSIFICATION_AI = "ai"
     CLASSIFICATION_CHOICES = [
-        (CLASSIFICATION_BOTH, "Ambas"),
-        (CLASSIFICATION_RULES, "Sólo reglas"),
         (CLASSIFICATION_AI, "Sólo IA"),
     ]
     user = models.OneToOneField(
@@ -204,7 +200,7 @@ class UserPreference(models.Model):
     )
     categories = models.ManyToManyField(Category, blank=True, related_name="users")
     classification_mode = models.CharField(
-        max_length=5, choices=CLASSIFICATION_CHOICES, default=CLASSIFICATION_BOTH,
+        max_length=5, choices=CLASSIFICATION_CHOICES, default=CLASSIFICATION_AI,
     )
 
     def __str__(self):

@@ -7,7 +7,7 @@ from django.db.models.functions import Cast
 from django.utils import timezone
 
 from .forms import NewsFilterForm
-from .models import GROUPING_VERSION, Article, UserPreference
+from .models import GROUPING_VERSION, Article
 from .retention import retention_cutoff
 from .search import search_articles
 
@@ -36,7 +36,7 @@ def article_illustration(article, slug):
     return f"news/images/{choices[key % len(choices)]}"
 
 
-def category_featured_images(categories, mode, briefing_rows, now):
+def category_featured_images(categories, briefing_rows, now):
     """Una foto por categoría, de un acontecimiento puntuado distinto del resumen."""
     cutoff = now - timedelta(hours=24)
     used_story_ids = set()
@@ -56,7 +56,7 @@ def category_featured_images(categories, mode, briefing_rows, now):
     )
     selected = {}
     for category in categories:
-        ranked = story_articles(articles_for([category], mode).filter(
+        ranked = story_articles(articles_for([category]).filter(
             published_at__gte=cutoff, feed__allow_ai_grouping=True,
             story__grouping_version=GROUPING_VERSION, story__importance_score__isnull=False,
         )).filter(Exists(photo_exists)).exclude(story_id__in=used_story_ids).order_by(
@@ -82,12 +82,8 @@ def category_featured_images(categories, mode, briefing_rows, now):
     return selected
 
 
-def articles_for(categories, mode):
-    match = Q(categories__in=categories)
-    if mode == UserPreference.CLASSIFICATION_AI:
-        match = Q(llm_categories__in=categories)
-    elif mode == UserPreference.CLASSIFICATION_BOTH:
-        match |= Q(llm_categories__in=categories)
+def articles_for(categories):
+    match = Q(llm_categories__in=categories)
     return Article.objects.filter(
         match, feed__is_active=True, published_at__gte=retention_cutoff(), published_at__lte=timezone.now(),
     ).distinct()
@@ -95,6 +91,8 @@ def articles_for(categories, mode):
 
 def filter_articles(request, articles):
     data = request.GET.copy()
+    if "period" not in data:
+        data["period"] = "today"
     if not data.get("q", "").strip() and not data.get("sort", "").strip():
         data["sort"] = "important"
     form = NewsFilterForm(data, articles=articles)

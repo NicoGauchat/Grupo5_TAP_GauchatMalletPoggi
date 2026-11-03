@@ -56,12 +56,11 @@ def news_feed(request):
     categories = list(preference.categories.all())
     now = timezone.now()
     briefings = briefing_context(now, categories)
-    featured_images = category_featured_images(categories, preference.classification_mode,
-                                                briefings["category_briefings"], now)
+    featured_images = category_featured_images(categories, briefings["category_briefings"], now)
     sections = [
         {"category": category, "image": category_image(category.slug),
          "photo_article": featured_images.get(category.pk),
-         "article_count": story_articles(articles_for([category], preference.classification_mode)).count()}
+         "article_count": story_articles(articles_for([category])).count()}
         for category in categories
     ]
 
@@ -86,13 +85,15 @@ def news_feed(request):
 def category_news(request, slug):
     preference, _ = UserPreference.objects.get_or_create(user=request.user)
     category = get_object_or_404(preference.categories, slug=slug)
-    available = articles_for([category], preference.classification_mode)
+    available = articles_for([category])
     form, articles, text = filter_articles(request, available)
     sort = form.cleaned_data.get("sort", "") if not form.errors else ""
     articles = story_articles(articles, text if not form.errors and sort != "recent" else "")
     filters = {key: request.GET.get(key, "").strip() for key in ("source", "language", "q", "period", "sort")}
+    effective_period = form.cleaned_data.get("period", "") if not form.errors else ""
+    filters["period"] = effective_period
     day = str(timezone.localdate()) if filters["period"] == "today" else ""
-    cursor_context = [category.pk, preference.classification_mode, {**filters, "sort": sort}, day]
+    cursor_context = [category.pk, UserPreference.CLASSIFICATION_AI, {**filters, "sort": sort}, day]
     response_status = 200
     try:
         rows, next_url = article_batch(request, articles, cursor_context, text if not form.errors else "", sort)
@@ -114,7 +115,9 @@ def category_news(request, slug):
         "leading": bool(rows) and not text and not is_json,
         "filter_form": form, "search_text": text, "sort": sort,
         "leading_label": leading_label,
-        "filters_active": any(filters.values()), "next_url": next_url,
+        "filters_active": any(request.GET.get(key, "").strip() for key in filters) or (
+            "period" in request.GET and effective_period != "today"
+        ), "next_url": next_url,
         "saved_ids": set(SavedArticle.objects.filter(user=request.user, article__in=rows).values_list("article_id", flat=True)),
     }
     if is_json:

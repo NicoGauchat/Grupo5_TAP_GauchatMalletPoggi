@@ -62,6 +62,7 @@ class ImportanceAndDateTests(TestCase):
             published_at=timezone.now() - timedelta(hours=hours), summary="Texto que nunca debe enviarse",
         )
         article.categories.add(self.category)
+        article.llm_categories.add(self.category)
         return article
 
     def test_order_switch_explanations_and_unknowns_remain_visible(self):
@@ -85,9 +86,10 @@ class ImportanceAndDateTests(TestCase):
         self.assertNotContains(response, "Importancia general 5/5")
         self.assertEqual([a.pk for a in response.context["articles"]], [pending.pk, minor.pk, important.pk])
 
-    def test_default_importance_continuation_and_reset_preserve_effective_order(self):
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 11, 2, 18, tzinfo=datetime_timezone.utc))
+    def test_default_importance_continuation_and_reset_preserve_effective_order(self, clock):
         for index in range(23):
-            self.article(f"Titre {index}", hours=index + 1, score=index % 5 + 1)
+            self.article(f"Titre {index}", hours=(index + 1) / 60, score=index % 5 + 1)
         expected = list(Article.objects.order_by("-story__importance_score", "-published_at", "-pk").values_list("pk", flat=True))
         first = self.client.get(self.url)
         seen = [article.pk for article in first.context["articles"]]
@@ -110,6 +112,11 @@ class ImportanceAndDateTests(TestCase):
             yesterday = self.article("Ayer local", hours=3)
             older = self.article("Hace dos días", hours=48)
             future = self.article("Fecha futura", hours=-1)
+            default = self.client.get(self.url)
+            self.assertEqual(default.context["filter_form"]["period"].value(), "today")
+            self.assertEqual([a.pk for a in default.context["articles"]], [today.pk])
+            self.assertEqual([a.pk for a in self.client.get(self.url, {"period": ""}).context["articles"]],
+                             [today.pk, yesterday.pk, older.pk])
             expected = {"today": [today.pk], "24h": [today.pk, yesterday.pk],
                         "3d": [today.pk, yesterday.pk, older.pk], "7d": [today.pk, yesterday.pk, older.pk]}
             for period, ids in expected.items():
@@ -120,6 +127,16 @@ class ImportanceAndDateTests(TestCase):
                 response = self.client.get(self.url, params)
                 self.assertTrue(response.context["filter_form"].errors)
                 self.assertEqual(response.context["articles"], [])
+
+    def test_default_today_cursor_is_invalid_after_local_midnight(self):
+        now = datetime(2026, 11, 2, 5, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=now):
+            for index in range(11):
+                self.article(f"Hoy {index}", hours=1, score=3)
+            next_url = self.client.get(self.url).context["next_url"]
+            self.assertIsNotNone(next_url)
+        with patch("django.utils.timezone.now", return_value=now + timedelta(days=1)):
+            self.assertEqual(self.client.get(next_url, HTTP_ACCEPT="application/json").status_code, 400)
 
     def test_importance_cursor_combines_date_and_filters_without_duplicates(self):
         for index in range(25):

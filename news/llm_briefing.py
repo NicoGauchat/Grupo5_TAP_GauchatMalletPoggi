@@ -66,6 +66,9 @@ def _summarize_articles(articles, *, previous_selection=None, fixed_selection=No
         assigned.update({category.slug: category.name for category in article.llm_categories.all()})
         article_categories[article.pk] = set(assigned)
         categories.update(assigned)
+    if fixed_selection is not None:
+        categories = {slug: name for slug, name in categories.items() if slug in fixed_selection}
+        article_categories = {pk: assigned & set(fixed_selection) for pk, assigned in article_categories.items()}
     if not categories:
         return []
     if fixed_selection is not None and (

@@ -35,6 +35,7 @@
                             </a>{% else %}<img src="{% static entry.fallback_image %}" alt="" width="960" height="600" loading="lazy" decoding="async">{% endif %}
                             <figcaption class="image-credit">{% if entry.image_article %}{{ entry.image_article.image_credit|default:entry.image_article.feed.source.name }}{% if entry.image_article.feed.url == 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml' %} · <a href="https://news.mit.edu/terms-of-use" target="_blank" rel="noopener">CC BY-NC-ND</a>{% endif %}{% else %}Imagen ilustrativa{% endif %}</figcaption>
                         </figure>
+                        <h4 class="briefing-headline"><a href="{{ entry.reference.original_url }}" target="_blank" rel="noopener">{{ entry.reference.title }}<span class="visually-hidden"> (artículo original, nueva pestaña)</span></a></h4>
                         <p class="briefing-text">{{ entry.item.text }}</p>
                         <div class="briefing-story-footer">
                             <details class="briefing-sources">

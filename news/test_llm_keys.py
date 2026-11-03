@@ -334,4 +334,5 @@ class EditorialKeyStateTests(TestCase):
                                          published_at=now)
         category = Category.objects.get(slug="ciencia")
         article.categories.add(category)
+        article.llm_categories.add(category)
         self.assertEqual(briefing_context(now, [category])["category_briefings"][0]["state"], "pending")

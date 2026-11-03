@@ -170,13 +170,14 @@ class NewsFeedTests(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
 
-    def article(self, title, *, feed=None, language="es", age=1, category=None):
+    def article(self, title, *, feed=None, language="es", age=0, category=None):
         article = Article.objects.create(
             feed=feed or self.feed, title=title,
             original_url=f"https://example.com/{title}", language=language,
             published_at=timezone.now() - timedelta(days=age),
         )
         article.categories.add(category or self.category)
+        article.llm_categories.add(category or self.category)
         return article
 
     @property
@@ -197,6 +198,7 @@ class NewsFeedTests(TestCase):
         preference.categories.add(self.other_category)
         article = self.article("visible")
         article.categories.add(self.other_category)
+        article.llm_categories.add(self.other_category)
         response = self.client.get(reverse("news_feed"))
         self.assertEqual([x["category"] for x in response.context["sections"]], [self.other_category, self.category])
         self.assertEqual([x["article_count"] for x in response.context["sections"]], [1, 1])
@@ -207,19 +209,22 @@ class NewsFeedTests(TestCase):
         preference.categories.clear()
         self.assertContains(self.client.get(reverse("news_feed")), "Elegí tus categorías")
 
-    def test_classification_preference_switches_visible_articles(self):
+    def test_only_ai_articles_are_visible_even_with_a_legacy_preference(self):
         by_rules = self.article("por-reglas")
+        by_rules.llm_categories.clear()
         by_ai = self.article("por-ia")
         by_ai.categories.clear()
         by_ai.llm_categories.add(self.category)
         preference = UserPreference.objects.get(user=self.user)
-        for mode, expected in (("both", [by_rules.title, by_ai.title]), ("rules", [by_rules.title]), ("ai", [by_ai.title])):
+        for mode in ("both", "rules", "ai"):
             preference.classification_mode = mode
             preference.save()
-            self.assertCountEqual(self.titles(self.client.get(self.url)), expected)
+            self.assertCountEqual(self.titles(self.client.get(self.url)), [by_ai.title])
 
     def test_classification_mode_is_saved_with_preferences(self):
-        self.client.post(reverse("preferences"), {"categories": [self.category.pk], "classification_mode": "ai"})
+        response = self.client.get(reverse("preferences"))
+        self.assertNotContains(response, 'name="classification_mode"')
+        self.client.post(reverse("preferences"), {"categories": [self.category.pk], "classification_mode": "rules"})
         self.assertEqual(UserPreference.objects.get(user=self.user).classification_mode, "ai")
 
     def test_filters_preferences_active_feeds_and_retention(self):
@@ -250,7 +255,7 @@ class NewsFeedTests(TestCase):
         older = self.article("ingles-antigua", language="en", age=10)
         for index in range(11):
             self.article(f"espanol-{index}")
-        self.assertEqual(self.client.get(self.url, {"language": "en"}).context["articles"], [older])
+        self.assertEqual(self.client.get(self.url, {"language": "en", "period": ""}).context["articles"], [older])
         self.assertEqual(len(self.client.get(self.url).context["articles"]), 10)
 
     def test_initial_batch_and_unique_editorial_opening(self):
@@ -385,6 +390,7 @@ class ArticleSearchTests(TestCase):
             published_at=timezone.now() - timedelta(days=age),
         )
         article.categories.add(self.category)
+        article.llm_categories.add(self.category)
         return article
 
     def results(self, text, **filters):
@@ -428,18 +434,18 @@ class ArticleSearchTests(TestCase):
     def test_relevance_precedes_date_and_ties_use_date_then_id(self):
         weak = self.article("Robots estudian nuevas oportunidades para llegar a los mercados")
         strong = self.article("Robots y mercados", age=2)
-        _, results = self.results("robots mercado")
+        _, results = self.results("robots mercado", period="")
         self.assertEqual([item.pk for item in results], [strong.pk, weak.pk])
         self.assertGreater(results[0].relevance, results[1].relevance)
         newer = self.article("Robots y mercados", age=1)
         tied = self.article("Robots y mercados", age=1)
         Article.objects.filter(pk=tied.pk).update(published_at=newer.published_at)
-        self.assertEqual([item.pk for item in self.results("robots mercado")[1]], [tied.pk, newer.pk, strong.pk, weak.pk])
+        self.assertEqual([item.pk for item in self.results("robots mercado", period="")[1]], [tied.pk, newer.pk, strong.pk, weak.pk])
 
     def test_blank_search_preserves_default_sort_and_date_tiebreak(self):
         older = self.article("Robots y mercados", age=2)
         newer = self.article("Otra noticia")
-        response, results = self.results("   ")
+        response, results = self.results("   ", period="")
         self.assertEqual([item.pk for item in results], [newer.pk, older.pk])
         self.assertEqual(response.context["filter_form"].cleaned_data["sort"], "important")
         self.assertContains(response, "Pendiente de evaluación")
@@ -451,6 +457,7 @@ class ArticleSearchTests(TestCase):
         self.article("Robots antiguos", age=15)
         other_topic = self.article("Robots de otro tema")
         other_topic.categories.set([self.other_category])
+        other_topic.llm_categories.set([self.other_category])
         source = Source.objects.create(name="Otra fuente buscable")
         other_feed = Feed.objects.create(source=source, name="RSS", url="https://example.com/other-search", is_active=True)
         other_source = self.article("Robots de otra fuente")
@@ -468,6 +475,7 @@ class ArticleSearchTests(TestCase):
         for index in range(11):
             article = self.article(f"Robots y mercados edición {index}")
             article.categories.add(self.other_category)
+            article.llm_categories.add(self.other_category)
         response, results = self.results("robots mercado", source=self.source.pk, language="es")
         section = response.context
         query = parse_qs(urlsplit(section["next_url"]).query)
@@ -492,7 +500,7 @@ class ArticleSearchTests(TestCase):
         for index in range(31):
             self.article("Robots y mercados" if index % 2 else "Robots estudian las oportunidades y los mercados", age=index % 4)
         expected = list(search_articles(Article.objects.all(), "robots mercado").order_by("-relevance", "-published_at", "-id").values_list("id", flat=True))
-        first, rows = self.results("robots mercado")
+        first, rows = self.results("robots mercado", period="")
         actual = [row.pk for row in rows]
         url = first.context["next_url"]
         for _ in range(5):
@@ -559,6 +567,7 @@ class SavedArticleTests(TestCase):
             published_at=timezone.now(), language="es",
         )
         self.article.categories.add(self.category)
+        self.article.llm_categories.add(self.category)
         self.client.force_login(self.user)
         self.save_url = reverse("save_article", args=[self.article.pk])
         self.remove_url = reverse("remove_saved_article", args=[self.article.pk])
@@ -654,6 +663,7 @@ class SavedArticleTests(TestCase):
             published_at=timezone.now(), language="en",
         )
         other_article.categories.add(self.category)
+        other_article.llm_categories.add(self.category)
         response = self.client.get(reverse("category_news", args=[self.category.slug]), {"source": self.feed.source_id, "language": "en"})
         self.assertContains(response, "No hay noticias con estos filtros")
         self.assertContains(response, "Limpiar filtros")

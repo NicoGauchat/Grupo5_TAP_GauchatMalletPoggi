@@ -209,7 +209,7 @@ class BriefingTests(TestCase):
         self.article = Article.objects.create(feed=self.feed, title="Hecho relevante",
             original_url="https://example.com/news", published_at=self.now - timedelta(minutes=5))
         self.category = Category.objects.get(slug="tecnologia")
-        self.article.categories.add(self.category)
+        self.article.llm_categories.add(self.category)
         self.user = get_user_model().objects.create_user("lector-resumen", password="prueba-local-segura")
         UserPreference.objects.create(user=self.user).categories.add(self.category)
         self.client.force_login(self.user)
@@ -236,6 +236,28 @@ class BriefingTests(TestCase):
         self.assertContains(response, 'href="https://example.com/news" target="_blank" rel="noopener"')
         self.assertEqual(NewsBriefing.objects.first().status, "ready")
 
+    def test_summary_and_category_ignore_a_higher_scored_rule_only_article(self):
+        self.feed.allow_ai_grouping = True
+        self.feed.save()
+        self.article.story = Story.objects.create(importance_score=4)
+        self.article.save()
+        rule_only = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
+            title="Sólo regla editorial", original_url="https://example.com/rule-only", published_at=self.now)
+        rule_only.categories.add(self.category)
+        generation = self.generate()
+        self.assertEqual(generation.call_args.kwargs["fixed_selection"], {self.category.slug: self.article.pk})
+        legacy = NewsBriefing.objects.create(window_start=self.now - timedelta(hours=24))
+        item = NewsBriefingItem.objects.create(briefing=legacy, category=self.category, position=1,
+                                              text="Una síntesis anterior de clasificación mixta.")
+        item.articles.add(rule_only)
+        feed = self.client.get(reverse("news_feed"))
+        reference = feed.context["category_briefings"][0]["reference"]
+        first = self.client.get(reverse("category_news", args=[self.category.slug]),
+                                {"period": "24h", "sort": "important"}).context["articles"][0]
+        self.assertEqual(reference.pk, first.pk)
+        self.assertContains(feed, '<h4 class="briefing-headline">')
+        self.assertNotContains(feed, item.text)
+
     def test_summary_matches_24h_ranking_preserves_14d_and_invalidates_cache_on_new_winner(self):
         self.feed.allow_ai_grouping = True
         self.feed.save()
@@ -246,13 +268,13 @@ class BriefingTests(TestCase):
         older = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
             title="Importante de la semana", original_url="https://example.com/older-major",
             published_at=self.now - timedelta(days=7))
-        newer.categories.add(self.category)
-        older.categories.add(self.category)
+        newer.llm_categories.add(self.category)
+        older.llm_categories.add(self.category)
         generated = self.generate()
         self.assertEqual(generated.call_args.kwargs["fixed_selection"], {self.category.slug: self.article.pk})
         category_url = reverse("category_news", args=[self.category.slug])
         first_24h = self.client.get(category_url, {"sort": "important", "period": "24h"}).context["articles"][0]
-        first_14d = self.client.get(category_url, {"sort": "important"}).context["articles"][0]
+        first_14d = self.client.get(category_url, {"sort": "important", "period": ""}).context["articles"][0]
         self.assertEqual(first_24h.pk, self.article.pk)
         self.assertEqual(first_14d.pk, older.pk)
         self.generate().assert_not_called()
@@ -271,8 +293,8 @@ class BriefingTests(TestCase):
         self.generate()
         Article.objects.bulk_create([Article(feed=self.feed, title=f"Hecho nuevo {i}",
             original_url=f"https://example.com/new/{i}", published_at=self.now) for i in range(250)])
-        Article.categories.through.objects.bulk_create([
-            Article.categories.through(article_id=pk, category_id=self.category.pk)
+        Article.llm_categories.through.objects.bulk_create([
+            Article.llm_categories.through(article_id=pk, category_id=self.category.pk)
             for pk in Article.objects.exclude(pk=self.article.pk).values_list("pk", flat=True)
         ])
         summarize = self.generate(force=True)
@@ -296,7 +318,7 @@ class BriefingTests(TestCase):
         self.generate()
         newer = Article.objects.create(feed=self.feed, title="Otro hecho relevante",
             original_url="https://example.com/new-winner", published_at=self.now)
-        newer.categories.add(self.category)
+        newer.llm_categories.add(self.category)
         rows = [{"category_slug": self.category.slug, "text": "Síntesis del nuevo hecho.", "article_ids": [newer.pk]}]
         first = self.generate(rows=rows, force=True)
         self.assertEqual(first.call_args.kwargs["previous_selection"], {self.category.slug: self.article.pk})
@@ -324,8 +346,8 @@ class BriefingTests(TestCase):
     def test_ties_choose_latest_id_and_only_the_selected_reference_is_sent(self):
         Article.objects.bulk_create([Article(feed=self.feed, title=f"Titular {i}",
             original_url=f"https://example.com/batch/{i}", published_at=self.article.published_at) for i in range(255)])
-        Article.categories.through.objects.bulk_create([
-            Article.categories.through(article_id=pk, category_id=self.category.pk)
+        Article.llm_categories.through.objects.bulk_create([
+            Article.llm_categories.through(article_id=pk, category_id=self.category.pk)
             for pk in Article.objects.values_list("pk", flat=True) if pk != self.article.pk
         ])
         for label, date in (("old", self.now - timedelta(hours=25)), ("future", self.now + timedelta(hours=1))):
@@ -386,7 +408,7 @@ class BriefingTests(TestCase):
         category = Category.objects.get(slug="ciencia")
         article = Article.objects.create(feed=self.feed, title="Titular científico sintético",
             original_url="https://example.com/science", published_at=self.now - timedelta(minutes=2))
-        article.categories.add(category)
+        article.llm_categories.add(category)
         self.user.news_preference.categories.add(category)
         return category, article
 
@@ -528,7 +550,7 @@ class BriefingTests(TestCase):
                 title=label, original_url=f"https://example.com/{label}",
                 published_at=self.now - timedelta(minutes=1), image_url=image_url,
                 image_credit=f"Crédito {label}")
-            article.categories.add(self.category)
+            article.llm_categories.add(self.category)
             return article
 
         repeated_photo = featured("repetida", 4, self.article.image_url)
@@ -555,7 +577,7 @@ class BriefingTests(TestCase):
         self.assertNotContains(response, chosen_coverage.image_url)
         self.assertContains(response, "Imagen ilustrativa")
 
-    def test_category_photo_needs_current_scored_story_and_respects_classification_mode(self):
+    def test_category_photo_needs_current_scored_story_and_ignores_legacy_mode(self):
         self.feed.allow_ai_grouping = True
         self.feed.show_images = True
         self.feed.save()
@@ -571,14 +593,14 @@ class BriefingTests(TestCase):
         ai_only = candidate("solo-ia")
         ai_only.llm_categories.add(self.category)
         old = candidate("vencida", minutes=25 * 60)
-        old.categories.add(self.category)
+        old.llm_categories.add(self.category)
         unscored = candidate("sin-puntaje", scored=False)
-        unscored.categories.add(self.category)
+        unscored.llm_categories.add(self.category)
 
         preference = self.user.news_preference
-        preference.classification_mode = UserPreference.CLASSIFICATION_RULES
+        preference.classification_mode = "rules"
         preference.save()
-        self.assertIsNone(self.client.get(reverse("news_feed")).context["sections"][0]["photo_article"])
+        self.assertEqual(self.client.get(reverse("news_feed")).context["sections"][0]["photo_article"].pk, ai_only.pk)
 
         preference.classification_mode = UserPreference.CLASSIFICATION_AI
         preference.save()
@@ -602,11 +624,11 @@ class BriefingTests(TestCase):
         shared = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=5),
             title="Acontecimiento de dos categorías", original_url="https://example.com/shared",
             published_at=self.now, image_url="https://example.com/shared.jpg")
-        shared.categories.add(self.category, science)
+        shared.llm_categories.add(self.category, science)
         alternative = Article.objects.create(feed=self.feed, story=Story.objects.create(importance_score=4),
             title="Otro hecho tecnológico", original_url="https://example.com/technology/second",
             published_at=self.now, image_url="https://example.com/second.jpg")
-        alternative.categories.add(self.category)
+        alternative.llm_categories.add(self.category)
         sections = self.client.get(reverse("news_feed")).context["sections"]
         photos = {section["category"].slug: section["photo_article"] for section in sections}
         self.assertEqual(photos[science.slug].pk, shared.pk)
@@ -642,15 +664,15 @@ class BriefingTests(TestCase):
         category, science = self.add_science()
         Article.objects.bulk_create([Article(feed=self.feed, title=f"Titular tecnológico {i}",
             original_url=f"https://example.com/dense/{i}", published_at=self.now) for i in range(260)])
-        Article.categories.through.objects.bulk_create([
-            Article.categories.through(article_id=pk, category_id=self.category.pk)
+        Article.llm_categories.through.objects.bulk_create([
+            Article.llm_categories.through(article_id=pk, category_id=self.category.pk)
             for pk in Article.objects.exclude(pk__in=[self.article.pk, science.pk]).values_list("pk", flat=True)
         ])
         excluded_feed = Feed.objects.create(source=self.feed.source, name="Sin síntesis", url="https://example.com/forbidden/rss",
                                              is_active=True, allow_ai_briefing=False)
         forbidden = Article.objects.create(feed=excluded_feed, title="No transmitir este titular",
             original_url="https://example.com/forbidden", published_at=self.now)
-        forbidden.categories.add(category)
+        forbidden.llm_categories.add(category)
         model = self.generate(rows=[])
         sent = model.call_args.args[0]
         self.assertEqual(len(sent), 2)
@@ -690,6 +712,35 @@ class CategoryBriefingMigrationTests(TransactionTestCase):
             executor.migrate(previous)
             restored = executor.loader.project_state(previous).apps
             self.assertEqual(restored.get_model("news", "NewsBriefingItem").objects.get(pk=item.pk).text, "Síntesis anterior.")
+        finally:
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+class OnlyAIPreferenceMigrationTests(TransactionTestCase):
+    def test_existing_modes_are_normalized_without_losing_categories_and_reverse_remains_valid(self):
+        previous = [("news", "0020_newsbriefingitem_category")]
+        target = [("news", "0021_solo_clasificacion_ia")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(previous)
+        try:
+            old = executor.loader.project_state(previous).apps
+            category = old.get_model("news", "Category").objects.create(name="Categoría de migración", slug="migration-ai")
+            ids = []
+            for index, mode in enumerate(("both", "rules", "ai")):
+                user = old.get_model("auth", "User").objects.create(username=f"migration-ai-{index}")
+                preference = old.get_model("news", "UserPreference").objects.create(user_id=user.pk, classification_mode=mode)
+                preference.categories.add(category)
+                ids.append(preference.pk)
+            executor = MigrationExecutor(connection)
+            executor.migrate(target)
+            current = executor.loader.project_state(target).apps
+            preferences = current.get_model("news", "UserPreference").objects.filter(pk__in=ids)
+            self.assertEqual(list(preferences.values_list("classification_mode", flat=True)), ["ai"] * 3)
+            for preference in preferences:
+                self.assertEqual(list(preference.categories.values_list("pk", flat=True)), [category.pk])
+            MigrationExecutor(connection).migrate(previous)
+            self.assertEqual(old.get_model("news", "UserPreference").objects.filter(pk__in=ids, classification_mode="ai").count(), 3)
         finally:
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())

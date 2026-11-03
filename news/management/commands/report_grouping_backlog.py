@@ -54,13 +54,12 @@ class Command(BaseCommand):
                 category__slug="deportes", briefing__status="ready", briefing__generated_at__gte=day,
             ).count()
             categories = list(Category.objects.filter(slug="argentina"))
-            summaries = current_briefing_items(now, categories)
             alignment = []
             for category in categories:
-                item = summaries.get(category.pk)
-                reference = item.articles.first() if item else None
                 for mode, _ in UserPreference.CLASSIFICATION_CHOICES:
-                    candidates = articles_for([category], mode).filter(published_at__gte=day)
+                    item = current_briefing_items(now, categories).get(category.pk)
+                    reference = item.articles.first() if item else None
+                    candidates = articles_for([category]).filter(published_at__gte=day)
                     for period, rows in (("24h", candidates), ("today", candidates.filter(
                         published_at__gte=timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0),
                     ))):

@@ -232,6 +232,7 @@ class StoryTests(TestCase):
             published_at=timezone.now() - timedelta(hours=age), summary="contenido que no debe enviarse",
         )
         article.categories.add(self.category)
+        article.llm_categories.add(self.category)
         return article
 
     def test_single_card_lists_all_sources_and_respects_filters_and_permissions(self):

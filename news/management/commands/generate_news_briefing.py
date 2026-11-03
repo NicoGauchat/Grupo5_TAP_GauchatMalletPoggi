@@ -4,11 +4,9 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
-from news.briefings import current_briefing_items, valid_briefings
-from news.browsing import story_articles, with_importance
+from news.briefings import current_briefing_items, valid_briefings, briefing_winners
 from news.ingestion import AI_EXCLUDED_SOURCES
 from news.llm_briefing import BriefingError, summarize_articles
 from news.models import Article, Category, Feed, NewsBriefing, NewsBriefingItem
@@ -20,6 +18,7 @@ class Command(BaseCommand):
         parser.add_argument("--force", action="store_true", help="Regenerar aunque exista un resultado de las últimas dos horas")
 
     def handle(self, *args, **options):
+        self.stdout.write("Clasificación del resumen: sólo IA.")
         generated_at = timezone.now()
         window_start = generated_at - timedelta(hours=24)
         enabled = Feed.objects.filter(is_active=True, allow_ai_briefing=True).exists()
@@ -27,17 +26,11 @@ class Command(BaseCommand):
             feed__is_active=True, feed__allow_ai_briefing=True,
             published_at__gte=window_start, published_at__lte=generated_at,
         ).exclude(feed__source__name__in=AI_EXCLUDED_SOURCES).select_related("feed__source").order_by("-published_at", "-id")
-        categories = list(Category.objects.filter(
-            Q(articles__in=eligible) | Q(llm_articles__in=eligible),
-        ).distinct())
+        categories = list(Category.objects.filter(llm_articles__in=eligible).distinct())
+        eligible = eligible.filter(llm_categories__in=categories).distinct()
         # La IA redacta sobre la misma ganadora que muestra «Más importantes» en 24h.
-        fixed_selection = {}
-        for category in categories:
-            winner = with_importance(story_articles(eligible.filter(
-                Q(categories=category) | Q(llm_categories=category),
-            ).distinct())).order_by("-importance", "-published_at", "-pk").first()
-            if winner is not None:
-                fixed_selection[category.slug] = winner.pk
+        winners = briefing_winners(generated_at, categories)
+        fixed_selection = {category.slug: winners[category.pk].pk for category in categories if category.pk in winners}
         cached = valid_briefings(generated_at).filter(generated_at__gte=generated_at - timedelta(hours=2))
         if enabled:
             cached = cached.exclude(error_code="no_feeds")
@@ -45,12 +38,12 @@ class Command(BaseCommand):
             cached = cached.filter(error_code="no_feeds")
         if not options["force"]:
             expected = {category.pk for category in categories}
-            for previous in cached.prefetch_related("items__articles__categories", "items__articles__llm_categories"):
+            for previous in cached.prefetch_related("items__articles__llm_categories"):
                 stored = set()
                 for item in previous.items.all():
                     references = list(item.articles.all())
                     if len(references) == 1 and item.category_id in {
-                        category.pk for category in [*references[0].categories.all(), *references[0].llm_categories.all()]
+                        category.pk for category in references[0].llm_categories.all()
                     }:
                         stored.add(item.category_id)
                 if (previous.status == "ready" and stored == expected) or (previous.status == "empty" and not expected):
