@@ -1,5 +1,9 @@
 (() => {
     function fallback(image) {
+        if (image.hasAttribute("data-hide-on-error")) {
+            image.closest("figure").hidden = true;
+            return;
+        }
         if (!image.dataset.fallback || image.dataset.fallbackUsed) return;
         image.dataset.fallbackUsed = "true";
         image.src = image.dataset.fallback;
@@ -8,7 +12,7 @@
     document.addEventListener("error", event => {
         if (event.target instanceof HTMLImageElement) fallback(event.target);
     }, true);
-    document.querySelectorAll("img[data-fallback]").forEach(image => {
+    document.querySelectorAll("img[data-fallback], img[data-hide-on-error]").forEach(image => {
         if (image.complete && !image.naturalWidth) fallback(image);
     });
 

@@ -496,8 +496,7 @@ class BriefingTests(TestCase):
         row = response.context["category_briefings"][0]
         self.assertIsNone(row["image_article"])
         self.assertNotContains(response, "https://example.com/reference.jpg")
-        self.assertContains(response, "Imagen ilustrativa")
-        self.assertContains(response, f'src="/static/{row["fallback_image"]}"')
+        self.assertNotContains(response, f'src="/static/{row["fallback_image"]}"')
 
     def test_briefing_image_uses_only_current_verified_coverage(self):
         self.feed.allow_ai_grouping = True

@@ -1,3 +1,5 @@
+<!-- Actualización 03/11/2026: las fotos generales se reservan para accesos a categorías; las noticias y el resumen sólo muestran imágenes autorizadas de su cobertura. No cambian licencias ni fuentes. -->
+
 # Fuentes de noticias
 
 ### Fotografías ilustrativas generales: selección del 02/11/2026

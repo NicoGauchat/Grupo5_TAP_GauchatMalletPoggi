@@ -337,24 +337,19 @@ class NewsFeedTests(TestCase):
         self.feed.save()
         response = self.client.get(self.url)
         self.assertNotContains(response, article.image_url)
-        self.assertContains(response, "Imagen ilustrativa")
+        self.assertNotContains(response, 'class="article-media"')
 
-    def test_illustrations_are_stable_across_html_json_and_pagination(self):
+    def test_articles_without_photos_omit_illustrations_in_html_and_pagination(self):
         self.category = Category.objects.get(slug="deportes")
         UserPreference.objects.get(user=self.user).categories.add(self.category)
         for index in range(12):
             self.article(f"deporte-{index}")
         response = self.client.get(self.url)
-        first_rows = response.context["articles"]
-        self.assertEqual(len({row.fallback_image for row in first_rows}), 3)
+        self.assertNotContains(response, 'class="article-media"')
         json_html = self.client.get(self.url, HTTP_ACCEPT="application/json").json()["html"]
-        for row in first_rows:
-            expected = article_illustration(row, "deportes")
-            self.assertContains(response, f'data-fallback="/static/{expected}"')
-            self.assertIn(f'data-fallback="/static/{expected}"', json_html)
-        next_url = response.context["next_url"]
-        next_page = self.client.get(next_url, HTTP_ACCEPT="application/json").json()["html"]
-        self.assertIn('data-fallback="/static/news/images/illustrations/deportes-', next_page)
+        self.assertNotIn('class="article-media"', json_html)
+        next_page = self.client.get(response.context["next_url"], HTTP_ACCEPT="application/json").json()["html"]
+        self.assertNotIn('class="article-media"', next_page)
         self.assertEqual(next_page.count('class="article-card"'), 2)
 
     def test_json_bookmarks_preserve_post_security_and_are_idempotent(self):

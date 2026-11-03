@@ -1,5 +1,9 @@
 # Definición del proyecto
 
+### Imágenes de noticias, 03/11/2026
+
+Las noticias y el resumen muestran sólo fotografías autorizadas de su cobertura; si faltan o no cargan, se omite la imagen. La selección por identificador y categoría podía asociar disciplinas o acontecimientos ajenos al titular. Las imágenes generales permanecen en accesos a categorías. No se agregan fuentes, servicios ni permisos.
+
 ### Fotografías ilustrativas generales, 02/11/2026
 
 El usuario pidió sustituir los dibujos de respaldo por imágenes encontradas en la web, cinco por categoría, con licencia de reutilización y estética editorial. Aclaró evitar dirigentes, presidentes, celebridades y escenas de hechos concretos. Se incorporan 55 fotografías reales de Commons (CC0/dominio público) y Pexels (licencia gratuita de uso web), con autores, fichas y permisos individuales en SOURCES. No se generaron imágenes con IA. La selección se revisó en hojas de contacto; las tres sustituciones finales retiran encuadres poco claros de política y un microchip sin contraste. Se recortan y comprimen convencionalmente a JPEG de 960 × 600, calidad 82, unos 5,3 MiB en total. Se sirven localmente, sin API ni descargas al visitar la web. No se agregan dependencias ni servicios: se reutiliza el selector estable por noticia/grupo, ahora con cinco fotos, y la primera de cada categoría reemplaza también los respaldos SVG de las tarjetas. Las fotos RSS autorizadas conservan su prioridad, crédito y política de fuente. El rótulo «Imagen ilustrativa» distingue siempre estas fotografías del hecho narrado. Los SVG anteriores quedan sin uso por el selector, como artefactos históricos; no se cambia la lógica de noticias, IA, fechas ni preferencias.

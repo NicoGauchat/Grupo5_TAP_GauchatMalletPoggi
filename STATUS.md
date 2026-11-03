@@ -5,6 +5,9 @@
 
 ## Último paso completado
 
+**Imágenes sin asociaciones engañosas (03/11/2026):** se suprime el respaldo aleatorio en tarjetas y resumen: sólo se muestra una foto autorizada de la cobertura y, si falta o falla, se omite. Las fotos generales quedan para accesos de categoría. Verificación: 88 pruebas SQLite, 75 aprobadas y 13 omitidas; Django check y diff correctos. README, PROJECT y SOURCES actualizados; `.env.example` no cambia.
+
+
 **55 fotografías ilustrativas incorporadas (02/11/2026):** por pedido del usuario se buscaron imágenes reales en la web, se verificaron fichas/licencias y se seleccionaron cinco por cada una de las once categorías. Sin generación IA, dirigentes, celebridades ni imágenes que pretendan documentar el titular. Commons sólo aporta CC0/dominio público y Pexels su licencia gratuita; autores, fichas y permiso por archivo registrados en SOURCES. Hojas de contacto de las 55 imágenes inspeccionadas y tres sustituciones finales para mejorar claridad de política/IA. Activos JPEG 960 × 600, 55 hashes distintos y 5.535.593 bytes totales; selector estable actualizado a cinco fotos y respaldos de categorías sin SVG. Se conservan fotos RSS autorizadas y el rótulo Imagen ilustrativa. Verificación aprobada: las 24 pruebas de vistas de resumen y las dos del selector/estáticos; se actualizó la expectativa del respaldo para categorías desconocidas a la nueva foto. Django check y diff correctos. README y PROJECT actualizados; `.env.example` no requiere cambios. Publicado en main en f8d96ca. El despliegue público de Render sigue pendiente de verificar, como se registró en el bloque anterior.
 
 **Base y Argentina corregidas; interfaz Render pendiente de verificar (02/11/2026):** `c2812a5` publicado en `main` con titular visible, fecha inicial Hoy y clasificación sólo IA. Actions `41558973322` confirmó que `0021_solo_clasificacion_ia` ya está aplicada en la base remota. `41559123955` regeneró once síntesis sobre diez titulares con categorías IA. El diagnóstico posterior `41559263723` aprobó: Argentina tiene referencia de resumen 4614 y primera noticia IA 4614, puntaje 4, `same_story=true` tanto en 24h como Hoy. No se descargaron RSS ni se alteraron noticias/guardados. Los 263 casos PostgreSQL aprobaron sin omisiones; SQLite aprobó 248 y omitió quince específicos PostgreSQL, sobre 263. Check, migraciones propias y diff correctos. Sin embargo, solicitudes HTTP 200 a la página pública, incluso sin caché y con query distinta, siguen devolviendo CSS `v=20261027-featured-categories`, no el marcador nuevo `v=20261102-solo-ia`: no se acredita que el servicio público haya activado la interfaz nueva. No se atribuye la causa a Render sin logs. No hay CLI ni credencial Render disponible; se encontró la integración Render sin instalar y se indicó al usuario instalarla/conectar la cuenta para revisar servicio/despliegue. No se volvió a usar Brave tras su bloqueo por verificación de URL. README y PROJECT ya reflejan el código final; SOURCES y `.env.example` no requieren cambios. Queda pendiente sólo verificar o completar el despliegue público de esta interfaz, sin confundirlo con la recuperación de datos ya comprobada.
@@ -445,94 +448,4 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar que Render sirva las 55 fotografías y los cambios de interfaz ya publicados en main.
-
-## Completado
-
-- Asignación fija de dos claves Gemini por función, con compatibilidad y condiciones de ejecución locales/Actions.
-- Importancia general por acontecimiento, explicación, orden seleccionable, filtro temporal, once categorías y 26 feeds de ocho medios.
-- Agrupamiento LLM persistente en acontecimientos, una tarjeta por grupo y todas sus coberturas desplegables con enlaces originales.
-- Clasificación adicional de titulares por Gemini, conservada por separado de las reglas, y preferencia individual entre IA, reglas o ambas.
-
-- Búsqueda en títulos con índice GIN, stop words, stemming por idioma y ranking dentro de cada categoría.
-
-- Guardar y quitar noticias por usuario, Mis guardadas paginada y mensajes generales para estados vacíos.
-
-- Django, PostgreSQL local con Docker Compose y arquitectura anterior conservada como referencia histórica.
-- Registro, ingreso, salida y preferencias individuales, sin cambios en este bloque.
-- Ocho categorías y once feeds activos precargados mediante las seis migraciones anteriores, sin cambiar fuentes, permisos ni equivalencias.
-- Ingesta RSS/Atom, deduplicación por GUID dentro del feed y URL canónica, y solicitudes condicionales.
-- Orígenes por noticia y feed con categorías independientes, unión sin duplicados y conservación del feed original para atribución y filtros.
-- `--refresh` reemplaza el aporte del origen consultado sin borrar las categorías aportadas por los demás.
-- Migración `0007_article_origins`: conserva los metadatos existentes y copia feed, GUID y categorías al origen inicial.
-- Página personalizada con noticias por categoría, filtros de fuente e idioma y conservación de 14 días.
-- Paginación real con `page_<slug>`, diez noticias por sección, totales completos y navegación sin JavaScript; «Más reciente» sólo en la primera página.
-- Rediseño de las cinco páginas, con fuentes Archivo y Source Sans 3 locales y licencias OFL, cuatro/dos/una columnas de noticias y formularios con campos y validaciones existentes.
-- Foco visible, enlace para saltar al contenido, controles de al menos 44 px, movimiento reducido y errores y estados vacíos conservados.
-- Workflow preparado todos los días a las 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 y 00:00 en `America/Argentina/Buenos_Aires`; ejecución manual disponible fuera de la franja.
-- Configuración de Render Free, Gunicorn, WhiteNoise y conexión prevista a Supabase Session pooler con SSL.
-- README, PROJECT, SOURCES y STATUS sincronizados. La comprobación RSS del 13/10/2026 sólo conserva evidencia agregada, sin noticias ni XML en el repositorio.
-
-## Pendiente y limitaciones
-
-- Aplicar y verificar las migraciones recientes en PostgreSQL remoto; la búsqueda y la suite se comprobaron en PostgreSQL local, pero no se verificó la ingesta concurrente entre procesos ni el despliegue remoto.
-- Verificar el build de Render, conexión a Supabase, aplicación publicada y persistencia; la configuración preparada no acredita un despliegue correcto.
-- Configurar o comprobar credenciales en los paneles y `NEWS_INGESTION_ENABLED`, y verificar la primera ejecución manual y programada en Actions. Este bloque no carga secretos ni activa servicios remotos.
-- Los horarios de Actions son previstos: puede haber retrasos u omisiones. La pausa de 00:00 a 06:00 y los feeds cortos pueden causar pérdidas de entradas; las consultas cada dos horas no garantizan captura exhaustiva.
-- Sigue pendiente medir ruido temático y calidad semántica en las once categorías. Ciencia ya se amplió con EL PAÍS, Perfil y etiquetas específicas de NASA; las fuentes y reglas nuevas están registradas en SOURCES.
-- No se guardan artículos completos ni archivos de fotografías RSS; se conservan metadatos de imágenes autorizadas y fotografías temáticas locales. Los once feeds conservan los resúmenes RSS deshabilitados.
-
-## Bloqueos
-
-No hay clave Gemini disponible en este entorno para la evaluación semántica real. La implementación, migraciones y pruebas se verificaron con PostgreSQL 17 nativo aislado y respuestas simuladas de la API. El historial de Docker y servidores locales corresponde a sesiones anteriores; este bloque no comprueba su estado actual. El despliegue remoto permanece fuera del bloque.
-
-## Última verificación
-
-Reparto de claves: suite actual **100 pruebas en SQLite, 85 aprobadas y 15 omitidas por requerir PostgreSQL**; incluye ocho pruebas nuevas de asignación/compatibilidad/clientes/fallos/estado web. Django check, ausencia de migraciones nuevas, `git diff --check` y análisis de sintaxis PowerShell aprobados. Se ejecutó el bloque IA real de `dev.ps1` con el ejecutable Python simulado para cinco configuraciones (dos claves, sólo principal, sólo secundaria, ninguna y resumen forzado sin claves), comprobando qué comandos se ejecutan sin acceder a red ni bases. La suite PostgreSQL del bloque previo permanece como antecedente debajo; este ajuste de credenciales no cambia SQL, esquema ni interfaz.
-
-Sólo se verificaron los nombres de secretos de Actions: principal presente y secundaria ausente. Sin claves locales ni llamadas reales; no se cargaron secretos, no se alteró facturación ni se publicó. La separación efectiva queda pendiente de que el usuario configure la segunda clave. README, PROJECT y `.env.example` actualizados; SOURCES no requiere cambios.
-
-### Antecedente de la ampliación funcional
-
-Suite completa final: **92 pruebas aprobadas en PostgreSQL 17 nativo temporal** y **77 aprobadas/15 omitidas en SQLite**. Configuración, ausencia de migraciones pendientes, dependencias y `git diff --check` sin errores. Migraciones verificadas desde estados anteriores y en reversa, conservando artículos y grupos. `collectstatic` con manifiesto y compresión aprobado en un directorio temporal externo.
-
-Chrome a 1440 y 375 px: selector de orden cambia los titulares iniciales, fecha/orden se conservan al pasar de diez a diecinueve tarjetas sin duplicados, modificar filtros reinicia a diez, Guardar no pierde selección ni tarjetas. Explicación operable con Enter y foco visible. Sin JavaScript: explicación desplegable, Ver más hasta diecinueve y formulario de semana/recientes funcionales. Once categorías visibles, tres SVG nuevos cargados al entrar en viewport, fuentes/licencia/autoría conservadas y noticias sin puntaje identificadas. Movimiento reducido y ausencia de desbordamiento comprobados; capturas de escritorio/móvil inspeccionadas. Sin errores JavaScript; sólo el 404 previo del favicon.
-
-Los quince RSS nuevos se ingirieron en PostgreSQL temporal, sin cuerpos ni fotografías. Se comprobó después la reclasificación de las 24 entradas de elDiario.es con su regla editorial acotada. Navegador, servidor web y PostgreSQL de QA detenidos al terminar. Quedan datos sintéticos y metadatos RSS reales sólo en el directorio temporal externo; no se modificaron bases del usuario ni secretos, y no se publicó. La llamada real a Gemini sigue pendiente por falta de clave disponible.
-
-### Verificaciones históricas
-
-- Cambio sólo de presentación y documentación de estado. README, PROJECT y SOURCES no requieren cambios; `.env.example` tampoco porque no se agregaron variables. `git diff --check` pasó. El detector Impeccable no encontró coincidencias, pero se ejecutó en modo degradado por faltar sus módulos HTML/CSS; no evaluó selectores ni contraste. La revisión visual en el navegador no fue posible porque el servidor local no respondió (`ERR_CONNECTION_REFUSED`).
-
-- Suite completa en PostgreSQL 17: **52 pruebas aprobadas**, incluyendo búsqueda, stop words, stemming en tres idiomas, ranking y desempates, filtros, retención, paginación, guardados y migración reversible con noticias existentes.
-- Suite SQLite: **40 pruebas aprobadas y 12 omitidas** por requerir PostgreSQL. Conserva las verificaciones generales y el formulario de búsqueda; no implementa búsqueda alternativa.
-- `EXPLAIN` con 2001 noticias sintéticas comprobó el uso natural de `article_title_search_gin` en una búsqueda selectiva. La prueba de migración conserva todos los campos de la noticia y verifica la creación y eliminación del índice GIN.
-- Microsoft Edge contra PostgreSQL local: búsqueda con stemming y stop words, Enter, resultados vacíos, limpieza, paginación y guardado/quita conservando `q` comprobados. Capturas revisadas a 375 y 1440 px, sin desbordamiento y con controles de al menos 44 px.
-- `manage.py check`, `makemigrations --check --dry-run` con ajustes aislados y `git diff --check`: sin problemas.
-- La migración de búsqueda todavía no se aplicó ni verificó en Supabase/Render desde esta tarea.
-
-## Verificación de noticias guardadas
-
-- Suite completa: **39 pruebas aprobadas**. Las ocho pruebas nuevas verifican sesión, POST, CSRF, aislamiento entre usuarios, guardados repetidos, redirecciones, conservación de URL, retención, paginación y mensajes vacíos.
-- `manage.py check --settings=config.test_settings` y `git diff --check`: sin problemas.
-- Microsoft Edge con datos sintéticos en SQLite fuera del repositorio: ingreso, guardar, quitar, Mis guardadas vacía, categorías vacías y regreso con filtros y página comprobados. Capturas de Mis guardadas revisadas a 375 y 1440 px, sin desbordamiento horizontal y con botones de al menos 44 px. Se reutilizaron las fuentes y estilos existentes.
-- `makemigrations --check --dry-run --settings=config.test_settings`: sin cambios pendientes de modelo; migración nueva aplicada en las bases SQLite de prueba.
-- La prueba histórica de migración restaura ahora el esquema más reciente al terminar, para no dejar la tabla nueva ausente en otras pruebas.
-- La migración `0008_savedarticle` y las funciones nuevas todavía requieren aplicar y verificar en el despliegue remoto con PostgreSQL.
-
-## Verificación del bloque anterior
-
-- Suite completa: **31 pruebas aprobadas**, sin `.env`, Docker ni `collectstatic`; conserva las 24 anteriores y añade siete regresiones de paginación con escenarios de 0, 10, 11 y 23 artículos, independencia, enlaces, filtros, límites, orden y ausencia de duplicados.
-- `manage.py check --settings=config.test_settings`: sin problemas.
-- `makemigrations --check --dry-run --settings=config.test_settings`: sin cambios pendientes de modelo.
-- `pip check`: sin dependencias incompatibles; no se agregaron ni actualizaron dependencias.
-- Cron y zona horaria verificados: diez horarios diarios acordados, ejecución manual y control de activación conservados, limpieza antes de la ingesta.
-- Navegador Microsoft Edge: las cinco páginas devolvieron HTTP 200 a 375, 768, 1024 y 1440 px; sin desbordamiento horizontal, campos sin etiqueta ni controles de formulario menores de 44 px. Se inspeccionaron capturas de escritorio y móvil, títulos extensos, errores de ingreso/registro/filtros y estados vacíos con datos sintéticos externos al repositorio.
-- Recorridos comprobados en navegador: ingreso válido e inválido, `next`, registro válido e inválido, preferencias, confirmación de guardado y salida por POST; paginación con filtros, reinicio, recarga e historial. No cambió la autenticación.
-- Texto inspeccionado con contraste mínimo de 5,94:1; foco visible, acceso al contenido por teclado y casillas operables con espacio. Movimiento reducido elimina transiciones. Fuentes locales cargadas y respaldo sin desbordamiento al bloquear su descarga.
-- Reflujo equivalente al 200 % comprobado mediante viewport de 720 × 500 CSS px y escala de dispositivo 2, para las cinco páginas. Es emulación en Edge, no una prueba en dispositivos físicos ni una certificación de accesibilidad.
-- `collectstatic` comprobado con el almacenamiento de manifiesto y compresión de WhiteNoise, usando un directorio temporal: CSS y ambas fuentes obtuvieron nombres versionados y archivos gzip, sin tocar configuración ni estáticos del repositorio.
-- Configuración de producción y pruebas, URLs, formularios, modelos, ingesta, workflow y migración anterior conservados respecto del inicio de este bloque; el cambio funcional de backend se limita a `news_feed`. Se compararon los textos de enlaces y botones existentes sin faltantes.
-- SOURCES y `.env.example` no requirieron cambios: no se modificaron feeds, permisos ni variables. README y PROJECT registran la identidad y el contrato de paginación; la arquitectura histórica permanece intacta.
-- Diff revisado sin errores de espacios, secretos, noticias reales ni artefactos de ejecución incorporados; fuentes y licencias son assets deliberados del sitio.
-- Las migraciones se probaron únicamente con bases SQLite de prueba. El despliegue y la activación remota están pendientes.
+Comprobar el despliegue público de las correcciones de imágenes y de interfaz.
