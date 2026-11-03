@@ -337,19 +337,19 @@ class NewsFeedTests(TestCase):
         self.feed.save()
         response = self.client.get(self.url)
         self.assertNotContains(response, article.image_url)
-        self.assertNotContains(response, 'class="article-media"')
+        self.assertContains(response, "Imagen ilustrativa")
 
-    def test_articles_without_photos_omit_illustrations_in_html_and_pagination(self):
+    def test_illustrations_are_present_in_html_and_pagination(self):
         self.category = Category.objects.get(slug="deportes")
         UserPreference.objects.get(user=self.user).categories.add(self.category)
         for index in range(12):
             self.article(f"deporte-{index}")
         response = self.client.get(self.url)
-        self.assertNotContains(response, 'class="article-media"')
+        self.assertContains(response, 'Imagen ilustrativa')
         json_html = self.client.get(self.url, HTTP_ACCEPT="application/json").json()["html"]
-        self.assertNotIn('class="article-media"', json_html)
+        self.assertIn('news/images/photos/deportes-general-', json_html)
         next_page = self.client.get(response.context["next_url"], HTTP_ACCEPT="application/json").json()["html"]
-        self.assertNotIn('class="article-media"', next_page)
+        self.assertIn('news/images/photos/deportes-general-', next_page)
         self.assertEqual(next_page.count('class="article-card"'), 2)
 
     def test_json_bookmarks_preserve_post_security_and_are_idempotent(self):

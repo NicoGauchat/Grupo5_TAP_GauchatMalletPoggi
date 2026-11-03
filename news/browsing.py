@@ -17,8 +17,16 @@ CATEGORY_IMAGES = {"argentina", "politica-argentina", "geopolitica", "economia",
 CURSOR_SALT = "news.category.stories.v3"
 ILLUSTRATION_POOLS = {
     slug: tuple(f"photos/{slug}-{index}.jpg" for index in range(1, 6))
-    for slug in CATEGORY_IMAGES | {"salud", "medioambiente", "deportes"}
+    for slug in CATEGORY_IMAGES | {"salud", "medioambiente"}
 }
+# Paisajes argentinos generales evitan sugerir que toda noticia es electoral.
+ILLUSTRATION_POOLS["politica-argentina"] = ILLUSTRATION_POOLS["argentina"]
+# Estadios y tribunas sin una disciplina o equipo protagonista.
+ILLUSTRATION_POOLS["deportes"] = tuple(f"photos/deportes-general-{index}.jpg" for index in range(1, 6))
+# Evitar imágenes de fármacos, cultivos o tratamientos concretos.
+ILLUSTRATION_POOLS["salud"] = tuple(f"photos/salud-{index}.jpg" for index in (1, 2, 3)) + ("photos/ciencia-1.jpg", "photos/ciencia-3.jpg")
+ILLUSTRATION_POOLS["ciencia"] = tuple(f"photos/ciencia-{index}.jpg" for index in (1, 2, 3, 5)) + ("photos/tecnologia-1.jpg",)
+ILLUSTRATION_POOLS["economia"] = ("photos/economia-1.jpg", "photos/economia-2.jpg", "photos/mercados-finanzas-1.jpg", "photos/mercados-finanzas-3.jpg", "photos/mercados-finanzas-5.jpg")
 
 
 def category_image(slug):

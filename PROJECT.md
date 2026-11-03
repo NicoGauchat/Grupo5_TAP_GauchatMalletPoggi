@@ -2,7 +2,7 @@
 
 ### Imágenes de noticias, 03/11/2026
 
-Las noticias y el resumen muestran sólo fotografías autorizadas de su cobertura; si faltan o no cargan, se omite la imagen. La selección por identificador y categoría podía asociar disciplinas o acontecimientos ajenos al titular. Las imágenes generales permanecen en accesos a categorías. No se agregan fuentes, servicios ni permisos.
+Las noticias y el resumen priorizan fotografías autorizadas de su cobertura y, cuando faltan o fallan, muestran una imagen ilustrativa general de su categoría. Por pedido del usuario se evitan fotografías de disciplinas específicas y de votaciones: Deportes usa estadios y tribunas; Política usa paisajes argentinos. Cada categoría dispone de cinco variantes; salud, ciencia y economía reutilizan algunas fotografías generales de categorías afines. Las fuentes y licencias están en SOURCES.
 
 ### Fotografías ilustrativas generales, 02/11/2026
 

@@ -1,4 +1,12 @@
-<!-- Actualización 03/11/2026: las fotos generales se reservan para accesos a categorías; las noticias y el resumen sólo muestran imágenes autorizadas de su cobertura. No cambian licencias ni fuentes. -->
+<!-- Actualización 03/11/2026: se restauran respaldos generales en noticias y resumen, con rótulo ilustrativo. Política usa las cinco fotos de Argentina; Deportes usa las cinco fichas siguientes, recortadas para evitar identificar una disciplina. Salud, ciencia y economía combinan cinco fotos generales del catálogo anterior, incluidas algunas de categorías afines. -->
+
+| Archivo | Autor | Ficha y licencia |
+|---|---|---|
+| `photos/deportes-general-1.jpg` | SS2027 | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Brian_Kern_Family_Stadium.jpg) · CC0 |
+| `photos/deportes-general-2.jpg` | Waka77 | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Incheon_Soccer_Stadium_1.JPG) · CC0 |
+| `photos/deportes-general-3.jpg` | IDontHaveSkype | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Longxing_Football_Stadium_2025-06-10.jpg) · CC0 |
+| `photos/deportes-general-4.jpg` | Naruciakk | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:The_overview_of_the_Gda%C5%84sk_Sports_Center_Stadium,_with_the_main_football_pitch.jpg) · CC0 |
+| `photos/deportes-general-5.jpg` | Farida Belal | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:A_football_game_at_Ole_Miss_Vaught-Hemingway_Stadium.jpg) · CC0 |
 
 # Fuentes de noticias
 

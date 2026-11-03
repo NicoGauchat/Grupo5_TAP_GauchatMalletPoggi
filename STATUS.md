@@ -5,6 +5,9 @@
 
 ## Último paso completado
 
+**Respaldos generales restaurados (03/11/2026):** por aclaración del usuario se vuelven a mostrar imágenes ilustrativas en noticias y resumen. Política utiliza paisajes argentinos y Deportes estadios y tribunas; se excluyen fotos demasiado específicas en salud, ciencia y economía. Se priorizan las fotografías de fuentes habilitadas y se mantiene el rótulo ilustrativo. Verificación: 88 pruebas SQLite, 75 aprobadas y 13 omitidas; selector con cinco archivos por categoría verificado. Django check y diff correctos. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios.
+
+
 **Imágenes sin asociaciones engañosas (03/11/2026):** se suprime el respaldo aleatorio en tarjetas y resumen: sólo se muestra una foto autorizada de la cobertura y, si falta o falla, se omite. Las fotos generales quedan para accesos de categoría. Verificación: 88 pruebas SQLite, 75 aprobadas y 13 omitidas; Django check y diff correctos. README, PROJECT y SOURCES actualizados; `.env.example` no cambia.
 
 

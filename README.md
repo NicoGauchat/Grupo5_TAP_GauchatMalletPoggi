@@ -15,7 +15,7 @@ La marca visible es **LibreNews**. Los identificadores ya usados por PostgreSQL,
 - Filtros combinables por fuente, idioma y fecha; orden por recientes o importancia general estimada con IA. La explicación de importancia se muestra desplegada por defecto en las tarjetas.
 - Categorías navegables con apertura editorial, grilla y carga progresiva sin recarga.
 - Agrupamiento LLM persistente con una tarjeta por acontecimiento y todas sus coberturas originales desplegables.
-- Fotografías RSS de fuentes habilitadas en noticias y resumen, con crédito; cuando no hay una foto autorizada se muestra el titular sin imagen para evitar asociaciones equivocadas. Las fotos generales se reservan para accesos a categorías.
+- Fotografías RSS autorizadas en noticias y resumen; cuando faltan se muestran fotografías ilustrativas generales de la categoría, identificadas como tales.
 - Aplicación con Gunicorn y PostgreSQL aislado en Docker Compose; arranque con un comando PowerShell.
 - Búsqueda en títulos con stop words, stemming por idioma, índice GIN y ranking de relevancia.
 - Botones para guardar o quitar noticias y una página privada Mis guardadas para cada usuario.
