@@ -147,7 +147,7 @@ class APIKeyRoutingTests(SimpleTestCase):
                 self.assertEqual(client.call_count, 1)
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
-    def test_quota_does_not_switch_to_the_other_key(self):
+    def test_editorial_quota_tries_both_keys_once(self):
         article = self.article()
         cases = [
             ("news.llm_briefing.genai.Client", lambda: summarize_articles([article]), BriefingError),
@@ -160,8 +160,7 @@ class APIKeyRoutingTests(SimpleTestCase):
                 client.return_value.__enter__.return_value.models.generate_content.side_effect = error
                 with self.assertRaises(exception) as caught:
                     operation()
-                self.assertEqual(client.call_count, 1)
-                self.assertEqual(client.call_args.kwargs["api_key"], SECONDARY)
+                self.assertEqual([call.kwargs["api_key"] for call in client.call_args_list], [SECONDARY, PRIMARY])
                 self.assertNotIn("provider-private-message", str(caught.exception))
 
     @patch.dict("os.environ", {"GEMINI_API_KEY_SECONDARY": SECONDARY}, clear=True)
@@ -258,6 +257,70 @@ class SecondaryQuotaFallbackTests(SimpleTestCase):
         with self.assertRaises(ClassificationError):
             classify_batch([self.article()], ["ciencia"])
         cloud.assert_called_once()
+
+
+class AllTaskQuotaFallbackTests(SimpleTestCase):
+    @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY,
+                              "GROQ_API_KEY": "groq-synthetic", "AI_API_FIRST": "false"}, clear=True)
+    def test_classification_and_importance_exhaust_gemini_then_validate_groq(self):
+        article = APIKeyRoutingTests.article(self)
+        cases = [
+            ("classification", lambda: classify_batch([article], ["ciencia"]),
+             {"articles": [{"article_id": 7, "categories": ["ciencia"]}]}, [PRIMARY, SECONDARY]),
+            ("importance", lambda: score_stories({9: [article]}),
+             {"stories": [{"story_id": 9, "score": 3, "reason": "Alcance sectorial."}]}, [SECONDARY, PRIMARY]),
+        ]
+        for task, operation, valid, expected_keys in cases:
+            with self.subTest(task=task), patch(f"news.llm_{task}.genai.Client") as client, patch(
+                    f"news.llm_{task}.groq_json", return_value=valid) as groq:
+                error = errors.APIError(429, {"error": {"message": "private"}})
+                client.return_value.models.generate_content.side_effect = error
+                client.return_value.__enter__.return_value.models.generate_content.side_effect = error
+                result = operation()
+                self.assertEqual(result.model, "groq:openai/gpt-oss-120b")
+                self.assertEqual([call.kwargs["api_key"] for call in client.call_args_list], expected_keys)
+                self.assertEqual(groq.call_args.args[2], task)
+                groq.return_value = {}
+                with self.assertRaises((ClassificationError, ImportanceError)):
+                    operation()
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY,
+                              "GROQ_API_KEY": "groq-synthetic", "AI_API_FIRST": "false"}, clear=True)
+    def test_configuration_errors_do_not_switch_to_groq(self):
+        article = APIKeyRoutingTests.article(self)
+        for task, operation in [
+            ("classification", lambda: classify_batch([article], ["ciencia"])),
+            ("importance", lambda: score_stories({9: [article]})),
+        ]:
+            with self.subTest(task=task), patch(f"news.llm_{task}.genai.Client") as client, patch(
+                    f"news.llm_{task}.groq_json") as groq:
+                error = errors.APIError(403, {"error": {"message": "private"}})
+                client.return_value.models.generate_content.side_effect = error
+                client.return_value.__enter__.return_value.models.generate_content.side_effect = error
+                with self.assertRaises((ClassificationError, ImportanceError)):
+                    operation()
+                client.assert_called_once()
+                groq.assert_not_called()
+
+    @patch.dict("os.environ", {"GEMINI_API_KEY": PRIMARY, "GEMINI_API_KEY_SECONDARY": SECONDARY,
+                              "GROQ_API_KEY": "groq-synthetic", "AI_API_FIRST": "true"}, clear=True)
+    def test_importance_reaches_local_after_both_gemini_keys_and_groq_quota(self):
+        from . import ollama
+        from .llm_transport import BackupError
+        ollama._fallback_used.clear()
+        self.addCleanup(ollama._fallback_used.clear)
+        article = APIKeyRoutingTests.article(self)
+        scores = {9: {"score": 3, "reason": "Alcance sectorial."}}
+        with patch("news.llm_importance.genai.Client") as gemini, patch(
+                "news.llm_importance.groq_json", side_effect=BackupError("quota", http_status=429)) as groq:
+            gemini.return_value.__enter__.return_value.models.generate_content.side_effect = errors.APIError(429, {})
+            with patch("news.ollama.request_json", return_value={"stories": [dict(story_id=9, **scores[9])]}), patch(
+                    "news.ollama.audit_texts"):
+                result = score_stories({9: [article]})
+            self.assertEqual(result, scores)
+            self.assertEqual(result.model, ollama.model_name())
+            self.assertEqual(gemini.call_count, 2)
+            groq.assert_called_once()
 
 
 class EditorialKeyStateTests(TestCase):

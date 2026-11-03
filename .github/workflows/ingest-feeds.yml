@@ -13,7 +13,7 @@ on:
       mode:
         description: Flujo completo, pendientes IA, comprobación, reparación, resumen o diagnóstico de antigüedad
         type: choice
-        options: [maintenance, process-ai, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog, update-sources, enable-briefing]
+        options: [maintenance, process-ai, score-importance, check-grouping, repair-grouping, generate-briefing, report-backlog, purge-backlog, update-sources, enable-briefing]
         default: maintenance
       grouping_limit:
         description: Máximo de titulares a agrupar en esta ejecución
@@ -78,7 +78,7 @@ jobs:
   maintain:
     if: vars.NEWS_INGESTION_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ vars.OLLAMA_BRIDGE_URL != '' && 60 || (inputs.mode == 'maintenance' || (github.event_name == 'schedule' && github.event.schedule == '0 0,6,8,10,12,14,16,18,20,22 * * *')) && 30 || 20 }}
+    timeout-minutes: ${{ vars.OLLAMA_BRIDGE_URL != '' && 60 || 45 }}
     env:
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DJANGO_ALLOWED_HOSTS: localhost
@@ -200,6 +200,7 @@ jobs:
           python manage.py report_grouping_backlog
       - name: Ingerir feeds
         id: ingest
+        timeout-minutes: 10
         if: env.MAINTENANCE_MODE == 'maintenance'
         continue-on-error: true
         run: |
@@ -217,6 +218,7 @@ jobs:
           fi
           exit "$result"
       - name: Clasificar noticias con IA
+        timeout-minutes: 5
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '') }}
         run: python manage.py classify_news_ai --limit "$AI_PROCESS_LIMIT"
       - name: Actualizar entradillas RSS revisadas
@@ -226,6 +228,7 @@ jobs:
           DESCRIPTION_SOURCE: ${{ inputs.reviewed_description_source || 'eldiario' }}
         run: python manage.py refresh_briefing_descriptions --enable-reviewed --source "$DESCRIPTION_SOURCE"
       - name: Generar presentación de las últimas 24 horas
+        timeout-minutes: 4
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (steps.briefing_descriptions.outcome == 'success' || steps.briefing_descriptions.outcome == 'skipped') && (env.MAINTENANCE_MODE == 'generate-briefing' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
         run: |
           if [ "$MAINTENANCE_MODE" = 'generate-briefing' ] || [ "$FORCE_RSS_REFRESH" = 'true' ]; then
@@ -242,13 +245,21 @@ jobs:
         run: python manage.py check_news_grouping --provider "$CHECK_PROVIDER" --candidates "$CHECK_CANDIDATES"
       - name: Agrupar coberturas del mismo acontecimiento
         id: grouping
+        timeout-minutes: 10
         if: ${{ always() && steps.check_migrations.outcome == 'success' && (env.MAINTENANCE_MODE == 'repair-grouping' || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY != '' || env.GEMINI_API_KEY_SECONDARY != '') && (steps.grouping_check.outcome == 'success' || steps.grouping_check.outcome == 'skipped') }}
         env:
           GROUPING_LIMIT: ${{ env.MAINTENANCE_MODE == 'process-ai' && '100' || inputs.grouping_limit || '100' }}
         run: python manage.py group_news_ai --limit "$GROUPING_LIMIT"
       - name: Evaluar importancia general
-        if: ${{ always() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'process-ai' || (steps.purge.outcome == 'success' && (steps.ingest.outcome == 'success' || steps.ingest.outputs.partial == 'true'))) && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
-        run: python manage.py score_news_ai --limit "$AI_PROCESS_LIMIT"
+        timeout-minutes: 8
+        if: ${{ !cancelled() && steps.check_migrations.outcome == 'success' && ((env.MAINTENANCE_MODE == 'repair-grouping' && steps.grouping.outcome == 'success') || env.MAINTENANCE_MODE == 'score-importance' || env.MAINTENANCE_MODE == 'process-ai' || env.MAINTENANCE_MODE == 'maintenance') && (env.GEMINI_API_KEY_SECONDARY != '' || env.GEMINI_API_KEY != '') }}
+        run: |
+          limit="$AI_PROCESS_LIMIT"
+          if [ "$MAINTENANCE_MODE" = 'score-importance' ]; then limit=500; fi
+          python manage.py score_news_ai --limit "$limit"
+      - name: Informar noticias que todavía requieren agrupamiento
+        if: ${{ !cancelled() && steps.check_migrations.outcome == 'success' && env.MAINTENANCE_MODE == 'score-importance' }}
+        run: python manage.py report_grouping_backlog
       - name: Informar errores de fuentes RSS
         if: ${{ always() && steps.ingest.outcome == 'failure' }}
         run: |

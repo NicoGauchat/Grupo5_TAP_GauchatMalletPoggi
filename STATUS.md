@@ -1,9 +1,15 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-10-31
+**Última actualización:** 2026-11-02
 **Objetivo actual:** ejecutar la aplicación completa con Docker Compose y habilitar ingreso opcional con Google OAuth.
 
 ## Último paso completado
+
+**Recuperación de importancia y respaldos en verificación (02/11/2026):** se confirmó en las anotaciones de Actions `41518401365` que el job agotó veinte minutos durante agrupamiento; las tres ejecuciones recientes no llegaron a importancia. Se preparó timeout por etapa, margen global de 45 minutos (60 con puente), continuidad de importancia tras fallos anteriores y modo manual `score-importance` de hasta 500 grupos, con conteo final de pendientes. Por pedido posterior del usuario, las cuatro tareas prueban la otra clave Gemini distinta ante cuota y disponen de respaldo Groq; clasificación/importancia preservan validación y modelo efectivo. Verificación aprobada: 255 pruebas SQLite (240 aprobadas y 15 omitidas por PostgreSQL), 33 pruebas de importancia/respaldos en PostgreSQL local sin omisiones, Django check y diff. Actionlint correcto salvo la exclusión explícita de `queue`, funcionalidad preexistente que su versión no reconoce. README, PROJECT, SOURCES y comentarios de `.env.example` actualizados. Se procede a publicar y ejecutar la recuperación real autorizada; todavía no se acredita su resultado. Cloudflare Workers AI se está evaluando con el usuario, sin credenciales ni integración nueva; OpenRouter permanece excluido.
+
+**Arranque local verificado (02/11/2026):** a pedido del usuario se inició Docker Desktop y se ejecutó `dev.ps1` en modo Docker. Imagen reconstruida y servicios web/PostgreSQL healthy; portada, ingreso y registro responden HTTP 200 en `http://127.0.0.1:8000/`, con botón Google presente. Ambos servicios quedan corriendo en segundo plano con el volumen existente. No se ejecutaron ingestas ni llamadas IA ni se modificó producción. README, PROJECT, SOURCES y `.env.example` no requieren cambios: se utilizó el procedimiento ya documentado. Se conserva como único próximo paso verificar el callback Google de Render.
+
+**Callback Google de Render pendiente (31/10/2026):** el usuario informó el error Google 400 vinculado a `redirect_uri_mismatch` y confirmó que sólo tiene registrada la URI local. Se indicó agregar, en el mismo cliente OAuth utilizado por Render, `https://sitio-noticias.onrender.com/accounts/google/login/callback/`, conservando la URI local y la barra final. Es una configuración del proveedor; no requiere cambiar el código ni rotar secretos. Todavía no se acredita el ingreso remoto corregido. README, PROJECT, SOURCES y `.env.example` no requieren cambios: el procedimiento y la separación de entornos ya están documentados.
 
 **Botón Google con identidad visual (31/10/2026):** el ingreso, registro y confirmación OAuth comparten un botón blanco redondeado con el logo multicolor oficial servido localmente, borde/hover suaves y foco de teclado visible. Un separador distingue el ingreso tradicional, y la versión del CSS evita conservar el estilo anterior en caché. Se aplicó UI/UX Pro Max y se revisó la guía oficial de marca. No cambian rutas, sesiones, permisos ni autenticación. Ocho pruebas OAuth aprobadas, Django check y diff correctos; imagen Docker reconstruida y ambos servicios healthy. Edge/Playwright a 1440 y 375 px con capturas inspeccionadas: logo cargado, botón de 48 px, sin desbordamiento y foco por Shift+Tab con contorno de 3 px. Única incidencia de consola: favicon 404 preexistente. README y SOURCES actualizados por la función visible y el recurso de marca; PROJECT y `.env.example` no requieren cambios por este ajuste de presentación.
 
@@ -423,7 +429,7 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Activar y verificar el ingreso con Google en Render con el código y las variables preparados.
+Publicar la corrección verificada y completar la recuperación de importancia en la base desplegada, comprobando sus pendientes.
 
 ## Completado
 

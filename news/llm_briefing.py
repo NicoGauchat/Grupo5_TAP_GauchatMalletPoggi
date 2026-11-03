@@ -10,7 +10,7 @@ from google.genai import errors, types
 
 from .llm_classification import MODEL
 from .ingestion import NASA_DESCRIPTION_FEED, permitted_summary
-from .llm_keys import api_key_for
+from .llm_keys import api_key_for, with_secondary_on_quota
 from . import ollama
 from .llm_diagnostics import safe_diagnostic
 from .llm_transport import BackupError, ModelList, backup_configured, backup_providers, backup_model, decode_json, request_backup, pace_request
@@ -166,7 +166,8 @@ def _summarize_articles(articles, *, previous_selection=None, local=False):
     if not api_key:
         raise BriefingError("Ollama no está disponible y falta una clave Gemini para el respaldo.", "missing_key")
     try:
-        result = _gemini_summary(prompt, schema, api_key)
+        result = with_secondary_on_quota("briefing", api_key,
+                                         lambda key: _gemini_summary(prompt, schema, key))
         return validated_result(result, MODEL)
     except BriefingError as error:
         if not backup_configured() or error.code not in {"quota", "timeout", "connection", "invalid_response"}:

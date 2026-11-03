@@ -29,22 +29,32 @@ def api_key_for(task):
             or os.environ.get("GEMINI_API_KEY_SECONDARY", "").strip())
 
 
+def is_quota_error(error):
+    """Reconoce cuota sin analizar mensajes que puedan contener datos privados."""
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        if (isinstance(error, errors.APIError) and error.code == 429
+                or getattr(error, "code", None) == "quota"):
+            return True
+        error = error.__cause__
+    return False
+
+
 def with_secondary_on_quota(task, api_key, request):
-    """Una sola alternativa para clasificación/agrupamiento; nunca registra claves."""
+    """Prueba la otra clave configurada una sola vez ante cuota, en todas las tareas."""
     try:
         return request(api_key)
     except Exception as error:
-        cause = error if isinstance(error, errors.APIError) else error.__cause__
         primary = os.environ.get("GEMINI_API_KEY", "").strip()
         secondary = os.environ.get("GEMINI_API_KEY_SECONDARY", "").strip()
-        if (task not in {"classification", "grouping"} or not primary or api_key != primary
-                or not secondary or secondary == primary
-                or not isinstance(cause, errors.APIError) or cause.code != 429):
+        alternative = next((key for key in (primary, secondary) if key and key != api_key), None)
+        if not alternative or not is_quota_error(error):
             raise
         logging.getLogger(__name__).warning(
-            "Gemini %s: cuota de clave principal no disponible; se intenta la secundaria.", task,
+            "Gemini %s: cuota no disponible; se intenta la otra clave configurada.", task,
         )
-        return request(secondary)
+        return request(alternative)
 
 
 def configured_tasks():

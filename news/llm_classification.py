@@ -5,9 +5,9 @@ import json
 from google import genai
 from google.genai import types
 
-from .llm_keys import api_key_for, configured_model, with_secondary_on_quota
+from .llm_keys import api_key_for, configured_model, with_secondary_on_quota, is_quota_error
 from .llm_diagnostics import safe_diagnostic
-from .llm_transport import pace_request
+from .llm_transport import pace_request, backup_configured, groq_json, backup_model, BackupError
 from . import ollama
 
 
@@ -91,8 +91,18 @@ def _classify_batch(articles, available_slugs, *, local=False):
         return ollama.ModelDict(validate_classification(response, {article.pk for article in articles}, slugs), ollama.model_name())
     if not api_key:
         raise ClassificationError("Ollama no está disponible y falta GEMINI_API_KEY para el respaldo.")
-    result = with_secondary_on_quota("classification", api_key,
-                                     lambda key: _gemini_classification(prompt, schema, key))
+    try:
+        result = with_secondary_on_quota("classification", api_key,
+                                         lambda key: _gemini_classification(prompt, schema, key))
+    except ClassificationError as error:
+        if not is_quota_error(error) or not backup_configured():
+            raise
+        try:
+            result = groq_json(prompt, schema, "classification")
+        except BackupError as backup_error:
+            raise ClassificationError(str(backup_error)) from backup_error
+        return ollama.ModelDict(validate_classification(result, {article.pk for article in articles}, slugs),
+                                backup_model("groq"))
     return validate_classification(result, {article.pk for article in articles}, slugs)
 
 

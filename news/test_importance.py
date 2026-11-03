@@ -170,6 +170,22 @@ class ImportanceAndDateTests(TestCase):
         article.story.refresh_from_db()
         self.assertEqual(article.story.importance_score, 4)
 
+    def test_pending_count_after_limited_scoring_and_cached_rerun(self):
+        self.article("Pendiente uno")
+        self.article("Pendiente dos")
+        def evaluate(batch):
+            return {pk: {"score": 3, "reason": "Alcance sectorial."} for pk in batch}
+        with patch("news.management.commands.score_news_ai.score_stories", side_effect=evaluate):
+            output = StringIO()
+            call_command("score_news_ai", limit=1, stdout=output)
+            self.assertIn("Quedan 1 acontecimientos pendientes", output.getvalue())
+            output = StringIO()
+            call_command("score_news_ai", stdout=output)
+            self.assertIn("Quedan 0 acontecimientos pendientes", output.getvalue())
+            output = StringIO()
+            call_command("score_news_ai", stdout=output)
+            self.assertIn("Se evaluaron 0 acontecimientos", output.getvalue())
+
     def test_payload_does_not_send_bodies_or_users_and_excludes_unauthorized_feeds(self):
         article = self.article("Titular seguro")
         with patch.dict("os.environ", {"GEMINI_API_KEY": "clave-sintetica"}), patch("news.llm_importance.genai.Client") as client:

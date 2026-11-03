@@ -32,6 +32,7 @@ class Command(BaseCommand):
         ).filter(latest_coverage__isnull=False)
         if not options["force"]:
             stories = stories.filter(Q(importance_scored_at__isnull=True) | Q(importance_scored_at__lt=F("latest_coverage")))
+        self.stdout.write(f"Acontecimientos elegibles para esta evaluación: {stories.count()} (límite {options['limit']}).")
         ids = list(stories.order_by("-latest_coverage", "-pk").values_list("pk", flat=True)[:options["limit"]])
         processed = 0
         batch_size = inference_batch_size()
@@ -64,3 +65,7 @@ class Command(BaseCommand):
                     story.save(update_fields=["importance_score", "importance_reason", "importance_scored_at", "importance_model"])
                     processed += 1
         self.stdout.write(f"Se evaluaron {processed} acontecimientos por importancia general.")
+        remaining = stories.filter(
+            Q(importance_scored_at__isnull=True) | Q(importance_scored_at__lt=F("latest_coverage")),
+        ).count()
+        self.stdout.write(f"Quedan {remaining} acontecimientos pendientes de importancia general (ya agrupados).")

@@ -7,9 +7,9 @@ from google import genai
 from google.genai import types
 
 from .llm_classification import MODEL
-from .llm_keys import api_key_for
+from .llm_keys import api_key_for, with_secondary_on_quota, is_quota_error
 from .llm_diagnostics import safe_diagnostic
-from .llm_transport import pace_request
+from .llm_transport import pace_request, backup_configured, groq_json, backup_model, BackupError
 from . import ollama
 
 
@@ -76,6 +76,21 @@ def _score_stories(stories, *, local=False):
         return ollama.ModelDict(scores, ollama.model_name())
     if not api_key:
         raise ImportanceError("Ollama no está disponible y falta una clave Gemini para el respaldo.")
+    try:
+        result = with_secondary_on_quota("importance", api_key,
+                                         lambda key: _gemini_importance(prompt, schema, key))
+    except ImportanceError as error:
+        if not is_quota_error(error) or not backup_configured():
+            raise
+        try:
+            result = groq_json(prompt, schema, "importance")
+        except BackupError as backup_error:
+            raise ImportanceError(str(backup_error)) from backup_error
+        return ollama.ModelDict(validate_scores(result, set(stories)), backup_model("groq"))
+    return validate_scores(result, set(stories))
+
+
+def _gemini_importance(prompt, schema, api_key):
     pace_request("gemini", api_key)
     try:
         with genai.Client(api_key=api_key, http_options=types.HttpOptions(
@@ -90,7 +105,7 @@ def _score_stories(stories, *, local=False):
             result = json.loads(response.text or "")
     except Exception as error:
         raise ImportanceError(f"No se pudo evaluar con Gemini; se conservan los puntajes anteriores. {safe_diagnostic(error)}") from error
-    return validate_scores(result, set(stories))
+    return result
 
 
 def validate_scores(result, expected):
