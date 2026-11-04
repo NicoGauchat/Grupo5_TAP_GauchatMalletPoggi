@@ -1,5 +1,9 @@
 # Definición del proyecto
 
+### Tiempo de mantenimiento en Actions, 03/11/2026
+
+Por pedido del usuario se fija un máximo total de una hora (`timeout-minutes: 60`) con o sin puente y se retiran los límites individuales de RSS, clasificación, agrupamiento, importancia y briefing. Reemplaza los anteriores 45/60 minutos y cortes de 10/5/10/8/4 minutos por etapa: agrupamiento puede superar diez minutos dentro de la hora compartida. Se conservan concurrencia, cola, cantidades por tanda, timeouts de solicitudes y validaciones; agotar la hora cancela el job completo. Cambio de configuración pequeño, sin dependencias ni servicios nuevos. Referencia: [sintaxis oficial de timeouts de GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes). Requiere publicar el workflow para afectar futuras ejecuciones; no cambia las ya iniciadas ni requiere redeploy de Render.
+
 ### Imágenes de noticias, 03/11/2026
 
 Las noticias y el resumen priorizan fotografías autorizadas de su cobertura y, cuando faltan o fallan, muestran una imagen ilustrativa general de su categoría. Por pedido del usuario se evitan fotografías de disciplinas específicas y de votaciones: Deportes usa estadios y tribunas; Política usa paisajes argentinos. Cada categoría dispone de cinco variantes; salud, ciencia y economía reutilizan algunas fotografías generales de categorías afines. Las fuentes y licencias están en SOURCES.

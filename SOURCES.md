@@ -10,6 +10,10 @@
 
 # Fuentes de noticias
 
+### Diagnóstico RSS de Actions, 03/11/2026
+
+La ejecución [41691708736](https://github.com/NicoGauchat/Grupo5_TAP_GauchatMalletPoggi/actions/runs/41691708736), iniciada a las 15:13 de Argentina, registró HTTP 404 en Perfil Ciencia, Economía y Salud; informó tres feeds fallidos y 26 consultados correctamente. Es un diagnóstico de esa ejecución, sin cambiar URLs, permisos, activación ni políticas. Las importaciones correctas se conservan y el workflow informa el fallo parcial.
+
 ### Fotografías ilustrativas generales: selección del 02/11/2026
 
 Por pedido del usuario se sustituyen los 33 dibujos SVG de respaldo por **55 fotografías reales, cinco por categoría**. Son imágenes generales del tema: sin dirigentes, celebridades, equipos identificables ni escenas que pretendan documentar la noticia. Política usa recintos vacíos y votación; las demás categorías, paisajes, instrumental, infraestructura y equipamiento relacionados. Las fotos conservan el rótulo «Imagen ilustrativa» y no se atribuyen al medio ni al hecho narrado. Las fotografías RSS autorizadas mantienen su prioridad.

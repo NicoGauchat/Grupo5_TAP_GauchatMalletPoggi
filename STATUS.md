@@ -1,9 +1,15 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-11-02
+**Última actualización:** 2026-11-04
 **Objetivo actual:** reemplazar las ilustraciones de respaldo por fotografías generales autorizadas, cinco por categoría.
 
 ## Último paso completado
+
+**Publicación del límite de una hora (04/11/2026):** el usuario solicita activar el cambio ya preparado ante los avisos repetidos del corte a los diez minutos. Se publica en main el workflow con máximo total de 60 minutos y sin los cinco límites individuales por etapa. Verificación local: comparación completa del workflow contra HEAD, únicamente los seis cambios de timeout previstos; diff sin errores. README, PROJECT y SOURCES incluyen los cambios y el diagnóstico del bloque anterior; `.env.example` no requiere cambios. Las ejecuciones iniciadas con el commit anterior mantienen su configuración. La primera ejecución nueva queda pendiente de comprobar, al igual que el despliegue público de interfaz/imágenes.
+
+**Actions revisado y máximo de una hora preparado (03/11/2026):** se revisaron las últimas 100 ejecuciones. Las ocho más recientes de ingesta fallaron, todas con fallo en agrupamiento; el último log (41701848259, 16:17 Argentina) confirma corte a los diez minutos. Aun así, importancia y briefing terminaron correctamente: quedaron nueve grupos pendientes de importancia y once síntesis con entradilla. La ejecución 41571883528 también informa cuota Gemini no disponible y validación de importancia `reason_length`. La 41691708736 registra tres RSS Perfil con HTTP 404 y 26 feeds correctos. Keep-alive: últimas cinco ejecuciones correctas, última el 02/11 a las 19:28 de Argentina; programación sin puntualidad garantizada. Por instrucción del usuario, se fija el job en 60 minutos y se eliminan los cinco timeouts por etapa, conservando solicitudes, tandas y concurrencia. README y PROJECT actualizados; SOURCES registra el diagnóstico RSS; `.env.example` no requiere cambios. Verificación: diff y estructura del workflow comprobados. Cambio local pendiente de publicar; no se reintentaron jobs ni se modificaron datos remotos. La comprobación pública de interfaz/imágenes continúa pendiente.
+
+**Guía oral para dos diapositivas (03/11/2026):** se contrastaron las diapositivas de flujo general y agrupamiento con el código vigente para explicar RSS, limpieza, clasificación, rúbrica de importancia, selección por categoría y doble verificación de grupos. Se comprobaron los límites de diez noticias/cien representantes, el representante de menor ID elegible y el desempate de selección por fecha/ID. Sin cambios funcionales; PROJECT, SOURCES, README y `.env.example` no requieren cambios porque sólo se preparó una explicación del comportamiento existente. Se conserva el único próximo paso vigente.
 
 **Respaldos generales restaurados (03/11/2026):** por aclaración del usuario se vuelven a mostrar imágenes ilustrativas en noticias y resumen. Política utiliza paisajes argentinos y Deportes estadios y tribunas; se excluyen fotos demasiado específicas en salud, ciencia y economía. Se priorizan las fotografías de fuentes habilitadas y se mantiene el rótulo ilustrativo. Verificación: 88 pruebas SQLite, 75 aprobadas y 13 omitidas; selector con cinco archivos por categoría verificado. Django check y diff correctos. README, PROJECT y SOURCES actualizados; `.env.example` no requiere cambios.
 
@@ -451,4 +457,4 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar el despliegue público de las correcciones de imágenes y de interfaz.
+Comprobar la primera ejecución de Actions con el límite total de una hora publicado.
