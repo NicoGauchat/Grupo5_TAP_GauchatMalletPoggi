@@ -1,9 +1,11 @@
 # Estado del proyecto
 
-**Última actualización:** 2026-11-04
+**Última actualización:** 2026-11-05
 **Objetivo actual:** reemplazar las ilustraciones de respaldo por fotografías generales autorizadas, cinco por categoría.
 
 ## Último paso completado
+
+**Máximo de seis horas en Actions (05/11/2026):** por instrucción del usuario se amplía el job de ingesta/IA de 60 a 360 minutos, sin cortes por etapa. Se publica en main para las próximas ejecuciones; las iniciadas con el workflow anterior conservan su límite. Verificación: diff y comparación del workflow confirman únicamente el cambio de timeout global. README y PROJECT actualizados, incluida la referencia oficial al máximo de GitHub; SOURCES y `.env.example` no requieren cambios porque no se alteran feeds, permisos ni variables. La comprobación pública de interfaz/imágenes continúa pendiente.
 
 **Publicación del límite de una hora (04/11/2026):** el usuario solicita activar el cambio ya preparado ante los avisos repetidos del corte a los diez minutos. Se publica en main el workflow con máximo total de 60 minutos y sin los cinco límites individuales por etapa. Verificación local: comparación completa del workflow contra HEAD, únicamente los seis cambios de timeout previstos; diff sin errores. README, PROJECT y SOURCES incluyen los cambios y el diagnóstico del bloque anterior; `.env.example` no requiere cambios. Las ejecuciones iniciadas con el commit anterior mantienen su configuración. La primera ejecución nueva queda pendiente de comprobar, al igual que el despliegue público de interfaz/imágenes.
 
@@ -457,4 +459,4 @@ La corrección de Gunicorn 26.2.0 ya está integrada en `main` mediante el commi
 
 ## Próximo paso
 
-Comprobar la primera ejecución de Actions con el límite total de una hora publicado.
+Comprobar la primera ejecución de Actions con el límite total de seis horas publicado.
